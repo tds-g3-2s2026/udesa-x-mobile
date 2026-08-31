@@ -148,6 +148,28 @@ describe('Auth service', () => {
     });
   });
 
+  describe('E1-H3. Cierre de Sesión', () => {
+    it('E1-H3.CA2 - requests the revocation of the active session token with a short timeout', async () => {
+      post.mockResolvedValueOnce(apiSuccess(undefined));
+
+      await authService.logout();
+
+      expect(post).toHaveBeenCalledWith('/auth/logout', undefined, { timeout: 3000 });
+    });
+
+    it('E1-H3.CA2 - resolves without throwing when the API rejects the logout call', async () => {
+      post.mockRejectedValueOnce(apiFailure(401, { detail: 'invalid-token' }));
+
+      await expect(authService.logout()).resolves.toBeUndefined();
+    });
+
+    it('E1-H3.CA2 - resolves without throwing when the backend is unreachable', async () => {
+      post.mockRejectedValueOnce(networkFailure());
+
+      await expect(authService.logout()).resolves.toBeUndefined();
+    });
+  });
+
   describe('T-52. Refresco de token', () => {
     it('T-52 - trades the refresh token for the new pair issued by the API', async () => {
       post.mockResolvedValueOnce(

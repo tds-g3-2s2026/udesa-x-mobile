@@ -20,6 +20,10 @@ const SESSION_EXPIRED_MESSAGE = 'Tu sesión expiró. Iniciá sesión de nuevo.';
 // the session is over, and retrying it would loop forever.
 const REFRESH_PATH = '/auth/refresh';
 
+// E1-H3.CA2: short-circuits the default 10s client timeout so a slow or
+// unreachable backend never delays the local wipe by more than this.
+const LOGOUT_TIMEOUT_MS = 3000;
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -115,6 +119,18 @@ export const authService = {
       return response.data.tokens;
     } catch (error) {
       throw toAuthError(error, SESSION_EXPIRED_MESSAGE);
+    }
+  },
+
+  // E1-H3.CA2: revokes the session's JWT server-side before the caller wipes it
+  // from the device. Best effort on purpose: CA.2 only guarantees the local
+  // wipe, so a network failure or an already expired token here must never
+  // stop the caller from clearing the device.
+  async logout(): Promise<void> {
+    try {
+      await apiClient.post('/auth/logout', undefined, { timeout: LOGOUT_TIMEOUT_MS });
+    } catch {
+      // Nothing to recover from: the caller clears the local session regardless.
     }
   },
 };
