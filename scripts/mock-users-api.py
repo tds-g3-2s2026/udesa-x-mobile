@@ -151,6 +151,14 @@ class AuthHandler(BaseHTTPRequestHandler):
         if not email or not handle or not full_name:
             self.send_problem(422, "Datos incompletos", "Faltan campos obligatorios.")
             return
+        # E1-H12.CA2: users-api expects this one field in snake_case, unlike
+        # the rest of the contract (confirmed against their actual code, no
+        # camelCase alias exists for it).
+        if body.get("terms_accepted") is not True:
+            self.send_problem(
+                422, "Términos no aceptados", "Hay que aceptar los términos y la política de privacidad."
+            )
+            return
         if email in accounts:
             self.send_problem(409, "Correo en uso", "El correo ya está registrado")
             return

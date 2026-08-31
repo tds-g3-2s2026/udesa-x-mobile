@@ -11,6 +11,8 @@ import RegisterHandleScreen from '../../app/(auth)/register/handle';
 import RegisterPasswordScreen from '../../app/(auth)/register/password';
 import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
+import TermsScreen from '../../app/(auth)/terms';
+import PrivacyScreen from '../../app/(auth)/privacy';
 import { authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useRegisterDraft } from '../../src/stores/registerDraftStore';
@@ -114,12 +116,12 @@ describe('E1-H1. Registro de Usuarios', () => {
       message: 'Registro exitoso',
       requireVerification: true,
     });
-    useRegisterDraft.setState({ values: COMPLETE_DRAFT });
+    useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: true });
 
     renderScreen(<RegisterPasswordScreen />);
     await press('Crear cuenta');
 
-    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT);
+    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true);
     expect(mockDismissAll).toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/(auth)/verify-email',
@@ -133,7 +135,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     jest
       .spyOn(authService, 'register')
       .mockRejectedValue(new Error('El correo ya está registrado'));
-    useRegisterDraft.setState({ values: COMPLETE_DRAFT });
+    useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: true });
 
     renderScreen(<RegisterPasswordScreen />);
     await press('Crear cuenta');
@@ -174,6 +176,59 @@ describe('E1-H1. Registro de Usuarios', () => {
     expect(screen.getByText('4')).toBeTruthy();
     expect(screen.getByText('5')).toBeTruthy();
     expect(screen.getByText('6')).toBeTruthy();
+  });
+});
+
+describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
+  it('E1-H12.CA1 - Crear cuenta is blocked until the terms checkbox is checked', async () => {
+    const register = jest.spyOn(authService, 'register').mockResolvedValue({
+      user: {
+        id: 'usr-1',
+        handle: '@joaquin_dev',
+        email: 'jleon@udesa.edu.ar',
+        fullName: 'Joaquín León',
+        isVerified: false,
+      },
+      message: 'Registro exitoso',
+      requireVerification: true,
+    });
+    useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: false });
+
+    renderScreen(<RegisterPasswordScreen />);
+    await press('Crear cuenta');
+    expect(register).not.toHaveBeenCalled();
+
+    // "go" on the keyboard reaches the same submit path as the button and has
+    // to be blocked the same way (see the comment in RegisterStep.tsx).
+    fireEvent(screen.getByPlaceholderText('••••••••'), 'submitEditing');
+    expect(register).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('checkbox'));
+    });
+    await press('Crear cuenta');
+
+    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true);
+  });
+
+  it('E1-H12.CA1 - the policy links open their screen without checking the box', async () => {
+    useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: false });
+
+    renderScreen(<RegisterPasswordScreen />);
+    await act(async () => {
+      fireEvent.press(screen.getByText('Términos y Condiciones'));
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/terms');
+    expect(screen.getByRole('checkbox').props.accessibilityState.checked).toBe(false);
+  });
+
+  it('E1-H12.CA1 - renders the static terms and privacy screens', () => {
+    renderScreen(<TermsScreen />);
+    expect(screen.getByText('1. Aceptación de los términos')).toBeTruthy();
+
+    renderScreen(<PrivacyScreen />);
+    expect(screen.getByText('1. Qué datos recolectamos')).toBeTruthy();
   });
 });
 

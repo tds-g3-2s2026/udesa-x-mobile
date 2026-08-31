@@ -92,13 +92,40 @@ describe('Auth service', () => {
       post.mockRejectedValueOnce(apiFailure(409, { detail: 'El correo ya está registrado' }));
 
       await expect(
-        authService.register({
+        authService.register(
+          {
+            handle: '@joaquin_dev',
+            email: 'jleon@udesa.edu.ar',
+            fullName: 'Joaquín León',
+            password: 'Password123',
+          },
+          true
+        )
+      ).rejects.toThrow('El correo ya está registrado');
+    });
+
+    it('E1-H12.CA2 - sends terms_accepted in snake_case, matching the users-api contract', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({ user: session.user, message: 'Registro exitoso', requireVerification: true })
+      );
+
+      await authService.register(
+        {
           handle: '@joaquin_dev',
           email: 'jleon@udesa.edu.ar',
           fullName: 'Joaquín León',
           password: 'Password123',
-        })
-      ).rejects.toThrow('El correo ya está registrado');
+        },
+        true
+      );
+
+      expect(post).toHaveBeenCalledWith('/auth/register', {
+        handle: '@joaquin_dev',
+        email: 'jleon@udesa.edu.ar',
+        fullName: 'Joaquín León',
+        password: 'Password123',
+        terms_accepted: true,
+      });
     });
 
     it('E1-H1.CA6 - propagates the expired verification code error reported by the API', async () => {

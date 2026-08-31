@@ -5,11 +5,14 @@ import { authService, getAuthErrorMessage } from '../../../src/features/auth/ser
 import { registerSchema } from '../../../src/features/auth/schemas/authSchemas';
 import { REGISTER_STEPS } from '../../../src/features/auth/registerFlow';
 import { RegisterStep } from '../../../src/features/auth/components/RegisterStep';
+import { TermsCheckbox } from '../../../src/features/auth/components/TermsCheckbox';
 import { useRegisterDraft } from '../../../src/stores/registerDraftStore';
 
 export default function RegisterPasswordScreen() {
   const router = useRouter();
   const values = useRegisterDraft((state) => state.values);
+  const termsAccepted = useRegisterDraft((state) => state.termsAccepted);
+  const setTermsAccepted = useRegisterDraft((state) => state.setTermsAccepted);
   const reset = useRegisterDraft((state) => state.reset);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,7 +31,7 @@ export default function RegisterPasswordScreen() {
 
     setIsSubmitting(true);
     try {
-      const response = await authService.register(validation.data);
+      const response = await authService.register(validation.data, termsAccepted);
       reset();
       // The account exists: the wizard is popped so the back button of the next
       // screen goes to the login and not into a form that cannot be sent again.
@@ -57,6 +60,8 @@ export default function RegisterPasswordScreen() {
       submitLabel="Crear cuenta"
       isSubmitting={isSubmitting}
       onSubmit={handleRegister}
+      disabled={!termsAccepted}
+      belowField={<TermsCheckbox value={termsAccepted} onChange={setTermsAccepted} />}
     />
   );
 }

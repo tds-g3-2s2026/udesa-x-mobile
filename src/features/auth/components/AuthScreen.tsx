@@ -48,6 +48,10 @@ type AuthScreenProps = {
   submitLabel: string;
   onSubmit: () => void;
   isSubmitting?: boolean;
+  // Disables the action button for a reason other than being in flight, e.g.
+  // E1-H12.CA1's terms checkbox. Independent of `isSubmitting` on purpose: the
+  // spinner only ever means "request in progress".
+  disabled?: boolean;
   // Links shown under the action button, inside the fixed footer.
   footer?: ReactNode;
   // Pinned between the navigation header and the scrolled content, for the
@@ -66,6 +70,7 @@ export function AuthScreen({
   submitLabel,
   onSubmit,
   isSubmitting = false,
+  disabled = false,
   footer,
   progress,
 }: AuthScreenProps) {
@@ -209,9 +214,9 @@ export function AuthScreen({
             ]}
           >
             <TouchableOpacity
-              style={[styles.button, isSubmitting && styles.buttonDisabled]}
+              style={[styles.button, (isSubmitting || disabled) && styles.buttonDisabled]}
               onPress={onSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || disabled}
               accessibilityRole="button"
             >
               {isSubmitting ? (

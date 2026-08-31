@@ -13,12 +13,18 @@ const EMPTY_DRAFT: Record<RegisterField, string> = {
 
 type RegisterDraftState = {
   values: Record<RegisterField, string>;
+  // E1-H12.CA1: kept outside `values` because it is a checkbox, not a form
+  // field with its own wizard step or entry in registerSchema.
+  termsAccepted: boolean;
   setValue: (field: RegisterField, value: string) => void;
+  setTermsAccepted: (accepted: boolean) => void;
   reset: () => void;
 };
 
 export const useRegisterDraft = create<RegisterDraftState>((set) => ({
   values: EMPTY_DRAFT,
+  termsAccepted: false,
   setValue: (field, value) => set((state) => ({ values: { ...state.values, [field]: value } })),
-  reset: () => set({ values: EMPTY_DRAFT }),
+  setTermsAccepted: (accepted) => set({ termsAccepted: accepted }),
+  reset: () => set({ values: EMPTY_DRAFT, termsAccepted: false }),
 }));
