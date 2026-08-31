@@ -11,7 +11,7 @@ import RegisterHandleScreen from '../../app/(auth)/register/handle';
 import RegisterPasswordScreen from '../../app/(auth)/register/password';
 import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
-import { authService } from '../../src/features/auth/services/authService';
+import { apiClient, authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useRegisterDraft } from '../../src/stores/registerDraftStore';
 import { AUTH_SCREEN_BODY } from '../../src/features/auth/components/AuthScreen';
@@ -215,25 +215,42 @@ describe('E1-H2. Inicio de Sesión', () => {
 });
 
 describe('E1-H3. Cierre de Sesión', () => {
-  it('E1-H3.CA2 - logging out wipes the local session from the device', async () => {
-    useAuthStore.setState({
-      user: {
-        id: 'usr-1',
-        handle: '@joaquin_dev',
-        email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
-        isVerified: true,
-      },
-      accessToken: 'jwt-access-token',
-      refreshToken: 'jwt-refresh-token',
-      isInitialized: true,
-    });
+  const loggedInSession = {
+    user: {
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
+      fullName: 'Joaquín León',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  it('E1-H3.CA2 - logging out revokes the token in the backend and wipes the local session', async () => {
+    const logout = jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
+    useAuthStore.setState(loggedInSession);
     renderScreen(<ProfileScreen />);
     await press('Cerrar Sesión');
 
+    expect(logout).toHaveBeenCalled();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_refresh_token');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_user');
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().refreshToken).toBeNull();
+  });
+
+  it('E1-H3.CA2 - still wipes the local session when the backend revocation is unreachable', async () => {
+    // Exercises the real authService.logout (see authService.test.ts for its own
+    // best-effort coverage): a rejected POST must not stop the local wipe below.
+    jest.spyOn(apiClient, 'post').mockRejectedValueOnce(new Error('Network Error'));
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+    await press('Cerrar Sesión');
+
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
     expect(useAuthStore.getState().refreshToken).toBeNull();

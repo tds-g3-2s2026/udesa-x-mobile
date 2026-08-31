@@ -125,6 +125,10 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
             return
 
+        if endpoint_path == "/auth/logout":
+            self.logout()
+            return
+
         body = self.read_json()
         if body is None:
             self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
@@ -228,6 +232,20 @@ class AuthHandler(BaseHTTPRequestHandler):
             )
             return
         self.send_json(200, {"tokens": issue_tokens(account["user"]["handle"])})
+
+    def logout(self) -> None:
+        """E1-H3.CA1: revoca el token del header Authorization. Sin cuerpo, así que
+        no pasa por read_json como el resto de los endpoints."""
+        auth_header = self.headers.get("Authorization", "")
+        token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
+        if not token:
+            self.send_problem(401, "Token inválido", "invalid-token")
+            return
+        # El mock no mantiene una lista de revocación: alcanza con responder 204,
+        # que es lo único que el cliente observa (idempotente, igual que la API real).
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def read_json(self) -> dict[str, Any] | None:
         length = int(self.headers.get("Content-Length") or 0)
