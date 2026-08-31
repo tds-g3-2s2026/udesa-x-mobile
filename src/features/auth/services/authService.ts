@@ -72,9 +72,17 @@ export const authService = {
     }
   },
 
-  async register(data: RegisterInput): Promise<RegisterResponse> {
+  // E1-H12.CA1/CA2: users-api requires terms_accepted on every register call
+  // (validated server-side, must be exactly `true`) and, unlike every other
+  // field on this contract, expects it in snake_case: it has no camelCase
+  // alias on their side. Kept as its own parameter instead of folding it into
+  // RegisterInput so a caller can't send it without deciding it explicitly.
+  async register(data: RegisterInput, termsAccepted: boolean): Promise<RegisterResponse> {
     try {
-      const response = await apiClient.post<RegisterResponse>('/auth/register', data);
+      const response = await apiClient.post<RegisterResponse>('/auth/register', {
+        ...data,
+        terms_accepted: termsAccepted,
+      });
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudo completar el registro. Intentalo de nuevo.');

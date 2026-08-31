@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useRegisterDraft } from '../../../stores/registerDraftStore';
@@ -16,6 +16,13 @@ type RegisterStepProps = {
   submitLabel?: string;
   onSubmit?: () => void;
   isSubmitting?: boolean;
+  // E1-H12.CA1: blocks the last step's submit for a reason outside this
+  // field's own validation (the terms checkbox), so pressing the button or
+  // the keyboard's "go" has no effect until it clears.
+  disabled?: boolean;
+  // Rendered below the field, above the submit button. Only the password
+  // step uses it today, for the terms checkbox.
+  belowField?: ReactNode;
 };
 
 /**
@@ -28,6 +35,8 @@ export function RegisterStep({
   submitLabel,
   onSubmit,
   isSubmitting = false,
+  disabled = false,
+  belowField,
 }: RegisterStepProps) {
   const router = useRouter();
   const value = useRegisterDraft((state) => state.values[field]);
@@ -50,6 +59,10 @@ export function RegisterStep({
       router.push(nextStep.route);
       return;
     }
+    // E1-H12.CA1: the button already looks disabled, but "go" on the keyboard
+    // reaches this same handler without going through it, so the block has to
+    // be repeated here too.
+    if (disabled) return;
     onSubmit?.();
   };
 
@@ -71,6 +84,7 @@ export function RegisterStep({
       submitLabel={submitLabel ?? 'Continuar'}
       onSubmit={handleContinue}
       isSubmitting={isSubmitting}
+      disabled={disabled}
     >
       <FormInput
         {...step.input}
@@ -89,6 +103,7 @@ export function RegisterStep({
           if (error) setError(null);
         }}
       />
+      {belowField}
     </AuthScreen>
   );
 }
