@@ -1,10 +1,17 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../src/stores/authStore';
 import { colors } from '../src/features/auth/components/authTheme';
+
+// T-52: the native splash stays up until the stored session was read, so the first
+// screen the user sees is already the right one for their session.
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Only rejects when the splash is already gone, which is the desired end state.
+});
 
 export default function RootLayout() {
   const user = useAuthStore((state) => state.user);
@@ -14,6 +21,13 @@ export default function RootLayout() {
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    SplashScreen.hideAsync().catch(() => {
+      // Same as above: a splash that is not there anymore needs no hiding.
+    });
+  }, [isInitialized]);
 
   return (
     <SafeAreaProvider>

@@ -24,13 +24,30 @@ function parseStoredUser(raw: string | null): User | null {
   return parsed.success ? parsed.data : null;
 }
 
+// Persisting is best effort: SecureStore is unavailable on web. A failure only
+// costs the "stay signed in" feature, so the in-memory session still applies.
+async function persistTokens(tokens: AuthTokens): Promise<void> {
+  try {
+    await Promise.all([
+      SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken),
+      SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken),
+    ]);
+  } catch {
+    // Nothing to recover from: the tokens still live in the store state.
+  }
+}
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  // Kept in memory next to the access token because the Axios interceptor needs it
+  // on every 401, and reading the keychain on each failed request is not free.
+  refreshToken: string | null;
   // False until the stored session was read: the root layout waits for this
   // before deciding which navigation group to mount.
   isInitialized: boolean;
   setSession: (user: User, tokens: AuthTokens) => Promise<void>;
+  setTokens: (tokens: AuthTokens) => Promise<void>;
   clearSession: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -38,20 +55,29 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
+  refreshToken: null,
   isInitialized: false,
 
   setSession: async (user, tokens) => {
+    await persistTokens(tokens);
     try {
-      await Promise.all([
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken),
-        SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken),
-        SecureStore.setItemAsync(USER_KEY, JSON.stringify(user)),
-      ]);
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     } catch {
-      // Persisting is best effort: SecureStore is unavailable on web. A failure only
-      // costs the "stay signed in" feature, so the in-memory session still applies.
+      // Best effort, same as the tokens.
     }
-    set({ user, accessToken: tokens.accessToken, isInitialized: true });
+    set({
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      isInitialized: true,
+    });
+  },
+
+  // T-52: replaces the pair of tokens after a refresh. The user is left untouched,
+  // so renewing the access token never looks like a new sign-in.
+  setTokens: async (tokens) => {
+    await persistTokens(tokens);
+    set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
   },
 
   // E1-H3.CA2: local session data and the JWT are removed from secure storage.
@@ -65,7 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         SecureStore.deleteItemAsync(USER_KEY),
       ]);
     } finally {
-      set({ user: null, accessToken: null, isInitialized: true });
+      set({ user: null, accessToken: null, refreshToken: null, isInitialized: true });
     }
   },
 
@@ -78,12 +104,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
       const user = parseStoredUser(storedUser);
       if (refreshToken && accessToken && user) {
-        set({ user, accessToken, isInitialized: true });
+        set({ user, accessToken, refreshToken, isInitialized: true });
         return;
       }
     } catch {
       // An unreadable store means there is no usable session: the user signs in again.
     }
-    set({ user: null, accessToken: null, isInitialized: true });
+    set({ user: null, accessToken: null, refreshToken: null, isInitialized: true });
   },
 }));

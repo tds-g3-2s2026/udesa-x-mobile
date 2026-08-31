@@ -24,9 +24,13 @@ import socket
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import count
 from typing import Any
 
 BASE_PATH = "/api/v1"
+# La app puede apuntar al mock con o sin el prefijo /api, así que las dos formas
+# resuelven al mismo endpoint.
+BASE_PATHS = (BASE_PATH, "/v1")
 # 8000 es el puerto documentado de users-api, pero suele estar tomado por otro
 # servicio local. El puerto se puede pasar como primer argumento.
 DEFAULT_PORT = 8020
@@ -42,6 +46,14 @@ DEMO_PASSWORD = "Password123"
 # Almacén en memoria: {email: {"user": {...}, "password": "..."}}.
 # Se pierde al cortar el proceso, que es lo que queremos de un mock.
 accounts: dict[str, dict[str, Any]] = {}
+
+# Prefijo de los refresh tokens que emite el mock: el handle viaja adentro, así el
+# refresco no necesita una tabla de sesiones.
+REFRESH_TOKEN_PREFIX = "mock-refresh-token-"
+
+# Cada emisión lleva un número distinto, así se ve en la app que el token cambió
+# después de un refresco.
+token_issues = count(1)
 
 
 def build_user(handle: str, email: str, full_name: str, is_verified: bool) -> dict[str, Any]:
@@ -67,19 +79,49 @@ def find_account(identifier: str) -> dict[str, Any] | None:
     return None
 
 
+def strip_base_path(route: str) -> str | None:
+    """Ruta sin el prefijo de versión, o None si no es una ruta de la API."""
+    for base in BASE_PATHS:
+        if route.startswith(base):
+            return route[len(base) :]
+    return None
+
+
+def issue_tokens(handle: str) -> dict[str, str]:
+    """Par de tokens nuevo para una cuenta."""
+    bare = handle.lstrip("@")
+    serial = next(token_issues)
+    return {
+        "accessToken": f"mock-access-token-{bare}-{serial}",
+        "refreshToken": f"{REFRESH_TOKEN_PREFIX}{bare}-{serial}",
+    }
+
+
+def handle_from_refresh_token(token: str) -> str | None:
+    """Handle codificado en un refresh token emitido por este mock."""
+    if not token.startswith(REFRESH_TOKEN_PREFIX):
+        return None
+    # El handle solo admite letras, números y guiones bajos, así que el último
+    # guion siempre separa el número de emisión.
+    handle = token[len(REFRESH_TOKEN_PREFIX) :].rsplit("-", 1)[0]
+    return handle or None
+
+
 class AuthHandler(BaseHTTPRequestHandler):
     # Content-Length va en todas las respuestas, así que keep-alive es seguro.
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
-        if self.path.split("?")[0] in ("/healthcheck", f"{BASE_PATH}/healthcheck"):
+        route = self.path.split("?")[0]
+        if route == "/healthcheck" or strip_base_path(route) == "/healthcheck":
             self.send_json(200, {"status": "ok", "mock": True})
             return
         self.send_problem(404, "Ruta no encontrada", f"{self.path} no existe en el mock.")
 
     def do_POST(self) -> None:
         route = self.path.split("?")[0]
-        if not route.startswith(BASE_PATH):
+        endpoint_path = strip_base_path(route)
+        if endpoint_path is None:
             self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
             return
 
@@ -93,8 +135,9 @@ class AuthHandler(BaseHTTPRequestHandler):
             "/auth/login": self.login,
             "/auth/verify-email": self.verify_email,
             "/auth/resend-verification": self.resend_verification,
+            "/auth/refresh": self.refresh,
         }
-        endpoint = endpoints.get(route[len(BASE_PATH) :])
+        endpoint = endpoints.get(endpoint_path)
         if endpoint is None:
             self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
             return
@@ -167,17 +210,24 @@ class AuthHandler(BaseHTTPRequestHandler):
             )
             return
 
-        handle = account["user"]["handle"].lstrip("@")
         self.send_json(
             200,
             {
                 "user": account["user"],
-                "tokens": {
-                    "accessToken": f"mock-access-token-{handle}",
-                    "refreshToken": f"mock-refresh-token-{handle}",
-                },
+                "tokens": issue_tokens(account["user"]["handle"]),
             },
         )
+
+    def refresh(self, body: dict[str, Any]) -> None:
+        """Renueva el par de tokens. El usuario no cambia, así que no se devuelve."""
+        handle = handle_from_refresh_token(str(body.get("refreshToken", "")).strip())
+        account = find_account(handle) if handle else None
+        if account is None:
+            self.send_problem(
+                401, "Sesión expirada", "El refresh token no es válido. Iniciá sesión de nuevo."
+            )
+            return
+        self.send_json(200, {"tokens": issue_tokens(account["user"]["handle"])})
 
     def read_json(self) -> dict[str, Any] | None:
         length = int(self.headers.get("Content-Length") or 0)

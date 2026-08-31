@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { InternalAxiosRequestConfig } from 'axios';
 import { z } from 'zod';
-import { AuthResponse, RegisterResponse } from '../../../types/auth';
+import { AuthResponse, AuthTokens, RefreshResponse, RegisterResponse } from '../../../types/auth';
+import { useAuthStore } from '../../../stores/authStore';
 import { LoginInput, RegisterInput, VerifyEmailInput } from '../schemas/authSchemas';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -10,6 +11,14 @@ const UNEXPECTED_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intentalo de nue
 
 // Generic message required by E1-H2.CA3 to avoid user enumeration.
 const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
+
+// T-52: shown when the refresh token is gone or the API rejects it, the only case
+// where the user has to sign in again.
+const SESSION_EXPIRED_MESSAGE = 'Tu sesión expiró. Iniciá sesión de nuevo.';
+
+// The one path that must never be retried after a 401: a rejected refresh means
+// the session is over, and retrying it would loop forever.
+const REFRESH_PATH = '/auth/refresh';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -90,4 +99,85 @@ export const authService = {
       throw toAuthError(error, 'No se pudo reenviar el código. Intentalo en unos minutos.');
     }
   },
+
+  // T-52: trades the long lived refresh token for a fresh pair of tokens.
+  async refreshToken(refreshToken: string): Promise<AuthTokens> {
+    try {
+      const response = await apiClient.post<RefreshResponse>(REFRESH_PATH, { refreshToken });
+      return response.data.tokens;
+    } catch (error) {
+      throw toAuthError(error, SESSION_EXPIRED_MESSAGE);
+    }
+  },
 };
+
+// Marks a request that already went out again after a refresh. A second 401 means
+// the new access token is not the problem, so there is nothing left to retry.
+interface RetriedRequestConfig extends InternalAxiosRequestConfig {
+  isRetry?: boolean;
+}
+
+// T-52: every call carries the access token of the live session. Reading the store
+// at request time means a refresh applies to the next request without rewiring.
+apiClient.interceptors.request.use((config) => {
+  const accessToken = useAuthStore.getState().accessToken;
+  if (accessToken && config.url !== REFRESH_PATH) {
+    config.headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  return config;
+});
+
+// One refresh shared by every request that got a 401 at the same time. Without it
+// each one would spend the refresh token, and the losers would drop the session
+// that the winner had just renewed.
+let pendingRefresh: Promise<AuthTokens> | null = null;
+
+function refreshSession(): Promise<AuthTokens> {
+  pendingRefresh ??= (async () => {
+    const { refreshToken, setTokens } = useAuthStore.getState();
+    if (!refreshToken) throw new Error(SESSION_EXPIRED_MESSAGE);
+    const tokens = await authService.refreshToken(refreshToken);
+    await setTokens(tokens);
+    return tokens;
+  })().finally(() => {
+    pendingRefresh = null;
+  });
+  return pendingRefresh;
+}
+
+// T-52: a 401 is answered with a refresh and a single replay of the failed request.
+// When the refresh itself fails the local session is dropped, which is what sends
+// the user back to the login through the guards of the root layout.
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) throw error;
+
+    const config = error.config as RetriedRequestConfig | undefined;
+    if (
+      !config ||
+      error.response?.status !== 401 ||
+      config.isRetry ||
+      config.url === REFRESH_PATH
+    ) {
+      throw error;
+    }
+
+    try {
+      await refreshSession();
+    } catch {
+      // clearSession already dropped the in-memory session; a failure wiping the
+      // device must not replace the 401 the caller has to handle.
+      await useAuthStore
+        .getState()
+        .clearSession()
+        .catch(() => undefined);
+      throw error;
+    }
+
+    // The request interceptor reads the token that setTokens just stored, so the
+    // replay goes out authenticated without touching the headers here.
+    config.isRetry = true;
+    return apiClient.request(config);
+  }
+);

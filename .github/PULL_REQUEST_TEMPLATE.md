@@ -44,7 +44,7 @@ Completá las cuatro partes:
 
 # Checklist
 
-- [ ] La rama sigue la convención `feature-<nombre>` o `fix-<nombre>`
+- [ ] La rama sigue la convención `feature-<nombre>`, `fix-<nombre>` o `chore-<nombre>`
 - [ ] La issue asociada está enlazada abajo
 - [ ] Los criterios de aceptación tienen su test, nombrado `E1-H1.CA3`
 - [ ] La cobertura del repo no bajó del umbral vigente

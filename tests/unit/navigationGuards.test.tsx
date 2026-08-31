@@ -27,6 +27,9 @@ const secureStoreMock = SecureStore as unknown as { values: Map<string, string> 
 const secureStoreValues = secureStoreMock.values;
 
 const LOGIN_SUBTITLE = 'Conectate con tu comunidad universitaria';
+// The feed is the landing tab of the protected group, so its empty state is the
+// marker that the authenticated area got mounted.
+const FEED_EMPTY_TITLE = 'Todavía no hay publicaciones';
 const LOGOUT_LABEL = 'Cerrar Sesión';
 
 const user: User = {
@@ -46,7 +49,12 @@ function persistSession(): void {
 beforeEach(() => {
   secureStoreValues.clear();
   jest.clearAllMocks();
-  useAuthStore.setState({ user: null, accessToken: null, isInitialized: false });
+  useAuthStore.setState({
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isInitialized: false,
+  });
 });
 
 // The root layout mounts one navigation group or the other with Stack.Protected.
@@ -69,14 +77,14 @@ describe('Guardas de navegación', () => {
 
     await waitFor(() => expect(useAuthStore.getState().isInitialized).toBe(true));
 
-    expect(await screen.findByText(LOGOUT_LABEL)).toBeTruthy();
+    expect(await screen.findByText(FEED_EMPTY_TITLE)).toBeTruthy();
     expect(screen.queryByText(LOGIN_SUBTITLE)).toBeNull();
   });
 
   it('E1-H3.CA2 - clearing the session sends the user back to the public group', async () => {
     persistSession();
 
-    renderRouter('app', { initialUrl: '/' });
+    renderRouter('app', { initialUrl: '/profile' });
     expect(await screen.findByText(LOGOUT_LABEL)).toBeTruthy();
 
     await act(async () => {

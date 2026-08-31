@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import * as SecureStore from 'expo-secure-store';
-import HomeScreen from '../../app/(app)/index';
+import ProfileScreen from '../../app/(app)/profile';
 import LoginScreen from '../../app/(auth)/login';
 import RegisterNameScreen from '../../app/(auth)/register/index';
 import RegisterHandleScreen from '../../app/(auth)/register/handle';
@@ -163,6 +163,18 @@ describe('E1-H1. Registro de Usuarios', () => {
 
     await waitFor(() => expect(screen.getByText('El código expiró')).toBeTruthy());
   });
+  it('E1-H1.CA6 - renders 6 OTP slots and updates displayed digits as user types', () => {
+    renderScreen(<VerifyEmailScreen />);
+    const input = screen.getByPlaceholderText('123456');
+    fireEvent.changeText(input, '123456');
+
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByText('5')).toBeTruthy();
+    expect(screen.getByText('6')).toBeTruthy();
+  });
 });
 
 describe('E1-H2. Inicio de Sesión', () => {
@@ -213,9 +225,10 @@ describe('E1-H3. Cierre de Sesión', () => {
         isVerified: true,
       },
       accessToken: 'jwt-access-token',
+      refreshToken: 'jwt-refresh-token',
       isInitialized: true,
     });
-    renderScreen(<HomeScreen />);
+    renderScreen(<ProfileScreen />);
     await press('Cerrar Sesión');
 
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
@@ -223,6 +236,7 @@ describe('E1-H3. Cierre de Sesión', () => {
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_user');
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().refreshToken).toBeNull();
   });
 });
 

@@ -48,6 +48,7 @@ describe('Auth store', () => {
     useAuthStore.setState({
       user: null,
       accessToken: null,
+      refreshToken: null,
       isInitialized: false,
     });
   });
@@ -59,6 +60,7 @@ describe('Auth store', () => {
       const state = useAuthStore.getState();
       expect(state.user).toEqual(user);
       expect(state.accessToken).toBe(tokens.accessToken);
+      expect(state.refreshToken).toBe(tokens.refreshToken);
       expect(state.isInitialized).toBe(true);
 
       expect(secureStoreValues.get(ACCESS_TOKEN_KEY)).toBe(tokens.accessToken);
@@ -68,13 +70,19 @@ describe('Auth store', () => {
 
     it('E1-H2.CA1 - restoreSession brings back the session that was persisted', async () => {
       await useAuthStore.getState().setSession(user, tokens);
-      useAuthStore.setState({ user: null, accessToken: null, isInitialized: false });
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isInitialized: false,
+      });
 
       await useAuthStore.getState().restoreSession();
 
       const state = useAuthStore.getState();
       expect(state.user).toEqual(user);
       expect(state.accessToken).toBe(tokens.accessToken);
+      expect(state.refreshToken).toBe(tokens.refreshToken);
       expect(state.isInitialized).toBe(true);
     });
 
@@ -108,6 +116,7 @@ describe('Auth store', () => {
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
       expect(state.accessToken).toBeNull();
+      expect(state.refreshToken).toBeNull();
       expect(state.isInitialized).toBe(true);
 
       expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_KEY);
@@ -124,6 +133,42 @@ describe('Auth store', () => {
 
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().accessToken).toBeNull();
+    });
+  });
+
+  describe('T-52. Refresco de token', () => {
+    const renewed = {
+      accessToken: 'access-token-renewed',
+      refreshToken: 'refresh-token-renewed',
+    };
+
+    it('T-52 - setTokens replaces both tokens and leaves the user signed in', async () => {
+      await useAuthStore.getState().setSession(user, tokens);
+
+      await useAuthStore.getState().setTokens(renewed);
+
+      const state = useAuthStore.getState();
+      expect(state.accessToken).toBe(renewed.accessToken);
+      expect(state.refreshToken).toBe(renewed.refreshToken);
+      expect(state.user).toEqual(user);
+    });
+
+    it('T-52 - the renewed tokens are the ones restored on the next launch', async () => {
+      await useAuthStore.getState().setSession(user, tokens);
+      await useAuthStore.getState().setTokens(renewed);
+
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isInitialized: false,
+      });
+      await useAuthStore.getState().restoreSession();
+
+      const state = useAuthStore.getState();
+      expect(state.accessToken).toBe(renewed.accessToken);
+      expect(state.refreshToken).toBe(renewed.refreshToken);
+      expect(state.user).toEqual(user);
     });
   });
 });

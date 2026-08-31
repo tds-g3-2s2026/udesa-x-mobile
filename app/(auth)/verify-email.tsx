@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
 import { verifyEmailSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
-import { FormInput } from '../../src/features/auth/components/FormInput';
+import { OtpInput } from '../../src/features/auth/components/OtpInput';
 import { authStyles } from '../../src/features/auth/components/authTheme';
 
 export default function VerifyEmailScreen() {
@@ -97,11 +97,9 @@ export default function VerifyEmailScreen() {
         </>
       }
     >
-      <FormInput
+      <OtpInput
         label="Código de verificación"
         placeholder="123456"
-        keyboardType="number-pad"
-        maxLength={6}
         autoFocus
         returnKeyType="done"
         onSubmitEditing={handleVerify}

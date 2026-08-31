@@ -40,7 +40,7 @@ Genera un informe técnico de revisión para que un integrante del equipo decida
 ### 5. Reglas de Arquitectura y Equipo
 - Respeto de capas: rutas HTTP en `routes/`, lógica en `services/`, persistencia en `repositories/`.
 - Sin dependencias externas ni patrones nuevos sin ADR aprobado en `docs/adr/`.
-- Nombres de ramas (`feature-<nombre>`, `fix-<nombre>`) e issue vinculada.
+- Nombres de ramas (`feature-<nombre>`, `fix-<nombre>`, `chore-<nombre>`) e issue vinculada.
 - Código e identificadores en inglés; documentación, commits y PR en español.
 
 ### 6. Comprensibilidad y Simplicidad

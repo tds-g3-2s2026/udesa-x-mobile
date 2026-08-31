@@ -120,4 +120,35 @@ describe('Auth service', () => {
       expect(result.sent).toBe(true);
     });
   });
+
+  describe('T-52. Refresco de token', () => {
+    it('T-52 - trades the refresh token for the new pair issued by the API', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
+      );
+
+      const tokens = await authService.refreshToken('jwt-refresh-token');
+
+      expect(post).toHaveBeenCalledWith('/auth/refresh', {
+        refreshToken: 'jwt-refresh-token',
+      });
+      expect(tokens).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
+    });
+
+    it('T-52 - propagates the rejection of the refresh token reported by the API', async () => {
+      post.mockRejectedValueOnce(apiFailure(401, { detail: 'El refresh token no es válido' }));
+
+      await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(
+        'El refresh token no es válido'
+      );
+    });
+
+    it('T-52 - falls back to its own message when the API sends no detail', async () => {
+      post.mockRejectedValueOnce(apiFailure(401, ''));
+
+      await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(
+        'Tu sesión expiró. Iniciá sesión de nuevo.'
+      );
+    });
+  });
 });

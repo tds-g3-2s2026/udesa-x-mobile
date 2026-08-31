@@ -7,7 +7,7 @@ Aplicación mobile principal para usuarios de la red social UdeSA-X (Épicas E1 
 ## Stack y herramientas
 
 - Framework y runtime: React Native 0.81, Expo SDK 54, React 19, TypeScript, Bun
-- Navegación: Expo Router (file-based routing en `app/`)
+- Navegación: Expo Router (file-based routing en `app/`), con tabs en el área autenticada
 - Estado y almacenamiento seguro: Zustand y expo-secure-store
 - Validaciones: Zod. Acceso HTTP: Axios
 - Tests: Jest con el preset `jest-expo` y React Native Testing Library
@@ -24,9 +24,10 @@ bun x tsc --noEmit      # Chequeo de tipos
 
 ## Arquitectura y particularidades locales
 
-- Rutas de navegación en `app/` organizadas por grupos: `(auth)` para login y verificación, `(auth)/register/` para el wizard de registro con una ruta por paso, y `(app)` para la experiencia autenticada.
-- El layout raíz elige el grupo con `Stack.Protected` según haya sesión: no hay redirecciones imperativas después de iniciar o cerrar sesión.
+- Rutas de navegación en `app/` organizadas por grupos: `(auth)` para login y verificación, `(auth)/register/` para el wizard de registro con una ruta por paso, y `(app)` para la experiencia autenticada, que es una barra de tabs con Inicio, Buscar, Notificaciones y Perfil.
+- El layout raíz sostiene el splash nativo hasta que lee la sesión y elige el grupo con `Stack.Protected`: no hay redirecciones imperativas después de iniciar o cerrar sesión.
 - Lógica de dominio, servicios de red y esquemas en `src/features/` y stores globales en `src/stores/`.
+- El `apiClient` de `src/features/auth/services/authService.ts` tiene los interceptores de Axios: agrega el `Bearer` de la sesión y refresca el token ante un 401.
 - `users-api` todavía no expone `/auth`: para recorrer las pantallas autenticadas se usa `bun run mock-api`.
 - Documentación general del sistema: consultar `../udesa-x-platform/docs/` (`ARQUITECTURA.md`, `CONVENCIONES.md`, `PLANIFICACION.md`).
 
@@ -36,7 +37,7 @@ bun x tsc --noEmit      # Chequeo de tipos
 
 ## Reglas del equipo
 
-- **Ramas e issues**: Rama base `main`. Ramas de trabajo `feature-<nombre>` o `fix-<nombre>`, siempre asociadas a un issue en el mismo repositorio.
+- **Ramas e issues**: Rama base `main`. Ramas de trabajo `feature-<nombre>` (funcionalidad), `fix-<nombre>` (defecto) o `chore-<nombre>` (mantenimiento y tooling, etiqueta `tech debt`), siempre asociadas a un issue en el mismo repositorio.
 - **Idiomas**:
   - Código (`src/`, `tests/`), nombres de archivos, identificadores y comentarios en código: **inglés**.
   - Documentación (`docs/`, `README.md`), mensajes de commit y Pull Requests: **español**.
