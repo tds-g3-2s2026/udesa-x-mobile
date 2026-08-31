@@ -2,52 +2,34 @@
 
 <!-- INICIO BLOQUE PROPIO - completado en cada servicio -->
 
-App mobile de UdeSA-X para usuarios finales. Cubre las épicas E1 (usuarios), E2 (publicaciones), E3 (interacciones sociales) y E4 (notificaciones); E5 vive en el backoffice.
-
-## Mapa del repo
-
-```
-app/                  rutas de Expo Router, una carpeta por segmento de navegación
-  (auth)/             login, registro, recuperación de contraseña
-  (tabs)/             navegación autenticada: feed, búsqueda, notificaciones, perfil
-  _layout.tsx         layout raíz, providers de TanStack Query y de sesión
-src/
-  api/                clientes HTTP por servicio, tipos de request y response
-  components/         componentes de UI reutilizables, sin lógica de negocio
-  features/           lógica por dominio: users, posts, social, notifications
-  hooks/              hooks compartidos
-  stores/             stores de Zustand
-  lib/                utilidades transversales, configuración y acceso a secure store
-tests/unit/           unitarios y de componentes
-.maestro/             flujos E2E
-```
-
-Regla de capas: los archivos de `app/` resuelven navegación y composición de pantalla. La lógica de negocio y las llamadas de red viven en `src/features/` y `src/api/`. Una ruta que llama a `fetch` directamente es un error de revisión.
+Aplicación mobile principal para usuarios de la red social UdeSA-X (Épicas E1 a E4).
 
 ## Stack y herramientas
 
-- Runtime y framework: Expo SDK 57 sobre React Native, con TypeScript
-- Navegación: Expo Router, rutas derivadas del árbol de `app/`
-- Estado del servidor: TanStack Query
-- Estado del cliente: Zustand
-- Tokens y credenciales: `expo-secure-store`. Nunca AsyncStorage para datos de sesión
-- Tests unitarios y de componentes: Jest con React Native Testing Library 14
-- Tests E2E: Maestro
+- Framework y runtime: React Native 0.81, Expo SDK 54, React 19, TypeScript, Bun
+- Navegación: Expo Router (file-based routing en `app/`), con tabs en el área autenticada
+- Estado y almacenamiento seguro: Zustand y expo-secure-store
+- Validaciones: Zod. Acceso HTTP: Axios
+- Tests: Jest con el preset `jest-expo` y React Native Testing Library
 
 ## Checks y comandos
 
 ```bash
-npm run lint             # ESLint y chequeo de tipos de TypeScript
-npm test                 # Unitarios y de componentes, con reporte de cobertura
-maestro test .maestro/   # E2E sobre emulador o dispositivo
+bun run start           # Inicia el servidor de desarrollo Expo / Metro bundler
+bun run mock-api        # Mock local de los endpoints /auth de users-api
+./scripts/lint.sh       # Linting con ESLint y Prettier
+./scripts/test.sh       # Tests unitarios con Jest
+bun x tsc --noEmit      # Chequeo de tipos
 ```
-
-**Cobertura mínima: 85%.** En este repo el gate se activa en **S5**, no en S3: S3 aplica a los servicios de backend. Hasta S5 la cobertura se mide y se reporta, pero no bloquea el PR.
 
 ## Arquitectura y particularidades locales
 
-- El proyecto de Expo todavía no está inicializado: no hay `package.json`, `app/` ni `src/`. El scaffolding llega con `T-51` (navegación principal y estructura de tabs, S2) y el sistema de componentes con `T-19` (S3). Hasta entonces los comandos de arriba no corren.
-- Documentación general del sistema: `../udesa-x-platform/docs/` (`ARQUITECTURA.md`, `CONVENCIONES.md`, `PLANIFICACION.md`).
+- Rutas de navegación en `app/` organizadas por grupos: `(auth)` para login y verificación, `(auth)/register/` para el wizard de registro con una ruta por paso, y `(app)` para la experiencia autenticada, que es una barra de tabs con Inicio, Buscar, Notificaciones y Perfil.
+- El layout raíz sostiene el splash nativo hasta que lee la sesión y elige el grupo con `Stack.Protected`: no hay redirecciones imperativas después de iniciar o cerrar sesión.
+- Lógica de dominio, servicios de red y esquemas en `src/features/` y stores globales en `src/stores/`.
+- El `apiClient` de `src/features/auth/services/authService.ts` tiene los interceptores de Axios: agrega el `Bearer` de la sesión y refresca el token ante un 401.
+- `users-api` todavía no expone `/auth`: para recorrer las pantallas autenticadas se usa `bun run mock-api`.
+- Documentación general del sistema: consultar `../udesa-x-platform/docs/` (`ARQUITECTURA.md`, `CONVENCIONES.md`, `PLANIFICACION.md`).
 
 <!-- FIN BLOQUE PROPIO -->
 

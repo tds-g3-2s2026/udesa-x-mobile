@@ -16,6 +16,7 @@ Este archivo configura el comportamiento de GitHub Copilot en el repositorio. Se
 ## Mensajes de commit
 
 Formato Conventional Commits con scope en inglés y descripción en español:
+
 ```
 feat(users): agregar validacion de handle unico
 fix(posts): corregir contador de retweets al deshacer
