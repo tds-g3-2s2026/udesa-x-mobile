@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../src/features/auth/components/authTheme';
+import { authService } from '../../src/features/auth/services/authService';
 import { AppScreen } from '../../src/features/shell/components/AppScreen';
 import { useAuthStore } from '../../src/stores/authStore';
 
@@ -14,10 +15,13 @@ export default function ProfileScreen() {
   // user means the group is being unmounted: nothing to draw.
   if (!user) return null;
 
-  // E1-H3.CA2: the store wipes the local session and the root layout swaps to
-  // the public group on its own. A wipe failure has to be visible.
+  // E1-H3.CA2: revokes the token server-side, then the store wipes the local
+  // session and the root layout swaps to the public group on its own. The
+  // backend call is best effort (see authService.logout), so a wipe failure
+  // here is the only one that has to be visible.
   const handleLogout = async () => {
     try {
+      await authService.logout();
       await clearSession();
     } catch {
       Alert.alert('Error', 'No se pudieron borrar todos los datos de la sesión del dispositivo.');
