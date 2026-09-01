@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-// A handle is '@' plus 3 to 14 word characters, so 4 to 15 characters in total (E1-H1.CA3).
+// A handle is '@' plus 3 to 14 word characters, so 4 to 15 characters in total.
 const HANDLE_PATTERN = /^@[a-zA-Z0-9_]{3,14}$/;
 
-// The email verification code is exactly 6 digits (E1-H1.CA6).
+// The email verification code is exactly 6 digits.
 const VERIFICATION_CODE_PATTERN = /^[0-9]{6}$/;
 
 const HANDLE_MESSAGE =
@@ -36,7 +36,7 @@ export const verifyEmailSchema = z.object({
     .regex(VERIFICATION_CODE_PATTERN, 'El código debe tener exactamente 6 dígitos'),
 });
 
-// Keeps the leading '@' that E1-H1.CA3 requires while the user types the handle.
+// Keeps the leading '@' the handle format requires while the user types it.
 // Strips any symbol other than letters, numbers and underscores (like Instagram/Twitter).
 export function normalizeHandle(value: string): string {
   const cleaned = value.replace(/[^a-zA-Z0-9_]/g, '');

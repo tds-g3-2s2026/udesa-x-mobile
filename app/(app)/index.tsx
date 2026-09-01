@@ -8,7 +8,7 @@ import {
   searchFieldStyles,
 } from '../../src/features/shell/components/AppScreen';
 
-// T-51: the Inicio tab. The feed itself arrives with the publication epic, so the
+// The Inicio tab. The feed itself arrives with the publication epic, so the
 // screen shows the shortcut to the search tab and the empty state.
 export default function FeedScreen() {
   const router = useRouter();

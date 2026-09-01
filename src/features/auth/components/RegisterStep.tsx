@@ -16,9 +16,9 @@ type RegisterStepProps = {
   submitLabel?: string;
   onSubmit?: () => void;
   isSubmitting?: boolean;
-  // E1-H12.CA1: blocks the last step's submit for a reason outside this
-  // field's own validation (the terms checkbox), so pressing the button or
-  // the keyboard's "go" has no effect until it clears.
+  // Blocks the last step's submit for a reason outside this field's own
+  // validation (the terms checkbox), so pressing the button or the
+  // keyboard's "go" has no effect until it clears.
   disabled?: boolean;
   // Rendered below the field, above the submit button. Only the password
   // step uses it today, for the terms checkbox.
@@ -59,9 +59,9 @@ export function RegisterStep({
       router.push(nextStep.route);
       return;
     }
-    // E1-H12.CA1: the button already looks disabled, but "go" on the keyboard
-    // reaches this same handler without going through it, so the block has to
-    // be repeated here too.
+    // The button already looks disabled, but "go" on the keyboard reaches
+    // this same handler without going through it, so the block has to be
+    // repeated here too.
     if (disabled) return;
     onSubmit?.();
   };

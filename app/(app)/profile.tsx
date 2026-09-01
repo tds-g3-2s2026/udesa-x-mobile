@@ -5,8 +5,7 @@ import { authService } from '../../src/features/auth/services/authService';
 import { AppScreen } from '../../src/features/shell/components/AppScreen';
 import { useAuthStore } from '../../src/stores/authStore';
 
-// T-51: the Perfil tab. It owns the session data and the logout, which is where
-// E1-H3 lives now that the authenticated area has more than one screen.
+// The Perfil tab. It owns the session data and the logout.
 export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
@@ -15,10 +14,10 @@ export default function ProfileScreen() {
   // user means the group is being unmounted: nothing to draw.
   if (!user) return null;
 
-  // E1-H3.CA2: revokes the token server-side, then the store wipes the local
-  // session and the root layout swaps to the public group on its own. The
-  // backend call is best effort (see authService.logout), so a wipe failure
-  // here is the only one that has to be visible.
+  // Revokes the token server-side, then the store wipes the local session
+  // and the root layout swaps to the public group on its own. The backend
+  // call is best effort (see authService.logout), so a wipe failure here
+  // is the only one that has to be visible.
   const handleLogout = async () => {
     try {
       await authService.logout();

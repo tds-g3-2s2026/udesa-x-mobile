@@ -155,9 +155,9 @@ class AuthHandler(BaseHTTPRequestHandler):
         if not email or not handle or not full_name:
             self.send_problem(422, "Datos incompletos", "Faltan campos obligatorios.")
             return
-        # E1-H12.CA2: users-api expects this one field in snake_case, unlike
-        # the rest of the contract (confirmed against their actual code, no
-        # camelCase alias exists for it).
+        # users-api expects this one field in snake_case, unlike the rest of
+        # the contract (confirmed against their actual code, no camelCase
+        # alias exists for it).
         if body.get("terms_accepted") is not True:
             self.send_problem(
                 422, "Términos no aceptados", "Hay que aceptar los términos y la política de privacidad."
@@ -210,7 +210,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         password = str(body.get("password", ""))
 
         # Mismo mensaje para usuario inexistente y contraseña equivocada: sin
-        # enumeración de usuarios (E1-H2.CA3).
+        # enumeración de usuarios.
         if account is None or account["password"] != password:
             self.send_problem(401, "Credenciales inválidas", "Credenciales inválidas")
             return
@@ -242,8 +242,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         self.send_json(200, {"tokens": issue_tokens(account["user"]["handle"])})
 
     def logout(self) -> None:
-        """E1-H3.CA1: revoca el token del header Authorization. Sin cuerpo, así que
-        no pasa por read_json como el resto de los endpoints."""
+        """Revoca el token del header Authorization. Sin cuerpo, así que no
+        pasa por read_json como el resto de los endpoints."""
         auth_header = self.headers.get("Authorization", "")
         token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
         if not token:

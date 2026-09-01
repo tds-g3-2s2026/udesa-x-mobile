@@ -2,9 +2,9 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../src/features/auth/components/authTheme';
 
-// E1-H12.CA1: static text linked from the terms checkbox of the signup form.
-// Placeholder copy for the class project, modeled after a typical social
-// app's privacy policy — not a reviewed legal document.
+// Static text linked from the terms checkbox of the signup form. Placeholder
+// copy for the class project, modeled after a typical social app's privacy
+// policy — not a reviewed legal document.
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: '1. Qué datos recolectamos',

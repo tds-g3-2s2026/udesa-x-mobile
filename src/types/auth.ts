@@ -17,7 +17,7 @@ export interface AuthResponse {
   tokens: AuthTokens;
 }
 
-// T-52: the refresh endpoint only issues a new pair of tokens, the user does not
+// The refresh endpoint only issues a new pair of tokens, the user does not
 // change, so the client keeps the one it already restored.
 export interface RefreshResponse {
   tokens: AuthTokens;

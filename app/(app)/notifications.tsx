@@ -1,6 +1,6 @@
 import { AppScreen, EmptyState } from '../../src/features/shell/components/AppScreen';
 
-// T-51: the Notificaciones tab. Notifications come from their own epic, so the tab
+// The Notificaciones tab. Notifications come from their own epic, so the tab
 // exists with its empty state instead of faking activity.
 export default function NotificationsScreen() {
   return (
