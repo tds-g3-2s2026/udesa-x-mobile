@@ -20,6 +20,12 @@ const SESSION_EXPIRED_MESSAGE = 'Tu sesión expiró. Iniciá sesión de nuevo.';
 // the session is over, and retrying it would loop forever.
 const REFRESH_PATH = '/auth/refresh';
 
+// Also never retried after a 401: refreshing and replaying it would spend the
+// 3s timeout of the refresh call plus this one's, on a request whose caller
+// (authService.logout) already treats failure as best effort and is about to
+// clear the local session regardless of the outcome.
+const LOGOUT_PATH = '/auth/logout';
+
 // E1-H3.CA2: short-circuits the default 10s client timeout so a slow or
 // unreachable backend never delays the local wipe by more than this.
 const LOGOUT_TIMEOUT_MS = 3000;
@@ -73,10 +79,12 @@ export const authService = {
   },
 
   // E1-H12.CA1/CA2: users-api requires terms_accepted on every register call
-  // (validated server-side, must be exactly `true`) and, unlike every other
-  // field on this contract, expects it in snake_case: it has no camelCase
-  // alias on their side. Kept as its own parameter instead of folding it into
-  // RegisterInput so a caller can't send it without deciding it explicitly.
+  // (validated server-side, must be exactly `true`). It travels in snake_case
+  // because that is what users-api actually uses throughout its real contract
+  // (access_token, token_type, expires_in, ...) — camelCase is what the local
+  // mock and the rest of this file's types use, not the other way around.
+  // Kept as its own parameter instead of folding it into RegisterInput so a
+  // caller can't send it without deciding it explicitly.
   async register(data: RegisterInput, termsAccepted: boolean): Promise<RegisterResponse> {
     try {
       const response = await apiClient.post<RegisterResponse>('/auth/register', {
@@ -128,7 +136,7 @@ export const authService = {
   // stop the caller from clearing the device.
   async logout(): Promise<void> {
     try {
-      await apiClient.post('/auth/logout', undefined, { timeout: LOGOUT_TIMEOUT_MS });
+      await apiClient.post(LOGOUT_PATH, undefined, { timeout: LOGOUT_TIMEOUT_MS });
     } catch {
       // Nothing to recover from: the caller clears the local session regardless.
     }
@@ -182,7 +190,8 @@ apiClient.interceptors.response.use(
       !config ||
       error.response?.status !== 401 ||
       config.isRetry ||
-      config.url === REFRESH_PATH
+      config.url === REFRESH_PATH ||
+      config.url === LOGOUT_PATH
     ) {
       throw error;
     }

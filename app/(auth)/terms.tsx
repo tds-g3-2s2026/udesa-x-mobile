@@ -16,8 +16,8 @@ const SECTIONS: { title: string; body: string }[] = [
     title: '2. Tu cuenta',
     body:
       'Sos responsable de mantener tu contraseña en secreto y de toda la actividad que ocurra ' +
-      'con tu cuenta. Tenés que darnos un correo universitario válido y un nombre de usuario ' +
-      'que no suplante a otra persona o institución.',
+      'con tu cuenta. Tenés que darnos un correo electrónico válido y un nombre de usuario que ' +
+      'no suplante a otra persona o institución.',
   },
   {
     title: '3. Contenido publicado',
