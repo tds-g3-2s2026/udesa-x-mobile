@@ -2,9 +2,9 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../src/features/auth/components/authTheme';
 
-// E1-H12.CA1: static text linked from the terms checkbox of the signup form.
-// Placeholder copy for the class project, modeled after a typical social
-// app's terms of service — not a reviewed legal document.
+// Static text linked from the terms checkbox of the signup form. Placeholder
+// copy for the class project, modeled after a typical social app's terms of
+// service — not a reviewed legal document.
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: '1. Aceptación de los términos',
@@ -16,8 +16,8 @@ const SECTIONS: { title: string; body: string }[] = [
     title: '2. Tu cuenta',
     body:
       'Sos responsable de mantener tu contraseña en secreto y de toda la actividad que ocurra ' +
-      'con tu cuenta. Tenés que darnos un correo universitario válido y un nombre de usuario ' +
-      'que no suplante a otra persona o institución.',
+      'con tu cuenta. Tenés que darnos un correo electrónico válido y un nombre de usuario que ' +
+      'no suplante a otra persona o institución.',
   },
   {
     title: '3. Contenido publicado',

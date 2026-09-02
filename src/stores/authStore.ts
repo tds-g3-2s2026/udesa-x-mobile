@@ -73,16 +73,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  // T-52: replaces the pair of tokens after a refresh. The user is left untouched,
+  // Replaces the pair of tokens after a refresh. The user is left untouched,
   // so renewing the access token never looks like a new sign-in.
   setTokens: async (tokens) => {
     await persistTokens(tokens);
     set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
   },
 
-  // E1-H3.CA2: local session data and the JWT are removed from secure storage.
-  // A deletion failure is propagated because leaving credentials on the device
-  // is a security problem the user has to know about.
+  // Local session data and the JWT are removed from secure storage. A
+  // deletion failure is propagated because leaving credentials on the
+  // device is a security problem the user has to know about.
   clearSession: async () => {
     try {
       await Promise.all([

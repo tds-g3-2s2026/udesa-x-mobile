@@ -7,8 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../src/stores/authStore';
 import { colors } from '../src/features/auth/components/authTheme';
 
-// T-52: the native splash stays up until the stored session was read, so the first
-// screen the user sees is already the right one for their session.
+// The native splash stays up until the stored session was read, so the
+// first screen the user sees is already the right one for their session.
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Only rejects when the splash is already gone, which is the desired end state.
 });

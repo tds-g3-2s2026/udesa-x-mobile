@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { colors } from '../../src/features/auth/components/authTheme';
 
-// T-51: the authenticated area is a bottom tab bar with the four sections of the
+// The authenticated area is a bottom tab bar with the four sections of the
 // product. Every screen draws its own header, so the navigator only owns the bar.
 export default function AppLayout() {
   return (

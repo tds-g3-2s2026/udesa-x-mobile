@@ -49,8 +49,8 @@ type AuthScreenProps = {
   onSubmit: () => void;
   isSubmitting?: boolean;
   // Disables the action button for a reason other than being in flight, e.g.
-  // E1-H12.CA1's terms checkbox. Independent of `isSubmitting` on purpose: the
-  // spinner only ever means "request in progress".
+  // the terms checkbox on the signup form's last step. Independent of
+  // `isSubmitting` on purpose: the spinner only ever means "request in progress".
   disabled?: boolean;
   // Links shown under the action button, inside the fixed footer.
   footer?: ReactNode;

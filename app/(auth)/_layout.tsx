@@ -36,7 +36,7 @@ export default function AuthLayout() {
 
       <Stack.Screen name="verify-email" options={{ title: 'Verificar Correo' }} />
 
-      {/* E1-H12.CA1: static policy screens linked from the terms checkbox. */}
+      {/* Static policy screens linked from the terms checkbox. */}
       <Stack.Screen name="terms" options={{ title: 'Términos y Condiciones' }} />
       <Stack.Screen name="privacy" options={{ title: 'Política de Privacidad' }} />
     </Stack>

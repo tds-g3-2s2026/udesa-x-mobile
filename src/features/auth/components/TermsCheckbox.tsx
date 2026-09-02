@@ -9,9 +9,9 @@ type TermsCheckboxProps = {
   onChange: (accepted: boolean) => void;
 };
 
-// E1-H12.CA1: the mandatory checkbox of the signup form. The box and the two
-// links are separate touch targets on purpose, so opening a policy never
-// toggles acceptance by accident.
+// The mandatory checkbox of the signup form. The box and the two links are
+// separate touch targets on purpose, so opening a policy never toggles
+// acceptance by accident.
 export function TermsCheckbox({ value, onChange }: TermsCheckboxProps) {
   const router = useRouter();
 

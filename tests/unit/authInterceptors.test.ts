@@ -162,4 +162,15 @@ describe('T-52. Interceptores de Axios', () => {
     // session behind its back.
     expect(useAuthStore.getState().user).toEqual(user);
   });
+
+  it('E1-H3.CA2 - a 401 on logout is never refreshed or retried', async () => {
+    adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
+
+    // authService.logout is best effort and swallows this itself; what this
+    // test guards is that the interceptor never turns it into a refresh call.
+    await authService.logout();
+
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(requestsTo('/auth/refresh')).toHaveLength(0);
+  });
 });

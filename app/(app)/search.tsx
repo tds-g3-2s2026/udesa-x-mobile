@@ -8,7 +8,7 @@ import {
   searchFieldStyles,
 } from '../../src/features/shell/components/AppScreen';
 
-// T-51: the Buscar tab. The field is real, but users-api exposes no search endpoint
+// The Buscar tab. The field is real, but users-api exposes no search endpoint
 // yet, so the screen says so instead of showing invented results.
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
