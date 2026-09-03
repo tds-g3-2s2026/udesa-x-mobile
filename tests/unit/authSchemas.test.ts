@@ -1,7 +1,9 @@
 import {
+  forgotPasswordSchema,
   loginSchema,
   normalizeHandle,
   registerSchema,
+  resetPasswordSchema,
   validateRegisterField,
   verifyEmailSchema,
   type RegisterField,
@@ -140,6 +142,67 @@ describe('E1-H2. Inicio de Sesión', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.identifier).toBe('jleon@udesa.edu.ar');
+  });
+});
+
+describe('E1-H5. Olvidé Mi Contraseña', () => {
+  const validReset = {
+    token: 'mock-reset-token-1',
+    password: 'Password123',
+    passwordConfirmation: 'Password123',
+  };
+
+  function resetErrorFor(field: keyof typeof validReset, value: string): string | null {
+    const result = resetPasswordSchema.safeParse({ ...validReset, [field]: value });
+    if (result.success) return null;
+    const issue = result.error.issues.find((candidate) => candidate.path[0] === field);
+    return issue ? issue.message : null;
+  }
+
+  it('E1-H5.CA4 - the request takes an email or a handle as identifier', () => {
+    expect(forgotPasswordSchema.safeParse({ identifier: '@joaquin_dev' }).success).toBe(true);
+    expect(forgotPasswordSchema.safeParse({ identifier: 'jleon@udesa.edu.ar' }).success).toBe(true);
+    expect(forgotPasswordSchema.safeParse({ identifier: '   ' }).success).toBe(false);
+  });
+
+  it('E1-H5.CA3 - accepts a reset whose confirmation matches and meets the policy', () => {
+    expect(resetPasswordSchema.safeParse(validReset).success).toBe(true);
+  });
+
+  it('E1-H5.CA3 - rejects a confirmation that does not match, blaming the second field', () => {
+    const result = resetPasswordSchema.safeParse({
+      ...validReset,
+      passwordConfirmation: 'Password124',
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issue = result.error.issues[0];
+    expect(issue.message).toBe('Las contraseñas no coinciden');
+    expect(issue.path).toEqual(['passwordConfirmation']);
+  });
+
+  it('E1-H5.CA3 - applies the same password policy as the registration', () => {
+    // Same values and same messages as the E1-H1 cases above: a copy of the
+    // rules that drifted would show up right here.
+    expect(resetErrorFor('password', 'Short1')).toBe(
+      'La contraseña debe tener al menos 8 caracteres'
+    );
+    expect(resetErrorFor('password', 'password123')).toBe(
+      'La contraseña debe contener al menos una letra mayúscula'
+    );
+    expect(resetErrorFor('password', 'PasswordAbc')).toBe(
+      'La contraseña debe contener al menos un número'
+    );
+  });
+
+  it('E1-H5.CA2 - requires the token that arrives by email and trims what was pasted', () => {
+    expect(resetErrorFor('token', '   ')).toBe('Pegá el código que te llegó por correo');
+
+    const result = resetPasswordSchema.safeParse({ ...validReset, token: '  abc123  ' });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.token).toBe('abc123');
   });
 });
 

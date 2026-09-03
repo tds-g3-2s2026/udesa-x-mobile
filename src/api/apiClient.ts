@@ -28,27 +28,67 @@ export const apiClient = axios.create({
 });
 
 // RFC 9457 Problem Details, the error shape returned by the platform APIs.
+// The failure is identified by `type`, a URI whose last segment names it;
+// there is no separate `code` field. `errors` carries one entry per rejected
+// field on a 422.
 const problemDetailsSchema = z.object({
+  type: z.string().optional(),
   title: z.string().optional(),
   detail: z.string().optional(),
+  errors: z.array(z.object({ field: z.string(), message: z.string() })).optional(),
 });
 
-function readProblemMessage(data: unknown): string | null {
-  const parsed = problemDetailsSchema.safeParse(data);
-  if (!parsed.success) return null;
-  const message = parsed.data.detail?.trim() || parsed.data.title?.trim();
-  return message ? message : null;
+// 'https://udesa-x.dev/errors/reset-token-invalid' -> 'reset-token-invalid'.
+// RFC 9457 uses 'about:blank' when there is nothing to identify beyond the
+// status, which is why this can come back empty.
+function readProblemCode(type: string | undefined): string | undefined {
+  if (!type || type === 'about:blank') return undefined;
+  const identifier = type.split('/').pop()?.trim();
+  return identifier || undefined;
+}
+
+/**
+ * Failure of an API call, with the machine readable parts of the Problem
+ * Details kept next to the message. A screen that only needs something to show
+ * the user can keep reading `message` and ignore the rest.
+ */
+export class ApiError extends Error {
+  // Last segment of the Problem Details `type`, e.g. 'reset-token-invalid':
+  // lets a screen offer the matching recovery without matching on prose.
+  readonly code?: string;
+  // Field name as the API spells it, mapped to its message.
+  readonly fieldErrors: Record<string, string>;
+
+  constructor(message: string, code?: string, fieldErrors: Record<string, string> = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.fieldErrors = fieldErrors;
+  }
 }
 
 // Turns a transport failure into an error whose message can be shown to the user.
 // The message from the API always wins so the screens display the real reason.
 export function toAuthError(error: unknown, fallbackMessage: string): Error {
   if (axios.isAxiosError(error)) {
-    if (!error.response) return new Error(CONNECTION_ERROR_MESSAGE);
-    return new Error(readProblemMessage(error.response.data) ?? fallbackMessage);
+    if (!error.response) return new ApiError(CONNECTION_ERROR_MESSAGE);
+
+    const parsed = problemDetailsSchema.safeParse(error.response.data);
+    if (!parsed.success) return new ApiError(fallbackMessage);
+
+    const { type, detail, title, errors } = parsed.data;
+    const fieldErrors: Record<string, string> = {};
+    for (const entry of errors ?? []) {
+      // The first message per field is the one shown: later ones would only
+      // replace it in the single line the input has for it.
+      fieldErrors[entry.field] ??= entry.message;
+    }
+
+    const message = detail?.trim() || title?.trim() || fallbackMessage;
+    return new ApiError(message, readProblemCode(type), fieldErrors);
   }
   if (error instanceof Error) return error;
-  return new Error(UNEXPECTED_ERROR_MESSAGE);
+  return new ApiError(UNEXPECTED_ERROR_MESSAGE);
 }
 
 // Resolves the message that the screens show when an auth call fails.
