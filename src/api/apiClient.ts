@@ -28,9 +28,10 @@ export const apiClient = axios.create({
 });
 
 // RFC 9457 Problem Details, the error shape returned by the platform APIs.
-// The failure is identified by `type`, a URI whose last segment names it;
-// there is no separate `code` field. `errors` carries one entry per rejected
-// field on a 422.
+// `type` is the URI identifying the kind of problem; that its last segment is
+// the stable identifier of the failure is a convention of these APIs, not
+// something the RFC defines. There is no separate `code` field. `errors`
+// carries one entry per rejected field on a 422.
 const problemDetailsSchema = z.object({
   type: z.string().optional(),
   title: z.string().optional(),

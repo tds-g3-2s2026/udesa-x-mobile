@@ -418,7 +418,16 @@ class AuthHandler(BaseHTTPRequestHandler):
         auth_header = self.headers.get("Authorization", "")
         token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
         if not token:
-            self.send_problem(401, "Token inválido", "invalid-token")
+            # El 401 por token inválido lo formatea users-api, así que trae
+            # `type` y texto en español. El 401 por header ausente o mal
+            # formado lo genera FastAPI y sale sin `type` y en inglés; el mock
+            # no lo distingue porque la app traga cualquier error del logout.
+            self.send_problem(
+                401,
+                "No se pudo cerrar la sesión",
+                "El token no es válido",
+                code="invalid-token",
+            )
             return
         # El mock no mantiene una lista de revocación: alcanza con responder 204,
         # que es lo único que el cliente observa (idempotente, igual que la API real).
