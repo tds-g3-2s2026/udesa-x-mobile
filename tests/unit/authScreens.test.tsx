@@ -24,12 +24,14 @@ import { AUTH_SCREEN_BODY } from '../../src/features/auth/components/AuthScreen'
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
     push: mockPush,
+    back: mockBack,
     dismissAll: mockDismissAll,
     canDismiss: () => true,
   }),
@@ -496,6 +498,33 @@ describe('Change password', () => {
     expect(useAuthStore.getState().user).not.toBeNull();
   });
 
+  it('marks the field rejected by the API and ignores unknown fields', async () => {
+    jest.spyOn(authService, 'changePassword').mockRejectedValue(
+      new ApiError('Revisá los campos marcados.', 'validation-failed', {
+        password_confirmation: 'Las contraseñas no coinciden',
+        unexpected_field: 'No se muestra en este formulario',
+      })
+    );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(screen.getByText('Las contraseñas no coinciden')).toBeTruthy());
+  });
+
+  it('returns to the previous screen and advances between password fields', async () => {
+    useAuthStore.setState(loggedIn);
+    renderScreen(<ChangePasswordScreen />);
+
+    fireEvent(screen.getAllByPlaceholderText('••••••••')[0], 'submitEditing');
+    fireEvent(screen.getAllByPlaceholderText('••••••••')[1], 'submitEditing');
+    await press('Cancelar');
+
+    expect(mockBack).toHaveBeenCalled();
+  });
+
   it('rejects a repeated password before reaching the API', async () => {
     const changePassword = jest.spyOn(authService, 'changePassword');
     useAuthStore.setState(loggedIn);
@@ -551,6 +580,30 @@ describe('Sign out', () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
     expect(useAuthStore.getState().refreshToken).toBeNull();
+  });
+
+  it('reports a local wipe failure and keeps the profile visible', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
+    jest.spyOn(useAuthStore.getState(), 'clearSession').mockRejectedValue(new Error('SecureStore'));
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Cerrar Sesión');
+
+    expect(alert).toHaveBeenCalledWith(
+      'Error',
+      'No se pudieron borrar todos los datos de la sesión del dispositivo.'
+    );
+  });
+
+  it('opens the password change screen from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Cambiar contraseña');
+
+    expect(mockPush).toHaveBeenCalledWith('/change-password');
   });
 });
 
