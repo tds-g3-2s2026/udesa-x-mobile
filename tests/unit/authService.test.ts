@@ -45,8 +45,8 @@ describe('Auth service', () => {
     post.mockReset();
   });
 
-  describe('Sign in', () => {
-    it('returns the tokens issued by the API for valid credentials', async () => {
+  describe('E1-H2. Inicio de Sesión', () => {
+    it('E1-H2.CA1 - returns the tokens issued by the API for valid credentials', async () => {
       post.mockResolvedValueOnce(apiSuccess(session));
 
       const result = await authService.login({
@@ -62,7 +62,7 @@ describe('Auth service', () => {
       expect(result.user).toEqual(session.user);
     });
 
-    it('fails with the generic message returned by the API', async () => {
+    it('E1-H2.CA3 - fails with the generic message returned by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(401, { detail: 'Credenciales inválidas' }));
 
       await expect(
@@ -70,7 +70,7 @@ describe('Auth service', () => {
       ).rejects.toThrow('Credenciales inválidas');
     });
 
-    it('falls back to the generic message when the API sends no detail', async () => {
+    it('E1-H2.CA3 - falls back to the generic message when the API sends no detail', async () => {
       post.mockRejectedValueOnce(apiFailure(401, ''));
 
       await expect(
@@ -78,7 +78,7 @@ describe('Auth service', () => {
       ).rejects.toThrow('Credenciales inválidas');
     });
 
-    it('reports the connection failure instead of returning a fake session', async () => {
+    it('E1-H2.CA3 - reports the connection failure instead of returning a fake session', async () => {
       post.mockRejectedValueOnce(networkFailure());
 
       await expect(
@@ -87,8 +87,8 @@ describe('Auth service', () => {
     });
   });
 
-  describe('Registration', () => {
-    it('propagates the duplicated email error reported by the API', async () => {
+  describe('E1-H1. Registro de Usuarios', () => {
+    it('E1-H1.CA2 - propagates the duplicated email error reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(409, { detail: 'El correo ya está registrado' }));
 
       await expect(
@@ -104,7 +104,7 @@ describe('Auth service', () => {
       ).rejects.toThrow('El correo ya está registrado');
     });
 
-    it('sends terms_accepted in snake_case, matching the users-api contract', async () => {
+    it('E1-H12.CA2 - sends terms_accepted in snake_case, matching the users-api contract', async () => {
       post.mockResolvedValueOnce(
         apiSuccess({ user: session.user, message: 'Registro exitoso', requireVerification: true })
       );
@@ -128,7 +128,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('propagates the expired verification code error reported by the API', async () => {
+    it('E1-H1.CA6 - propagates the expired verification code error reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(400, { detail: 'El código expiró' }));
 
       await expect(
@@ -136,7 +136,7 @@ describe('Auth service', () => {
       ).rejects.toThrow('El código expiró');
     });
 
-    it('requests a new verification code from the API', async () => {
+    it('E1-H1.CA6 - requests a new verification code from the API', async () => {
       post.mockResolvedValueOnce(apiSuccess({ sent: true }));
 
       const result = await authService.resendVerification('jleon@udesa.edu.ar');
@@ -148,8 +148,8 @@ describe('Auth service', () => {
     });
   });
 
-  describe('Forgot password', () => {
-    it('asks for the link with the identifier, as the API names it', async () => {
+  describe('E1-H5. Olvidé Mi Contraseña', () => {
+    it('E1-H5.CA4 - asks for the link with the identifier, as the API names it', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
 
       await authService.forgotPassword({ identifier: 'jleon@udesa.edu.ar' });
@@ -159,7 +159,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('sends password_confirmation in snake_case, matching the contract', async () => {
+    it('E1-H5.CA3 - sends password_confirmation in snake_case, matching the contract', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'reset', handle: '@joaquin_dev' }));
 
       const result = await authService.resetPassword({
@@ -181,7 +181,7 @@ describe('Auth service', () => {
     // `type` and there is no `code` field. Reading a `code` looked right and
     // passed against a mock that invented one, so these keep that from
     // happening again.
-    it('identifies an expired link by its type, so the screen can offer a new one', async () => {
+    it('E1-H5.CA2 - identifies an expired link by its type, so the screen can offer a new one', async () => {
       post.mockRejectedValueOnce(
         apiFailure(400, {
           type: 'https://udesa-x.dev/errors/reset-token-invalid',
@@ -205,7 +205,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('identifies the reuse of the current password by its type', async () => {
+    it('E1-H5.CA6 - identifies the reuse of the current password by its type', async () => {
       post.mockRejectedValueOnce(
         apiFailure(400, {
           type: 'https://udesa-x.dev/errors/password-unchanged',
@@ -222,7 +222,7 @@ describe('Auth service', () => {
       ).rejects.toMatchObject({ code: 'password-unchanged' });
     });
 
-    it('keeps the rejected fields of a 422 so the screen can mark the input', async () => {
+    it('E1-H5.CA3 - keeps the rejected fields of a 422 so the screen can mark the input', async () => {
       post.mockRejectedValueOnce(
         apiFailure(422, {
           type: 'https://udesa-x.dev/errors/validation-failed',
@@ -249,7 +249,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('propagates the rate limit message reported by the API', async () => {
+    it('E1-H5.CA8 - propagates the rate limit message reported by the API', async () => {
       post.mockRejectedValueOnce(
         apiFailure(429, {
           type: 'https://udesa-x.dev/errors/too-many-reset-requests',
@@ -279,14 +279,14 @@ describe('Auth service', () => {
     });
   });
 
-  describe('Change password', () => {
+  describe('E1-H13. Cambiar Contraseña', () => {
     const change = {
       currentPassword: 'Vieja1234',
       password: 'Nueva1234',
       passwordConfirmation: 'Nueva1234',
     };
 
-    it('posts the three fields to /me/change-password in snake_case', async () => {
+    it('E1-H13.CA1 - posts the three fields to /me/change-password in snake_case', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'changed' }));
 
       await authService.changePassword(change);
@@ -299,7 +299,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('returns an incorrect current password as a field error, not a session error', async () => {
+    it('E1-H13.CA4 - returns an incorrect current password as a field error, not a session error', async () => {
       // It deliberately uses 400 rather than 401: otherwise the interceptor
       // would treat a typing error as an expired session and sign the user out.
       post.mockRejectedValueOnce(
@@ -315,7 +315,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('uses an attempt-limit identifier distinct from the login one', async () => {
+    it('E1-H13.CA4 - uses an attempt-limit identifier distinct from the login one', async () => {
       post.mockRejectedValueOnce(
         apiFailure(429, {
           type: 'https://udesa-x.dev/errors/too-many-password-attempts',
@@ -331,7 +331,7 @@ describe('Auth service', () => {
       });
     });
 
-    it('identifies a revoked session so the screen can return to login', async () => {
+    it('E1-H13.CA3 - identifies a revoked session so the screen can return to login', async () => {
       post.mockRejectedValueOnce(
         apiFailure(401, {
           type: 'https://udesa-x.dev/errors/session-revoked',
@@ -345,8 +345,8 @@ describe('Auth service', () => {
     });
   });
 
-  describe('Sign out', () => {
-    it('requests revocation of the active session token with a short timeout', async () => {
+  describe('E1-H3. Cierre de Sesión', () => {
+    it('E1-H3.CA2 - requests the revocation of the active session token with a short timeout', async () => {
       post.mockResolvedValueOnce(apiSuccess(undefined));
 
       await authService.logout();
@@ -354,21 +354,21 @@ describe('Auth service', () => {
       expect(post).toHaveBeenCalledWith('/auth/logout', undefined, { timeout: 3000 });
     });
 
-    it('resolves without throwing when the API rejects the logout call', async () => {
+    it('E1-H3.CA2 - resolves without throwing when the API rejects the logout call', async () => {
       post.mockRejectedValueOnce(apiFailure(401, { detail: 'invalid-token' }));
 
       await expect(authService.logout()).resolves.toBeUndefined();
     });
 
-    it('resolves without throwing when the backend is unreachable', async () => {
+    it('E1-H3.CA2 - resolves without throwing when the backend is unreachable', async () => {
       post.mockRejectedValueOnce(networkFailure());
 
       await expect(authService.logout()).resolves.toBeUndefined();
     });
   });
 
-  describe('Token refresh', () => {
-    it('trades the refresh token for the new pair issued by the API', async () => {
+  describe('T-52. Refresco de token', () => {
+    it('T-52 - trades the refresh token for the new pair issued by the API', async () => {
       post.mockResolvedValueOnce(
         apiSuccess({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
       );
@@ -381,7 +381,7 @@ describe('Auth service', () => {
       expect(tokens).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
     });
 
-    it('propagates the rejection of the refresh token reported by the API', async () => {
+    it('T-52 - propagates the rejection of the refresh token reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(401, { detail: 'El refresh token no es válido' }));
 
       await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(
@@ -389,7 +389,7 @@ describe('Auth service', () => {
       );
     });
 
-    it('falls back to its own message when the API sends no detail', async () => {
+    it('T-52 - falls back to its own message when the API sends no detail', async () => {
       post.mockRejectedValueOnce(apiFailure(401, ''));
 
       await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(

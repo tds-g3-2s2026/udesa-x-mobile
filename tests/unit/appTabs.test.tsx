@@ -61,8 +61,8 @@ beforeEach(() => {
 
 // These tests run the real route tree of app/(app), so they fail if a tab
 // file is renamed, removed or dropped from the navigator.
-describe('Tab navigation', () => {
-  it('exposes the four product tabs in the authenticated area', async () => {
+describe('T-51. Navegación por tabs', () => {
+  it('T-51 - the authenticated area exposes the four tabs of the product', async () => {
     await renderTab('/');
 
     expect(screen.getByText('Inicio')).toBeTruthy();
@@ -71,14 +71,14 @@ describe('Tab navigation', () => {
     expect(screen.getByText('Perfil')).toBeTruthy();
   });
 
-  it('uses the feed as landing tab with its search shortcut', async () => {
+  it('T-51 - the landing tab is the feed with its search shortcut', async () => {
     await renderTab('/');
 
     expect(screen.getByText('Todavía no hay publicaciones')).toBeTruthy();
     expect(screen.getByLabelText('Buscar en UdeSA-X')).toBeTruthy();
   });
 
-  it('opens the search tab from the feed shortcut', async () => {
+  it('T-51 - the search shortcut of the feed opens the Buscar tab', async () => {
     await renderTab('/');
 
     await act(async () => {
@@ -88,7 +88,7 @@ describe('Tab navigation', () => {
     expect(screen.getByPlaceholderText('Buscar personas y publicaciones')).toBeTruthy();
   });
 
-  it('reports that search results are not wired yet', async () => {
+  it('T-51 - the Buscar tab reports that results are not wired yet', async () => {
     await renderTab('/search');
 
     const field = screen.getByPlaceholderText('Buscar personas y publicaciones');
@@ -99,13 +99,13 @@ describe('Tab navigation', () => {
     expect(screen.getByText('Sin resultados')).toBeTruthy();
   });
 
-  it('shows the empty state in the notifications tab', async () => {
+  it('T-51 - the Notificaciones tab shows its empty state', async () => {
     await renderTab('/notifications');
 
     expect(screen.getByText('No tenés notificaciones')).toBeTruthy();
   });
 
-  it('shows session data and logout in the profile tab', async () => {
+  it('T-51 - the Perfil tab shows the session data and the logout', async () => {
     await renderTab('/profile');
 
     expect(screen.getByText(user.fullName)).toBeTruthy();
@@ -115,7 +115,7 @@ describe('Tab navigation', () => {
     expect(screen.getByText('Cerrar Sesión')).toBeTruthy();
   });
 
-  it('flags an account with an unverified email in the profile tab', async () => {
+  it('T-51 - the Perfil tab flags an account whose email is not verified', async () => {
     persistSession({ ...user, isVerified: false });
 
     await renderTab('/profile');
@@ -123,7 +123,7 @@ describe('Tab navigation', () => {
     expect(screen.getByText('Correo sin verificar')).toBeTruthy();
   });
 
-  it('moves from the feed to the profile tab when pressed', async () => {
+  it('T-51 - pressing the Perfil tab moves there from the feed', async () => {
     await renderTab('/');
     expect(screen.getByText('Todavía no hay publicaciones')).toBeTruthy();
 

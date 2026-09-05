@@ -53,8 +53,8 @@ describe('Auth store', () => {
     });
   });
 
-  describe('Sign in', () => {
-    it('keeps the access token in state and persists the session securely', async () => {
+  describe('E1-H2. Inicio de Sesión', () => {
+    it('E1-H2.CA1 - setSession keeps the access token in state and persists the session securely', async () => {
       await useAuthStore.getState().setSession(user, tokens);
 
       const state = useAuthStore.getState();
@@ -68,7 +68,7 @@ describe('Auth store', () => {
       expect(secureStoreValues.get(USER_KEY)).toBe(JSON.stringify(user));
     });
 
-    it('restores the persisted session', async () => {
+    it('E1-H2.CA1 - restoreSession brings back the session that was persisted', async () => {
       await useAuthStore.getState().setSession(user, tokens);
       useAuthStore.setState({
         user: null,
@@ -86,7 +86,7 @@ describe('Auth store', () => {
       expect(state.isInitialized).toBe(true);
     });
 
-    it('leaves no session when secure storage is empty', async () => {
+    it('E1-H2.CA1 - restoreSession leaves no session when the secure storage is empty', async () => {
       await useAuthStore.getState().restoreSession();
 
       const state = useAuthStore.getState();
@@ -95,7 +95,7 @@ describe('Auth store', () => {
       expect(state.isInitialized).toBe(true);
     });
 
-    it('discards stored data that is not a valid session', async () => {
+    it('E1-H2.CA1 - restoreSession discards stored data that is not a valid session', async () => {
       secureStoreValues.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
       secureStoreValues.set(ACCESS_TOKEN_KEY, tokens.accessToken);
       secureStoreValues.set(USER_KEY, '{"id":"usr-1"}');
@@ -107,8 +107,8 @@ describe('Auth store', () => {
     });
   });
 
-  describe('Sign out', () => {
-    it('wipes the session state and stored tokens', async () => {
+  describe('E1-H3. Cierre de Sesión', () => {
+    it('E1-H3.CA2 - clearSession wipes the session state and the stored tokens', async () => {
       await useAuthStore.getState().setSession(user, tokens);
 
       await useAuthStore.getState().clearSession();
@@ -125,7 +125,7 @@ describe('Auth store', () => {
       expect(secureStoreValues.size).toBe(0);
     });
 
-    it('leaves nothing to restore after clearing the session', async () => {
+    it('E1-H3.CA2 - after clearSession there is nothing left to restore', async () => {
       await useAuthStore.getState().setSession(user, tokens);
       await useAuthStore.getState().clearSession();
 
@@ -136,13 +136,13 @@ describe('Auth store', () => {
     });
   });
 
-  describe('Token refresh', () => {
+  describe('T-52. Refresco de token', () => {
     const renewed = {
       accessToken: 'access-token-renewed',
       refreshToken: 'refresh-token-renewed',
     };
 
-    it('replaces both tokens and leaves the user signed in', async () => {
+    it('T-52 - setTokens replaces both tokens and leaves the user signed in', async () => {
       await useAuthStore.getState().setSession(user, tokens);
 
       await useAuthStore.getState().setTokens(renewed);
@@ -153,7 +153,7 @@ describe('Auth store', () => {
       expect(state.user).toEqual(user);
     });
 
-    it('restores renewed tokens on the next launch', async () => {
+    it('T-52 - the renewed tokens are the ones restored on the next launch', async () => {
       await useAuthStore.getState().setSession(user, tokens);
       await useAuthStore.getState().setTokens(renewed);
 

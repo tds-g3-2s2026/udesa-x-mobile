@@ -97,10 +97,17 @@ export default function ChangePasswordScreen() {
         }
       }
 
-      // Everything left is about one field: the current password being wrong,
-      // too many tries, or the new password repeating the old one.
-      const field = (code && FIELD_ERROR_CODES[code]) ?? 'currentPassword';
-      setErrors({ [field]: getAuthErrorMessage(changeError) });
+      // Only a recognized code says which field to blame (the current
+      // password being wrong, too many tries, or the new password repeating
+      // the old one). Anything else — a dropped connection, an unexpected
+      // error — is not about any one field: showing it under "Contraseña
+      // actual" would blame the wrong thing.
+      const field = code ? FIELD_ERROR_CODES[code] : undefined;
+      if (field) {
+        setErrors({ [field]: getAuthErrorMessage(changeError) });
+      } else {
+        Alert.alert('Error', getAuthErrorMessage(changeError));
+      }
     } finally {
       setIsSubmitting(false);
     }
