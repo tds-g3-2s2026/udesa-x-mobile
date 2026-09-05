@@ -207,14 +207,14 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
   });
 });
 
-describe('E1-H13. Cambiar Contraseña', () => {
+describe('Change password', () => {
   const validChange = {
     currentPassword: 'Vieja1234',
     password: 'Nueva1234',
     passwordConfirmation: 'Nueva1234',
   };
 
-  it('E1-H13.CA1 - pide contraseña actual, nueva y confirmación', () => {
+  it('requires the current password, new password, and confirmation', () => {
     expect(changePasswordSchema.safeParse(validChange).success).toBe(true);
 
     const result = changePasswordSchema.safeParse({ ...validChange, currentPassword: '' });
@@ -223,7 +223,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
     expect(result.error.issues[0].message).toBe('Ingresá tu contraseña actual');
   });
 
-  it('E1-H13.CA2 - aplica la misma política de contraseña que el registro', () => {
+  it('applies the same password policy as registration', () => {
     const weak = changePasswordSchema.safeParse({
       ...validChange,
       password: 'minuscula1',
@@ -237,7 +237,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
     );
   });
 
-  it('E1-H13.CA2 - rechaza que la nueva sea igual a la actual, marcando el campo nuevo', () => {
+  it('rejects a new password equal to the current one and marks the new password field', () => {
     const result = changePasswordSchema.safeParse({
       currentPassword: 'Vieja1234',
       password: 'Vieja1234',
@@ -251,7 +251,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
     expect(issue.path).toEqual(['password']);
   });
 
-  it('E1-H13.CA1 - rechaza la confirmación que no coincide, culpando al segundo campo', () => {
+  it('rejects a mismatched confirmation and marks the confirmation field', () => {
     const result = changePasswordSchema.safeParse({
       ...validChange,
       passwordConfirmation: 'Nueva1235',
