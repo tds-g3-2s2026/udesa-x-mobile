@@ -60,6 +60,15 @@ token_issues = count(1)
 # Tokens de recuperación emitidos: {token: {"email", "expires_at", "used"}}.
 reset_tokens: dict[str, dict[str, Any]] = {}
 
+# Intentos fallidos de cambio de contraseña por cuenta. Es un contador APARTE
+# del lockout de login: errar acá no bloquea la entrada a la app.
+change_password_attempts: dict[str, int] = {}
+CHANGE_PASSWORD_ATTEMPT_LIMIT = 3
+CHANGE_PASSWORD_LOCK_SECONDS = 900
+
+# Último número de emisión invalidado por cuenta: {handle sin @: serial}.
+sessions_revoked_up_to: dict[str, int] = {}
+
 # Momentos en que se pidió un link por identificador, para el límite de pedidos.
 reset_requests: dict[str, list[float]] = {}
 
@@ -162,6 +171,30 @@ def issue_reset_token(email: str) -> str:
     return token
 
 
+def split_access_token(token: str) -> tuple[str, int] | None:
+    """Handle y número de emisión de un access token emitido por este mock."""
+    prefix = "mock-access-token-"
+    if not token.startswith(prefix):
+        return None
+    handle, _, serial = token[len(prefix) :].rpartition("-")
+    if not handle or not serial.isdigit():
+        return None
+    return handle, int(serial)
+
+
+def is_access_token_revoked(token: str) -> bool:
+    """Un token queda revocado si su emisión es anterior al último corte de la cuenta.
+
+    Modela "se revocaron todas las sesiones" sin llevar una tabla de sesiones:
+    alcanza con recordar hasta qué número de emisión quedó todo invalidado.
+    """
+    parts = split_access_token(token)
+    if parts is None:
+        return False
+    handle, serial = parts
+    return serial <= sessions_revoked_up_to.get(handle, 0)
+
+
 def handle_from_refresh_token(token: str) -> str | None:
     """Handle codificado en un refresh token emitido por este mock."""
     if not token.startswith(REFRESH_TOKEN_PREFIX):
@@ -192,6 +225,10 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         if endpoint_path == "/auth/logout":
             self.logout()
+            return
+
+        if endpoint_path == "/me/change-password":
+            self.change_password()
             return
 
         body = self.read_json()
@@ -411,6 +448,123 @@ class AuthHandler(BaseHTTPRequestHandler):
         print(f"    contraseña cambiada para {account['user']['handle']}")
 
         self.send_json(200, {"status": "reset", "handle": account["user"]["handle"]})
+
+    def change_password(self) -> None:
+        """Cambia la contraseña de la sesión abierta y revoca todas las sesiones.
+
+        Es el único endpoint que consulta la revocación, igual que en la API real:
+        /auth/logout sigue aceptando un token ya revocado.
+        """
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer ") or not auth_header[len("Bearer ") :].strip():
+            # Sin header, el 401 lo genera FastAPI y no el formateador: sale sin
+            # `type` y en inglés. Se replica tal cual para que el cliente lo vea
+            # igual que contra la API real.
+            self.send_json(
+                401,
+                {"detail": "Not authenticated"},
+                extra_headers={"WWW-Authenticate": "Bearer"},
+            )
+            return
+
+        token = auth_header[len("Bearer ") :].strip()
+        parts = split_access_token(token)
+        if parts is None:
+            self.send_problem(
+                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
+            )
+            return
+        if is_access_token_revoked(token):
+            self.send_problem(
+                401,
+                "La sesión ya no es válida",
+                "Tu sesión se cerró. Iniciá sesión de nuevo",
+                code="session-revoked",
+            )
+            return
+
+        account = find_account(parts[0])
+        if account is None:
+            self.send_problem(
+                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
+            )
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        current = str(body.get("current_password", ""))
+        password = str(body.get("password", ""))
+        confirmation = str(body.get("password_confirmation", ""))
+
+        errors: list[dict[str, str]] = []
+        if not current:
+            errors.append({"field": "current_password", "message": "Field required"})
+
+        policy_errors = password_policy_errors(password)
+        for message in policy_errors:
+            errors.append({"field": "password", "message": message})
+        if not policy_errors and password != confirmation:
+            errors.append(
+                {
+                    "field": "password_confirmation",
+                    "message": "Value error, Las contraseñas no coinciden",
+                }
+            )
+        if errors:
+            self.send_problem(
+                422,
+                "Datos inválidos",
+                "Revisá los campos marcados.",
+                code="validation-failed",
+                errors=errors,
+            )
+            return
+
+        handle = account["user"]["handle"]
+        # El límite se chequea antes de mirar la contraseña: pasado el tope, ya
+        # no importa si acierta.
+        if change_password_attempts.get(handle, 0) >= CHANGE_PASSWORD_ATTEMPT_LIMIT:
+            self.send_problem(
+                429,
+                "Demasiados intentos",
+                "Erraste la contraseña actual demasiadas veces. Volvé a intentar el cambio en 15 minutos",
+                code="too-many-password-attempts",
+                extra_headers={"Retry-After": str(CHANGE_PASSWORD_LOCK_SECONDS)},
+            )
+            return
+
+        if account["password"] != current:
+            change_password_attempts[handle] = change_password_attempts.get(handle, 0) + 1
+            # 400 y no 401: el token es válido, lo que falló es un campo del
+            # formulario. Un 401 haría que el cliente lo lea como sesión vencida.
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "La contraseña actual no es correcta",
+                code="invalid-current-password",
+            )
+            return
+
+        if password == current:
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "La contraseña nueva tiene que ser distinta de la actual",
+                code="password-unchanged",
+            )
+            return
+
+        account["password"] = password
+        change_password_attempts.pop(handle, None)
+        # Todas las sesiones emitidas hasta ahora quedan muertas, incluida la
+        # que hizo esta llamada.
+        sessions_revoked_up_to[handle.lstrip("@")] = parts[1]
+        print(f"    contraseña cambiada desde la sesión de {handle}")
+
+        self.send_json(200, {"status": "changed"})
 
     def logout(self) -> None:
         """Revoca el token del header Authorization. Sin cuerpo, así que no

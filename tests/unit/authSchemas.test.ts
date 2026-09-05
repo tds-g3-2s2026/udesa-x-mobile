@@ -1,4 +1,5 @@
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   normalizeHandle,
@@ -183,8 +184,8 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
   });
 
   it('E1-H5.CA3 - applies the same password policy as the registration', () => {
-    // Same values and same messages as the E1-H1 cases above: a copy of the
-    // rules that drifted would show up right here.
+    // Same values and same messages as the registration cases above: a copy
+    // of the rules that drifted would show up right here.
     expect(resetErrorFor('password', 'Short1')).toBe(
       'La contraseña debe tener al menos 8 caracteres'
     );
@@ -203,6 +204,62 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.token).toBe('abc123');
+  });
+});
+
+describe('E1-H13. Cambiar Contraseña', () => {
+  const validChange = {
+    currentPassword: 'Vieja1234',
+    password: 'Nueva1234',
+    passwordConfirmation: 'Nueva1234',
+  };
+
+  it('E1-H13.CA1 - pide contraseña actual, nueva y confirmación', () => {
+    expect(changePasswordSchema.safeParse(validChange).success).toBe(true);
+
+    const result = changePasswordSchema.safeParse({ ...validChange, currentPassword: '' });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0].message).toBe('Ingresá tu contraseña actual');
+  });
+
+  it('E1-H13.CA2 - aplica la misma política de contraseña que el registro', () => {
+    const weak = changePasswordSchema.safeParse({
+      ...validChange,
+      password: 'minuscula1',
+      passwordConfirmation: 'minuscula1',
+    });
+
+    expect(weak.success).toBe(false);
+    if (weak.success) return;
+    expect(weak.error.issues[0].message).toBe(
+      'La contraseña debe contener al menos una letra mayúscula'
+    );
+  });
+
+  it('E1-H13.CA2 - rechaza que la nueva sea igual a la actual, marcando el campo nuevo', () => {
+    const result = changePasswordSchema.safeParse({
+      currentPassword: 'Vieja1234',
+      password: 'Vieja1234',
+      passwordConfirmation: 'Vieja1234',
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issue = result.error.issues[0];
+    expect(issue.message).toBe('La contraseña nueva tiene que ser distinta de la actual');
+    expect(issue.path).toEqual(['password']);
+  });
+
+  it('E1-H13.CA1 - rechaza la confirmación que no coincide, culpando al segundo campo', () => {
+    const result = changePasswordSchema.safeParse({
+      ...validChange,
+      passwordConfirmation: 'Nueva1235',
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0].path).toEqual(['passwordConfirmation']);
   });
 });
 

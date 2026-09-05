@@ -21,6 +21,10 @@ export default function AppLayout() {
         },
       }}
     >
+      {/* Reachable from the Perfil tab, not from the bar: `href: null` keeps it
+          routable without adding a fifth icon. */}
+      <Tabs.Screen name="change-password" options={{ href: null }} />
+
       <Tabs.Screen
         name="index"
         options={{

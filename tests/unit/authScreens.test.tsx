@@ -13,6 +13,7 @@ import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
 import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
+import ChangePasswordScreen from '../../app/(app)/change-password';
 import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
 import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
@@ -401,6 +402,112 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
     expect(useAuthStore.getState().accessToken).toBeNull();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
+  });
+});
+
+describe('E1-H13. Cambiar Contraseña', () => {
+  const loggedIn = {
+    user: {
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
+      fullName: 'Joaquín León',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  async function fillChange(current: string, next: string, confirmation: string) {
+    const fields = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.changeText(fields[0], current);
+    fireEvent.changeText(fields[1], next);
+    fireEvent.changeText(fields[2], confirmation);
+  }
+
+  it('E1-H13.CA3 - un cambio exitoso borra la sesión local para volver al login', async () => {
+    jest.spyOn(authService, 'changePassword').mockResolvedValue(undefined);
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    // El backend mató todas las sesiones, incluida la que hizo la llamada.
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
+  });
+
+  it('E1-H13.CA4 - la contraseña actual equivocada marca el campo y NO cierra la sesión', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError('La contraseña actual no es correcta', 'invalid-current-password')
+      );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Equivocada1', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() =>
+      expect(screen.getByText('La contraseña actual no es correcta')).toBeTruthy()
+    );
+    // Lo importante: un error de tipeo no puede echar al usuario de la app.
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it('E1-H13.CA3 - una sesión ya revocada borra la sesión local', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+  });
+
+  it('E1-H13.CA4 - el límite de intentos se muestra sin cerrar la sesión', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError(
+          'Erraste la contraseña actual demasiadas veces. Volvé a intentar el cambio en 15 minutos',
+          'too-many-password-attempts'
+        )
+      );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Equivocada1', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(screen.getByText(/demasiadas veces/)).toBeTruthy());
+    // El contador es separado del lockout de login: el usuario sigue adentro.
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it('E1-H13.CA2 - la contraseña repetida se corta antes de llegar a la API', async () => {
+    const changePassword = jest.spyOn(authService, 'changePassword');
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Vieja1234', 'Vieja1234');
+    await press('Guardar contraseña');
+
+    expect(
+      screen.getByText('La contraseña nueva tiene que ser distinta de la actual')
+    ).toBeTruthy();
+    expect(changePassword).not.toHaveBeenCalled();
   });
 });
 

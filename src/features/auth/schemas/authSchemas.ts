@@ -68,11 +68,31 @@ export function normalizeHandle(value: string): string {
   return cleaned.length > 0 ? `@${cleaned}`.slice(0, 15) : '';
 }
 
+// Changing the password from an open session asks for the current one on top
+// of the pair the reset already asks for.
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Ingresá tu contraseña actual'),
+    password: passwordSchema,
+    passwordConfirmation: z.string().min(1, 'Repetí la contraseña nueva'),
+  })
+  .refine((values) => values.password === values.passwordConfirmation, {
+    message: 'Las contraseñas no coinciden',
+    path: ['passwordConfirmation'],
+  })
+  // The API rejects this too; checking it here saves a round trip and says it
+  // on the field the user has to change.
+  .refine((values) => values.password !== values.currentPassword, {
+    message: 'La contraseña nueva tiene que ser distinta de la actual',
+    path: ['password'],
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export type RegisterField = keyof RegisterInput;
 

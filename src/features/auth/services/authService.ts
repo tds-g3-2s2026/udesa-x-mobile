@@ -1,5 +1,6 @@
 import { AuthResponse, AuthTokens, RefreshResponse, RegisterResponse } from '../../../types/auth';
 import {
+  ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -102,6 +103,25 @@ export const authService = {
         }
       );
       return { handle: response.data.handle };
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo cambiar la contraseña. Intentalo de nuevo.');
+    }
+  },
+
+  // Changes the password of the open session. Lives under /me and not /auth
+  // because it is the first endpoint of the service that requires a token: the
+  // request interceptor attaches it like on any other authenticated call.
+  //
+  // On success every session of the account is revoked server-side, including
+  // the one that made this call, so the caller has to drop the local session
+  // instead of trying to reuse or refresh the token it just spent.
+  async changePassword(data: ChangePasswordInput): Promise<void> {
+    try {
+      await apiClient.post('/me/change-password', {
+        current_password: data.currentPassword,
+        password: data.password,
+        password_confirmation: data.passwordConfirmation,
+      });
     } catch (error) {
       throw toAuthError(error, 'No se pudo cambiar la contraseña. Intentalo de nuevo.');
     }
