@@ -1,0 +1,14 @@
+name: udesa-x-mobile
+
+# The app runs with Expo, not in a container. This compose exists only to run
+# the suite the same way the CI does, with one command.
+services:
+  # No source volume on purpose: mounting it would replace what the image
+  # carries and stop testing the real artifact.
+  tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+    # Without this it would start on every `docker compose up`.
+    profiles: ['test']

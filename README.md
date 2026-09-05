@@ -79,6 +79,31 @@ bun x tsc --noEmit   # Chequeo de tipos
 bun run format       # Aplica el formato de Prettier
 ```
 
+### Como los corre el CI: dentro de la imagen
+
+Lo de arriba corre sobre tu máquina. **El CI los corre adentro de una imagen Docker**, para que
+el resultado no dependa de cómo esté armada la máquina:
+
+```bash
+docker compose -f docker/docker-compose.dev.yml run --rm --build tests
+```
+
+El `--build` no es opcional: sin él, el compose corre la imagen cacheada y podrías estar
+verificando código viejo.
+
+Ese `Dockerfile` **existe solo para los tests**. La app se distribuye por Expo y no despliega
+ningún contenedor, así que no tiene stage de producción: lo único que fija es el entorno donde
+corre la suite. La versión de Bun está en `.bun-version` y en el `Dockerfile`.
+
+**Por qué existe el `moduleNameMapper` de `@react-navigation`.** Esos paquetes publican
+únicamente un build ESM, con un `{"type":"module"}` anidado que Jest, corriendo en CommonJS, se
+niega a `require`. También publican su código fuente, y el mapeo apunta ahí para que Babel lo
+compile.
+
+Sin eso la suite **fallaba en Linux y pasaba en Windows**: Jest no encuentra ese `package.json`
+anidado en Windows y trata el archivo como CommonJS. Nadie lo había notado porque nunca se
+habían corrido los tests fuera de una máquina Windows.
+
 ## Sesión, splash y refresco de token
 
 Al arrancar, `app/_layout.tsx` sostiene el splash nativo con `expo-splash-screen` mientras

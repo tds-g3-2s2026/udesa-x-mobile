@@ -8,10 +8,10 @@ coverage/
 .DS_Store
 *.log
 
-# Cache de Python: el mock de la API es un script de la biblioteca estándar
+# Python cache: the API mock is a standard-library script
 __pycache__/
 
-# Borrador local de la descripción del PR: se pega en GitHub, no se versiona
+# Local draft of the PR body: it gets pasted into GitHub, not versioned
 PR_DESCRIPTION.md
 
 # @generated expo-cli sync-2b81b286409207a5da26e14c78851eb30d8ccbdb
