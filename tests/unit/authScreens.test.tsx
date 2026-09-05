@@ -73,7 +73,7 @@ afterEach(() => {
   useRegisterDraft.getState().reset();
 });
 
-describe('E1-H1. Registro de Usuarios', () => {
+describe('Registration', () => {
   it('the first step only moves on once the name is filled', async () => {
     renderScreen(<RegisterNameScreen />);
     await press('Continuar');
@@ -183,8 +183,8 @@ describe('E1-H1. Registro de Usuarios', () => {
   });
 });
 
-describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
-  it('blocks Crear cuenta until the terms checkbox is checked', async () => {
+describe('Terms and privacy policy acceptance', () => {
+  it('blocks account creation until the terms checkbox is checked', async () => {
     const register = jest.spyOn(authService, 'register').mockResolvedValue({
       user: {
         id: 'usr-1',
@@ -236,7 +236,7 @@ describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
   });
 });
 
-describe('E1-H2. Inicio de Sesión', () => {
+describe('Sign in', () => {
   it('a successful login opens the session that unlocks the private group', async () => {
     jest.spyOn(authService, 'login').mockResolvedValue({
       user: {
@@ -273,7 +273,7 @@ describe('E1-H2. Inicio de Sesión', () => {
   });
 });
 
-describe('E1-H5. Olvidé Mi Contraseña', () => {
+describe('Forgot password', () => {
   const IDENTIFIER_FIELD = 'ej. @joaquin_dev o jleon@udesa.edu.ar';
   const TOKEN_FIELD = 'Pegá el código acá';
 
@@ -405,7 +405,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
   });
 });
 
-describe('E1-H13. Cambiar Contraseña', () => {
+describe('Change password', () => {
   const loggedIn = {
     user: {
       id: 'usr-1',
@@ -511,7 +511,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
   });
 });
 
-describe('E1-H3. Cierre de Sesión', () => {
+describe('Sign out', () => {
   const loggedInSession = {
     user: {
       id: 'usr-1',
@@ -554,7 +554,7 @@ describe('E1-H3. Cierre de Sesión', () => {
   });
 });
 
-describe('Espacio para el teclado', () => {
+describe('Keyboard spacing', () => {
   // Screen 800 tall with a keyboard 300 tall, so its top edge sits at y=500.
   const KEYBOARD_METRICS = { screenX: 0, screenY: 500, width: 390, height: 300 };
 

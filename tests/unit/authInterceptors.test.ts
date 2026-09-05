@@ -63,8 +63,8 @@ beforeEach(() => {
   });
 });
 
-describe('T-52. Interceptores de Axios', () => {
-  it('T-52 - every request carries the access token of the live session', async () => {
+describe('Axios interceptors', () => {
+  it('adds the live session access token to every request', async () => {
     adapter.mockImplementation((config) => Promise.resolve(apiSuccess(config, { items: [] })));
 
     await apiClient.get('/feed');
@@ -73,7 +73,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(authorizationOf(0)).toBe('Bearer access-token-1');
   });
 
-  it('T-52 - a 401 renews the tokens and the failed request goes out again', async () => {
+  it('renews tokens and replays a failed request after a 401', async () => {
     const failed = new Set<string>();
     adapter.mockImplementation((config) => {
       const url = String(config.url);
@@ -105,7 +105,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(state.user).toEqual(user);
   });
 
-  it('T-52 - requests that fail at the same time share a single refresh', async () => {
+  it('shares a single refresh between requests that fail at the same time', async () => {
     const failed = new Set<string>();
     adapter.mockImplementation((config) => {
       const url = String(config.url);
@@ -124,7 +124,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(requestsTo('/auth/refresh')).toHaveLength(1);
   });
 
-  it('T-52 - a rejected refresh clears the session and reports the original error', async () => {
+  it('clears the session and reports the original error after a rejected refresh', async () => {
     adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
 
     await expect(apiClient.get('/feed')).rejects.toMatchObject({
@@ -139,7 +139,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_refresh_token');
   });
 
-  it('T-52 - a 401 without a stored refresh token ends the session right away', async () => {
+  it('ends the session on a 401 without a stored refresh token', async () => {
     useAuthStore.setState({ refreshToken: null });
     adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
 
@@ -150,7 +150,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(useAuthStore.getState().user).toBeNull();
   });
 
-  it('T-52 - a 401 on the refresh endpoint is never refreshed again', async () => {
+  it('never refreshes a 401 from the refresh endpoint', async () => {
     adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
 
     await expect(authService.refreshToken('refresh-token-1')).rejects.toThrow(
@@ -163,7 +163,7 @@ describe('T-52. Interceptores de Axios', () => {
     expect(useAuthStore.getState().user).toEqual(user);
   });
 
-  it('E1-H3.CA2 - a 401 on logout is never refreshed or retried', async () => {
+  it('never refreshes or retries a 401 on logout', async () => {
     adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
 
     // authService.logout is best effort and swallows this itself; what this

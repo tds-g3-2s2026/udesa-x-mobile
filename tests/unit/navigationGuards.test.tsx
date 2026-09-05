@@ -60,7 +60,7 @@ beforeEach(() => {
 // The root layout mounts one navigation group or the other with Stack.Protected.
 // These tests pin that contract: the group the session does not allow is never
 // mounted, which is what used to show the feed for a frame before redirecting.
-describe('Guardas de navegación', () => {
+describe('Navigation guards', () => {
   it('starts on the login when the device has no stored session', async () => {
     renderRouter('app', { initialUrl: '/' });
 
@@ -81,7 +81,7 @@ describe('Guardas de navegación', () => {
     expect(screen.queryByText(LOGIN_SUBTITLE)).toBeNull();
   });
 
-  it('E1-H3.CA2 - clearing the session sends the user back to the public group', async () => {
+  it('sends the user back to the public group after clearing the session', async () => {
     persistSession();
 
     renderRouter('app', { initialUrl: '/profile' });

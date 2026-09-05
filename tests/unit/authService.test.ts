@@ -45,7 +45,7 @@ describe('Auth service', () => {
     post.mockReset();
   });
 
-  describe('E1-H2. Inicio de Sesión', () => {
+  describe('Sign in', () => {
     it('returns the tokens issued by the API for valid credentials', async () => {
       post.mockResolvedValueOnce(apiSuccess(session));
 
@@ -87,7 +87,7 @@ describe('Auth service', () => {
     });
   });
 
-  describe('E1-H1. Registro de Usuarios', () => {
+  describe('Registration', () => {
     it('propagates the duplicated email error reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(409, { detail: 'El correo ya está registrado' }));
 
@@ -148,7 +148,7 @@ describe('Auth service', () => {
     });
   });
 
-  describe('E1-H5. Olvidé Mi Contraseña', () => {
+  describe('Forgot password', () => {
     it('asks for the link with the identifier, as the API names it', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
 
@@ -279,7 +279,7 @@ describe('Auth service', () => {
     });
   });
 
-  describe('E1-H13. Cambiar Contraseña', () => {
+  describe('Change password', () => {
     const change = {
       currentPassword: 'Vieja1234',
       password: 'Nueva1234',
@@ -345,7 +345,7 @@ describe('Auth service', () => {
     });
   });
 
-  describe('E1-H3. Cierre de Sesión', () => {
+  describe('Sign out', () => {
     it('requests revocation of the active session token with a short timeout', async () => {
       post.mockResolvedValueOnce(apiSuccess(undefined));
 
@@ -367,8 +367,8 @@ describe('Auth service', () => {
     });
   });
 
-  describe('T-52. Refresco de token', () => {
-    it('T-52 - trades the refresh token for the new pair issued by the API', async () => {
+  describe('Token refresh', () => {
+    it('trades the refresh token for the new pair issued by the API', async () => {
       post.mockResolvedValueOnce(
         apiSuccess({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
       );
@@ -381,7 +381,7 @@ describe('Auth service', () => {
       expect(tokens).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
     });
 
-    it('T-52 - propagates the rejection of the refresh token reported by the API', async () => {
+    it('propagates the rejection of the refresh token reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(401, { detail: 'El refresh token no es válido' }));
 
       await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(
@@ -389,7 +389,7 @@ describe('Auth service', () => {
       );
     });
 
-    it('T-52 - falls back to its own message when the API sends no detail', async () => {
+    it('falls back to its own message when the API sends no detail', async () => {
       post.mockRejectedValueOnce(apiFailure(401, ''));
 
       await expect(authService.refreshToken('expired-refresh-token')).rejects.toThrow(
