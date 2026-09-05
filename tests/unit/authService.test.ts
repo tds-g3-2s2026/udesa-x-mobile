@@ -148,6 +148,137 @@ describe('Auth service', () => {
     });
   });
 
+  describe('E1-H5. Olvidé Mi Contraseña', () => {
+    it('E1-H5.CA4 - asks for the link with the identifier, as the API names it', async () => {
+      post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
+
+      await authService.forgotPassword({ identifier: 'jleon@udesa.edu.ar' });
+
+      expect(post).toHaveBeenCalledWith('/auth/forgot-password', {
+        identifier: 'jleon@udesa.edu.ar',
+      });
+    });
+
+    it('E1-H5.CA3 - sends password_confirmation in snake_case, matching the contract', async () => {
+      post.mockResolvedValueOnce(apiSuccess({ status: 'reset', handle: '@joaquin_dev' }));
+
+      const result = await authService.resetPassword({
+        token: 'reset-token-1',
+        password: 'Password123',
+        passwordConfirmation: 'Password123',
+      });
+
+      expect(post).toHaveBeenCalledWith('/auth/reset-password', {
+        token: 'reset-token-1',
+        password: 'Password123',
+        password_confirmation: 'Password123',
+      });
+      expect(result.handle).toBe('@joaquin_dev');
+    });
+
+    // The bodies below are the real ones users-api returns, verified against
+    // the running service: the failure is identified by the last segment of
+    // `type` and there is no `code` field. Reading a `code` looked right and
+    // passed against a mock that invented one, so these keep that from
+    // happening again.
+    it('E1-H5.CA2 - identifies an expired link by its type, so the screen can offer a new one', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(400, {
+          type: 'https://udesa-x.dev/errors/reset-token-invalid',
+          title: 'No se pudo cambiar la contraseña',
+          status: 400,
+          detail: 'El link de recuperación es inválido o expiró. Pedí uno nuevo',
+          traceId: 'd85b2aed',
+          instance: '/auth/reset-password',
+        })
+      );
+
+      await expect(
+        authService.resetPassword({
+          token: 'expired-token',
+          password: 'Password123',
+          passwordConfirmation: 'Password123',
+        })
+      ).rejects.toMatchObject({
+        code: 'reset-token-invalid',
+        message: 'El link de recuperación es inválido o expiró. Pedí uno nuevo',
+      });
+    });
+
+    it('E1-H5.CA6 - identifies the reuse of the current password by its type', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(400, {
+          type: 'https://udesa-x.dev/errors/password-unchanged',
+          detail: 'La contraseña nueva tiene que ser distinta de la actual',
+        })
+      );
+
+      await expect(
+        authService.resetPassword({
+          token: 'reset-token-1',
+          password: 'Password123',
+          passwordConfirmation: 'Password123',
+        })
+      ).rejects.toMatchObject({ code: 'password-unchanged' });
+    });
+
+    it('E1-H5.CA3 - keeps the rejected fields of a 422 so the screen can mark the input', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/validation-failed',
+          detail: 'Revisá los campos marcados.',
+          errors: [
+            {
+              field: 'password_confirmation',
+              message: 'Value error, Las contraseñas no coinciden',
+            },
+          ],
+        })
+      );
+
+      await expect(
+        authService.resetPassword({
+          token: 'reset-token-1',
+          password: 'Password123',
+          passwordConfirmation: 'Password124',
+        })
+      ).rejects.toMatchObject({
+        fieldErrors: {
+          password_confirmation: 'Value error, Las contraseñas no coinciden',
+        },
+      });
+    });
+
+    it('E1-H5.CA8 - propagates the rate limit message reported by the API', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(429, {
+          type: 'https://udesa-x.dev/errors/too-many-reset-requests',
+          detail: 'Se pidieron demasiados links de recuperación. Esperá 60 minutos',
+        })
+      );
+
+      await expect(
+        authService.forgotPassword({ identifier: 'jleon@udesa.edu.ar' })
+      ).rejects.toThrow('Se pidieron demasiados links de recuperación. Esperá 60 minutos');
+    });
+
+    it('leaves the code empty when the API identifies nothing beyond the status', async () => {
+      // 'about:blank' is what RFC 9457 uses when there is no specific type,
+      // and it must not be mistaken for an error identifier.
+      post.mockRejectedValueOnce(
+        apiFailure(400, { type: 'about:blank', detail: 'Algo salió mal' })
+      );
+
+      await expect(
+        authService.resetPassword({
+          token: 'reset-token-1',
+          password: 'Password123',
+          passwordConfirmation: 'Password123',
+        })
+      ).rejects.toMatchObject({ code: undefined, message: 'Algo salió mal' });
+    });
+  });
+
   describe('E1-H3. Cierre de Sesión', () => {
     it('E1-H3.CA2 - requests the revocation of the active session token with a short timeout', async () => {
       post.mockResolvedValueOnce(apiSuccess(undefined));

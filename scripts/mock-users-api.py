@@ -20,9 +20,11 @@ Sin dependencias: solo biblioteca estándar.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import subprocess
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from typing import Any
@@ -54,6 +56,22 @@ REFRESH_TOKEN_PREFIX = "mock-refresh-token-"
 # Cada emisión lleva un número distinto, así se ve en la app que el token cambió
 # después de un refresco.
 token_issues = count(1)
+
+# Tokens de recuperación emitidos: {token: {"email", "expires_at", "used"}}.
+reset_tokens: dict[str, dict[str, Any]] = {}
+
+# Momentos en que se pidió un link por identificador, para el límite de pedidos.
+reset_requests: dict[str, list[float]] = {}
+
+RESET_TOKEN_PREFIX = "mock-reset-token-"
+# Base de los `type` de error, igual que la que usa users-api: el último
+# segmento es el identificador que el cliente rutea.
+ERROR_TYPE_BASE = "https://udesa-x.dev/errors"
+# El link dura 10 minutos, el máximo que fija la historia.
+RESET_TOKEN_TTL_SECONDS = 600
+# Tres pedidos por hora para el mismo identificador.
+RESET_REQUEST_LIMIT = 3
+RESET_REQUEST_WINDOW_SECONDS = 3600
 
 
 def build_user(handle: str, email: str, full_name: str, is_verified: bool) -> dict[str, Any]:
@@ -95,6 +113,53 @@ def issue_tokens(handle: str) -> dict[str, str]:
         "accessToken": f"mock-access-token-{bare}-{serial}",
         "refreshToken": f"{REFRESH_TOKEN_PREFIX}{bare}-{serial}",
     }
+
+
+def password_policy_errors(password: str) -> list[str]:
+    """Mensajes de la política de contraseña, en el orden en que los manda la API."""
+    messages: list[str] = []
+    if len(password) < 8:
+        messages.append("String should have at least 8 characters")
+    if not re.search(r"[A-Z]", password):
+        messages.append("Value error, La contraseña debe tener al menos una mayúscula")
+    if not re.search(r"[0-9]", password):
+        messages.append("Value error, La contraseña debe tener al menos un número")
+    return messages
+
+
+def is_reset_request_allowed(identifier: str) -> bool:
+    """Aplica el límite de pedidos por identificador y registra el intento.
+
+    El contador va por identificador y no por cuenta a propósito: compartirlo
+    exigiría resolver el identificador a una cuenta, y ahí el 429 delataría
+    cuáles existen, que es justo lo que el mensaje genérico evita.
+    """
+    now = time.time()
+    recent = [
+        moment
+        for moment in reset_requests.get(identifier, [])
+        if now - moment < RESET_REQUEST_WINDOW_SECONDS
+    ]
+    reset_requests[identifier] = recent
+    if len(recent) >= RESET_REQUEST_LIMIT:
+        return False
+    recent.append(now)
+    return True
+
+
+def issue_reset_token(email: str) -> str:
+    """Token de recuperación nuevo, que invalida los que la cuenta tenga abiertos."""
+    for token, data in list(reset_tokens.items()):
+        if data["email"] == email:
+            del reset_tokens[token]
+
+    token = f"{RESET_TOKEN_PREFIX}{next(token_issues)}"
+    reset_tokens[token] = {
+        "email": email,
+        "expires_at": time.time() + RESET_TOKEN_TTL_SECONDS,
+        "used": False,
+    }
+    return token
 
 
 def handle_from_refresh_token(token: str) -> str | None:
@@ -140,6 +205,8 @@ class AuthHandler(BaseHTTPRequestHandler):
             "/auth/verify-email": self.verify_email,
             "/auth/resend-verification": self.resend_verification,
             "/auth/refresh": self.refresh,
+            "/auth/forgot-password": self.forgot_password,
+            "/auth/reset-password": self.reset_password,
         }
         endpoint = endpoints.get(endpoint_path)
         if endpoint is None:
@@ -241,13 +308,126 @@ class AuthHandler(BaseHTTPRequestHandler):
             return
         self.send_json(200, {"tokens": issue_tokens(account["user"]["handle"])})
 
+    def forgot_password(self, body: dict[str, Any]) -> None:
+        """Pide un link de recuperación. Responde siempre igual, exista o no la cuenta."""
+        identifier = str(body.get("identifier", "")).strip()
+        if not identifier:
+            self.send_problem(
+                422,
+                "Datos incompletos",
+                "Falta el identificador.",
+                code="validation-failed",
+                errors=[{"field": "identifier", "message": "Field required"}],
+            )
+            return
+
+        if not is_reset_request_allowed(identifier.lower()):
+            self.send_problem(
+                429,
+                "Demasiados pedidos",
+                "Se pidieron demasiados links de recuperación. Esperá 60 minutos",
+                code="too-many-reset-requests",
+                extra_headers={"Retry-After": str(RESET_REQUEST_WINDOW_SECONDS)},
+            )
+            return
+
+        account = find_account(identifier)
+        if account is not None:
+            token = issue_reset_token(account["user"]["email"])
+            print(f"    recuperación de {account['user']['handle']}: el código es {token}")
+        else:
+            # Sin cuenta no hay token, pero la respuesta es la misma: que no se
+            # pueda distinguir es justamente el punto.
+            print(f"    recuperación pedida para <{identifier}>: no hay cuenta, no se emite token")
+
+        self.send_json(202, {"status": "accepted"})
+
+    def reset_password(self, body: dict[str, Any]) -> None:
+        """Cambia la contraseña con un token de un solo uso."""
+        token = str(body.get("token", "")).strip()
+        password = str(body.get("password", ""))
+        confirmation = str(body.get("password_confirmation", ""))
+
+        errors: list[dict[str, str]] = []
+        if not token:
+            errors.append({"field": "token", "message": "Field required"})
+        policy_errors = password_policy_errors(password)
+        for message in policy_errors:
+            errors.append({"field": "password", "message": message})
+
+        # Si la contraseña ya falló su propia validación, el aviso de que la
+        # confirmación no coincide se suprime: primero hay que arreglar la
+        # contraseña. Mismo criterio que la API real.
+        if not policy_errors and password != confirmation:
+            errors.append(
+                {
+                    "field": "password_confirmation",
+                    "message": "Value error, Las contraseñas no coinciden",
+                }
+            )
+        if errors:
+            self.send_problem(
+                422,
+                "Datos inválidos",
+                "Revisá los campos marcados.",
+                code="validation-failed",
+                errors=errors,
+            )
+            return
+
+        data = reset_tokens.get(token)
+        # Un mismo error para inexistente, vencido y ya usado: el cliente ofrece
+        # pedir otro link en los tres casos.
+        if data is None or data["used"] or time.time() > data["expires_at"]:
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "El link de recuperación es inválido o expiró. Pedí uno nuevo",
+                code="reset-token-invalid",
+            )
+            return
+
+        account = accounts.get(data["email"])
+        if account is None:
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "El link de recuperación es inválido o expiró. Pedí uno nuevo",
+                code="reset-token-invalid",
+            )
+            return
+
+        if account["password"] == password:
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "La contraseña nueva tiene que ser distinta de la actual",
+                code="password-unchanged",
+            )
+            return
+
+        account["password"] = password
+        data["used"] = True
+        print(f"    contraseña cambiada para {account['user']['handle']}")
+
+        self.send_json(200, {"status": "reset", "handle": account["user"]["handle"]})
+
     def logout(self) -> None:
         """Revoca el token del header Authorization. Sin cuerpo, así que no
         pasa por read_json como el resto de los endpoints."""
         auth_header = self.headers.get("Authorization", "")
         token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
         if not token:
-            self.send_problem(401, "Token inválido", "invalid-token")
+            # El 401 por token inválido lo formatea users-api, así que trae
+            # `type` y texto en español. El 401 por header ausente o mal
+            # formado lo genera FastAPI y sale sin `type` y en inglés; el mock
+            # no lo distingue porque la app traga cualquier error del logout.
+            self.send_problem(
+                401,
+                "No se pudo cerrar la sesión",
+                "El token no es válido",
+                code="invalid-token",
+            )
             return
         # El mock no mantiene una lista de revocación: alcanza con responder 204,
         # que es lo único que el cliente observa (idempotente, igual que la API real).
@@ -265,21 +445,52 @@ class AuthHandler(BaseHTTPRequestHandler):
         return parsed if isinstance(parsed, dict) else None
 
     def send_json(
-        self, status: int, payload: dict[str, Any], content_type: str = "application/json"
+        self,
+        status: int,
+        payload: dict[str, Any],
+        content_type: str = "application/json",
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(raw)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(raw)
 
-    def send_problem(self, status: int, title: str, detail: str) -> None:
-        """Error en formato Problem Details, como pide ARQUITECTURA.md."""
+    def send_problem(
+        self,
+        status: int,
+        title: str,
+        detail: str,
+        code: str | None = None,
+        errors: list[dict[str, str]] | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        """Error en formato Problem Details, como pide ARQUITECTURA.md.
+
+        `code` identifica la falla para que el cliente elija qué ofrecer sin
+        leer el texto, y viaja dentro de `type`. `errors` lleva un campo
+        rechazado por entrada.
+        """
+        payload: dict[str, Any] = {
+            # RFC 9457 pone el identificador del error en el último segmento de
+            # `type`: la API real no manda ningún campo `code` aparte, así que
+            # el cliente lo lee de acá.
+            "type": f"{ERROR_TYPE_BASE}/{code}" if code else "about:blank",
+            "title": title,
+            "status": status,
+            "detail": detail,
+        }
+        if errors is not None:
+            payload["errors"] = errors
         self.send_json(
             status,
-            {"type": "about:blank", "title": title, "status": status, "detail": detail},
+            payload,
             content_type="application/problem+json",
+            extra_headers=extra_headers,
         )
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002

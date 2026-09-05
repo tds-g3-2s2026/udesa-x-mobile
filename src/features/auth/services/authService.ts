@@ -1,5 +1,11 @@
 import { AuthResponse, AuthTokens, RefreshResponse, RegisterResponse } from '../../../types/auth';
-import { LoginInput, RegisterInput, VerifyEmailInput } from '../schemas/authSchemas';
+import {
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+  VerifyEmailInput,
+} from '../schemas/authSchemas';
 import {
   apiClient,
   getAuthErrorMessage,
@@ -67,6 +73,37 @@ export const authService = {
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudo reenviar el código. Intentalo en unos minutos.');
+    }
+  },
+
+  // Asks for a reset link. The API answers the same way whether or not the
+  // account exists, so there is nothing here to tell the caller apart: the
+  // screen shows one generic message either way.
+  async forgotPassword(data: ForgotPasswordInput): Promise<void> {
+    try {
+      await apiClient.post('/auth/forgot-password', { identifier: data.identifier });
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo pedir el link. Intentalo de nuevo.');
+    }
+  },
+
+  // password_confirmation travels in snake_case, the same quirk as
+  // terms_accepted on register: users-api spells its contract that way.
+  // Returns the handle the API reports so the screen can name the account
+  // whose password just changed.
+  async resetPassword(data: ResetPasswordInput): Promise<{ handle: string }> {
+    try {
+      const response = await apiClient.post<{ status: string; handle: string }>(
+        '/auth/reset-password',
+        {
+          token: data.token,
+          password: data.password,
+          password_confirmation: data.passwordConfirmation,
+        }
+      );
+      return { handle: response.data.handle };
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo cambiar la contraseña. Intentalo de nuevo.');
     }
   },
 

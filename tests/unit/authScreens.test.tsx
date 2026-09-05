@@ -13,6 +13,9 @@ import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
 import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
+import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
+import ResetPasswordScreen from '../../app/(auth)/reset-password';
+import { ApiError } from '../../src/api/apiClient';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useRegisterDraft } from '../../src/stores/registerDraftStore';
@@ -266,6 +269,138 @@ describe('E1-H2. Inicio de Sesión', () => {
     await press('Iniciar Sesión');
 
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Credenciales inválidas'));
+  });
+});
+
+describe('E1-H5. Olvidé Mi Contraseña', () => {
+  const IDENTIFIER_FIELD = 'ej. @joaquin_dev o jleon@udesa.edu.ar';
+  const TOKEN_FIELD = 'Pegá el código acá';
+
+  async function fillReset(token: string, password: string, confirmation: string) {
+    fireEvent.changeText(screen.getByPlaceholderText(TOKEN_FIELD), token);
+    const secureFields = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.changeText(secureFields[0], password);
+    fireEvent.changeText(secureFields[1], confirmation);
+  }
+
+  it('E1-H5.CA4 - the request answers with the same generic message, telling nothing apart', async () => {
+    const forgotPassword = jest.spyOn(authService, 'forgotPassword').mockResolvedValue(undefined);
+
+    renderScreen(<ForgotPasswordScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_FIELD), 'noexiste@udesa.edu.ar');
+    await press('Enviar código');
+
+    expect(forgotPassword).toHaveBeenCalledWith({ identifier: 'noexiste@udesa.edu.ar' });
+    // Nothing on screen says whether the account was found.
+    expect(screen.getByText(/Si esa cuenta existe/)).toBeTruthy();
+  });
+
+  it('E1-H5.CA8 - shows the rate limit reported by the API instead of a generic error', async () => {
+    jest
+      .spyOn(authService, 'forgotPassword')
+      .mockRejectedValue(
+        new ApiError(
+          'Se pidieron demasiados links de recuperación. Espera 60 minutos',
+          'too-many-reset-requests'
+        )
+      );
+
+    renderScreen(<ForgotPasswordScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_FIELD), 'jleon@udesa.edu.ar');
+    await press('Enviar código');
+
+    await waitFor(() => expect(screen.getByText(/demasiados links/)).toBeTruthy());
+  });
+
+  it('E1-H5.CA2 - an expired link offers asking for a new one instead of a dead form', async () => {
+    jest
+      .spyOn(authService, 'resetPassword')
+      .mockRejectedValue(
+        new ApiError(
+          'El link de recuperación es invalido o expiro. Pedi uno nuevo',
+          'reset-token-invalid'
+        )
+      );
+
+    renderScreen(<ResetPasswordScreen />);
+    await fillReset('expired-token', 'Password123', 'Password123');
+    await press('Cambiar contraseña');
+
+    await waitFor(() => expect(screen.getByText('El código ya no sirve')).toBeTruthy());
+
+    await press('Pedir un código nuevo');
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/forgot-password');
+  });
+
+  it('E1-H5.CA3 - a mismatched confirmation is caught before reaching the API', async () => {
+    const resetPassword = jest.spyOn(authService, 'resetPassword');
+
+    renderScreen(<ResetPasswordScreen />);
+    await fillReset('reset-token-1', 'Password123', 'Password124');
+    await press('Cambiar contraseña');
+
+    expect(screen.getByText('Las contraseñas no coinciden')).toBeTruthy();
+    expect(resetPassword).not.toHaveBeenCalled();
+  });
+
+  it('E1-H5.CA6 - shows the API refusal to reuse the current password', async () => {
+    jest
+      .spyOn(authService, 'resetPassword')
+      .mockRejectedValue(
+        new ApiError(
+          'La contraseña nueva tiene que ser distinta de la actual',
+          'password-unchanged'
+        )
+      );
+
+    renderScreen(<ResetPasswordScreen />);
+    await fillReset('reset-token-1', 'Password123', 'Password123');
+    await press('Cambiar contraseña');
+
+    await waitFor(() => expect(screen.getByText(/distinta de la actual/)).toBeTruthy());
+  });
+
+  it('E1-H5.CA3 - marks the field the API rejected on a 422', async () => {
+    jest.spyOn(authService, 'resetPassword').mockRejectedValue(
+      new ApiError('Revisá los campos marcados.', 'validation-failed', {
+        password_confirmation: 'Value error, Las contraseñas no coinciden',
+      })
+    );
+
+    renderScreen(<ResetPasswordScreen />);
+    // The client side check has to pass so the API answer is what gets shown.
+    await fillReset('reset-token-1', 'Password123', 'Password123');
+    await press('Cambiar contraseña');
+
+    await waitFor(() =>
+      expect(screen.getByText('Value error, Las contraseñas no coinciden')).toBeTruthy()
+    );
+  });
+
+  it('E1-H5.CA7 - a successful reset wipes the local session before going back to the login', async () => {
+    jest.spyOn(authService, 'resetPassword').mockResolvedValue({ handle: '@joaquin_dev' });
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState({
+      user: {
+        id: 'usr-1',
+        handle: '@joaquin_dev',
+        email: 'jleon@udesa.edu.ar',
+        fullName: 'Joaquín León',
+        isVerified: true,
+      },
+      accessToken: 'jwt-access-token',
+      refreshToken: 'jwt-refresh-token',
+      isInitialized: true,
+    });
+
+    renderScreen(<ResetPasswordScreen />);
+    await fillReset('reset-token-1', 'Password123', 'Password123');
+    await press('Cambiar contraseña');
+
+    // The backend revoked every session, so whatever this device still held is dead.
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
   });
 });
 

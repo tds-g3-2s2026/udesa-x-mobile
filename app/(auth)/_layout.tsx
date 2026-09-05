@@ -36,6 +36,9 @@ export default function AuthLayout() {
 
       <Stack.Screen name="verify-email" options={{ title: 'Verificar Correo' }} />
 
+      <Stack.Screen name="forgot-password" options={{ title: 'Recuperar Cuenta' }} />
+      <Stack.Screen name="reset-password" options={{ title: 'Nueva Contraseña' }} />
+
       {/* Static policy screens linked from the terms checkbox. */}
       <Stack.Screen name="terms" options={{ title: 'Términos y Condiciones' }} />
       <Stack.Screen name="privacy" options={{ title: 'Política de Privacidad' }} />

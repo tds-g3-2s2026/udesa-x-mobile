@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
@@ -96,6 +96,20 @@ export default function LoginScreen() {
           if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
         }}
       />
+
+      <TouchableOpacity
+        style={styles.forgotLink}
+        onPress={() => router.push('/(auth)/forgot-password')}
+      >
+        <Text style={authStyles.footerLink}>¿Olvidaste tu contraseña?</Text>
+      </TouchableOpacity>
     </AuthScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  forgotLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+});

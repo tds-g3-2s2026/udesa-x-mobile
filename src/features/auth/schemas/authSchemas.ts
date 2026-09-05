@@ -14,6 +14,14 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'La contraseña es obligatoria'),
 });
 
+// One definition for the whole app: the password rules of the registration and
+// the ones a reset has to meet are the same rules, and a copy could drift.
+const passwordSchema = z
+  .string()
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .regex(/[A-Z]/, 'La contraseña debe contener al menos una letra mayúscula')
+  .regex(/[0-9]/, 'La contraseña debe contener al menos un número');
+
 export const registerSchema = z.object({
   handle: z.string().min(1, 'El usuario es obligatorio').regex(HANDLE_PATTERN, HANDLE_MESSAGE),
   email: z
@@ -22,12 +30,29 @@ export const registerSchema = z.object({
     .min(1, 'El correo electrónico es obligatorio')
     .email('Ingresá un correo electrónico válido'),
   fullName: z.string().trim().min(2, 'El nombre completo debe tener al menos 2 caracteres'),
-  password: z
-    .string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    .regex(/[A-Z]/, 'La contraseña debe contener al menos una letra mayúscula')
-    .regex(/[0-9]/, 'La contraseña debe contener al menos un número'),
+  password: passwordSchema,
 });
+
+// The reset is asked for with an email or a handle, the same identifier the
+// login takes: the API resolves either one.
+export const forgotPasswordSchema = z.object({
+  identifier: z.string().trim().min(1, 'Ingresá tu correo o nombre de usuario'),
+});
+
+// The token is pasted by hand from the email, so it is trimmed: a copy from a
+// mail client usually drags a space or a newline with it.
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().trim().min(1, 'Pegá el código que te llegó por correo'),
+    password: passwordSchema,
+    passwordConfirmation: z.string().min(1, 'Repetí la contraseña nueva'),
+  })
+  .refine((values) => values.password === values.passwordConfirmation, {
+    message: 'Las contraseñas no coinciden',
+    // Attaches the failure to the second field, which is the one the user has
+    // to retype: blaming the first one would be misleading.
+    path: ['passwordConfirmation'],
+  });
 
 export const verifyEmailSchema = z.object({
   code: z
@@ -46,6 +71,8 @@ export function normalizeHandle(value: string): string {
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export type RegisterField = keyof RegisterInput;
 
