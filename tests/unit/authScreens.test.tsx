@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 describe('E1-H1. Registro de Usuarios', () => {
-  it('E1-H1.CA5 - the first step only moves on once the name is filled', async () => {
+  it('the first step only moves on once the name is filled', async () => {
     renderScreen(<RegisterNameScreen />);
     await press('Continuar');
 
@@ -87,7 +87,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/register/email');
   });
 
-  it('E1-H1.CA3 - the handle step adds the leading @ and stores the normalized handle', async () => {
+  it('the handle step adds the leading @ and stores the normalized handle', async () => {
     renderScreen(<RegisterHandleScreen />);
     fireEvent.changeText(screen.getByPlaceholderText(HANDLE_PLACEHOLDER), 'joaquin_dev');
 
@@ -99,7 +99,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/register/password');
   });
 
-  it('E1-H1.CA3 - shows the handle rule and stays on the step', async () => {
+  it('shows the handle rule and stays on the step', async () => {
     renderScreen(<RegisterHandleScreen />);
     fireEvent.changeText(screen.getByPlaceholderText(HANDLE_PLACEHOLDER), 'ab');
     await press('Continuar');
@@ -134,7 +134,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     expect(useRegisterDraft.getState().values.password).toBe('');
   });
 
-  it('E1-H1.CA2 - shows the error message returned by the API on a duplicated email', async () => {
+  it('shows the error message returned by the API on a duplicated email', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     jest
       .spyOn(authService, 'register')
@@ -149,7 +149,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     );
   });
 
-  it('E1-H1.CA6 - shows the verification code rule when the code is not 6 digits', async () => {
+  it('shows the verification code rule when the code is not 6 digits', async () => {
     const verifyEmail = jest.spyOn(authService, 'verifyEmail');
 
     renderScreen(<VerifyEmailScreen />);
@@ -160,7 +160,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     expect(verifyEmail).not.toHaveBeenCalled();
   });
 
-  it('E1-H1.CA6 - shows the expiration error returned by the API', async () => {
+  it('shows the expiration error returned by the API', async () => {
     jest.spyOn(authService, 'verifyEmail').mockRejectedValue(new Error('El código expiró'));
 
     renderScreen(<VerifyEmailScreen />);
@@ -169,7 +169,7 @@ describe('E1-H1. Registro de Usuarios', () => {
 
     await waitFor(() => expect(screen.getByText('El código expiró')).toBeTruthy());
   });
-  it('E1-H1.CA6 - renders 6 OTP slots and updates displayed digits as user types', () => {
+  it('renders 6 OTP slots and updates displayed digits as user types', () => {
     renderScreen(<VerifyEmailScreen />);
     const input = screen.getByPlaceholderText('123456');
     fireEvent.changeText(input, '123456');
@@ -184,7 +184,7 @@ describe('E1-H1. Registro de Usuarios', () => {
 });
 
 describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
-  it('E1-H12.CA1 - Crear cuenta is blocked until the terms checkbox is checked', async () => {
+  it('blocks Crear cuenta until the terms checkbox is checked', async () => {
     const register = jest.spyOn(authService, 'register').mockResolvedValue({
       user: {
         id: 'usr-1',
@@ -215,7 +215,7 @@ describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
     expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true);
   });
 
-  it('E1-H12.CA1 - the policy links open their screen without checking the box', async () => {
+  it('opens policy links without checking the box', async () => {
     useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: false });
 
     renderScreen(<RegisterPasswordScreen />);
@@ -227,7 +227,7 @@ describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
     expect(screen.getByRole('checkbox').props.accessibilityState.checked).toBe(false);
   });
 
-  it('E1-H12.CA1 - renders the static terms and privacy screens', () => {
+  it('renders the static terms and privacy screens', () => {
     renderScreen(<TermsScreen />);
     expect(screen.getByText('1. Aceptación de los términos')).toBeTruthy();
 
@@ -237,7 +237,7 @@ describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
 });
 
 describe('E1-H2. Inicio de Sesión', () => {
-  it('E1-H2.CA1 - a successful login opens the session that unlocks the private group', async () => {
+  it('a successful login opens the session that unlocks the private group', async () => {
     jest.spyOn(authService, 'login').mockResolvedValue({
       user: {
         id: 'usr-1',
@@ -260,7 +260,7 @@ describe('E1-H2. Inicio de Sesión', () => {
     expect(useAuthStore.getState().accessToken).toBe('jwt-access-token');
   });
 
-  it('E1-H2.CA3 - shows the generic credentials error raised by the service', async () => {
+  it('shows the generic credentials error raised by the service', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     jest.spyOn(authService, 'login').mockRejectedValue(new Error('Credenciales inválidas'));
 
@@ -284,7 +284,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     fireEvent.changeText(secureFields[1], confirmation);
   }
 
-  it('E1-H5.CA4 - the request answers with the same generic message, telling nothing apart', async () => {
+  it('answers the request with the same generic message, telling nothing apart', async () => {
     const forgotPassword = jest.spyOn(authService, 'forgotPassword').mockResolvedValue(undefined);
 
     renderScreen(<ForgotPasswordScreen />);
@@ -296,7 +296,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     expect(screen.getByText(/Si esa cuenta existe/)).toBeTruthy();
   });
 
-  it('E1-H5.CA8 - shows the rate limit reported by the API instead of a generic error', async () => {
+  it('shows the rate limit reported by the API instead of a generic error', async () => {
     jest
       .spyOn(authService, 'forgotPassword')
       .mockRejectedValue(
@@ -313,7 +313,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     await waitFor(() => expect(screen.getByText(/demasiados links/)).toBeTruthy());
   });
 
-  it('E1-H5.CA2 - an expired link offers asking for a new one instead of a dead form', async () => {
+  it('offers a new link request when the link has expired', async () => {
     jest
       .spyOn(authService, 'resetPassword')
       .mockRejectedValue(
@@ -333,7 +333,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/forgot-password');
   });
 
-  it('E1-H5.CA3 - a mismatched confirmation is caught before reaching the API', async () => {
+  it('catches a mismatched confirmation before reaching the API', async () => {
     const resetPassword = jest.spyOn(authService, 'resetPassword');
 
     renderScreen(<ResetPasswordScreen />);
@@ -344,7 +344,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     expect(resetPassword).not.toHaveBeenCalled();
   });
 
-  it('E1-H5.CA6 - shows the API refusal to reuse the current password', async () => {
+  it('shows the API refusal to reuse the current password', async () => {
     jest
       .spyOn(authService, 'resetPassword')
       .mockRejectedValue(
@@ -361,7 +361,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     await waitFor(() => expect(screen.getByText(/distinta de la actual/)).toBeTruthy());
   });
 
-  it('E1-H5.CA3 - marks the field the API rejected on a 422', async () => {
+  it('marks the field the API rejected on a 422', async () => {
     jest.spyOn(authService, 'resetPassword').mockRejectedValue(
       new ApiError('Revisá los campos marcados.', 'validation-failed', {
         password_confirmation: 'Value error, Las contraseñas no coinciden',
@@ -378,7 +378,7 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
     );
   });
 
-  it('E1-H5.CA7 - a successful reset wipes the local session before going back to the login', async () => {
+  it('wipes the local session after a successful reset before returning to login', async () => {
     jest.spyOn(authService, 'resetPassword').mockResolvedValue({ handle: '@joaquin_dev' });
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     useAuthStore.setState({
@@ -426,7 +426,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
     fireEvent.changeText(fields[2], confirmation);
   }
 
-  it('E1-H13.CA3 - un cambio exitoso borra la sesión local para volver al login', async () => {
+  it('wipes the local session after a successful password change', async () => {
     jest.spyOn(authService, 'changePassword').mockResolvedValue(undefined);
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     useAuthStore.setState(loggedIn);
@@ -435,13 +435,13 @@ describe('E1-H13. Cambiar Contraseña', () => {
     await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
     await press('Guardar contraseña');
 
-    // El backend mató todas las sesiones, incluida la que hizo la llamada.
+    // The backend revoked every session, including the one that made this request.
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
     expect(useAuthStore.getState().accessToken).toBeNull();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
   });
 
-  it('E1-H13.CA4 - la contraseña actual equivocada marca el campo y NO cierra la sesión', async () => {
+  it('marks an incorrect current password without closing the session', async () => {
     jest
       .spyOn(authService, 'changePassword')
       .mockRejectedValue(
@@ -456,11 +456,11 @@ describe('E1-H13. Cambiar Contraseña', () => {
     await waitFor(() =>
       expect(screen.getByText('La contraseña actual no es correcta')).toBeTruthy()
     );
-    // Lo importante: un error de tipeo no puede echar al usuario de la app.
+    // A typing error must not sign the user out of the app.
     expect(useAuthStore.getState().user).not.toBeNull();
   });
 
-  it('E1-H13.CA3 - una sesión ya revocada borra la sesión local', async () => {
+  it('wipes the local session when it has already been revoked', async () => {
     jest
       .spyOn(authService, 'changePassword')
       .mockRejectedValue(
@@ -476,7 +476,7 @@ describe('E1-H13. Cambiar Contraseña', () => {
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
   });
 
-  it('E1-H13.CA4 - el límite de intentos se muestra sin cerrar la sesión', async () => {
+  it('shows the attempt limit without closing the session', async () => {
     jest
       .spyOn(authService, 'changePassword')
       .mockRejectedValue(
@@ -492,11 +492,11 @@ describe('E1-H13. Cambiar Contraseña', () => {
     await press('Guardar contraseña');
 
     await waitFor(() => expect(screen.getByText(/demasiadas veces/)).toBeTruthy());
-    // El contador es separado del lockout de login: el usuario sigue adentro.
+    // This counter is separate from the login lockout, so the user remains signed in.
     expect(useAuthStore.getState().user).not.toBeNull();
   });
 
-  it('E1-H13.CA2 - la contraseña repetida se corta antes de llegar a la API', async () => {
+  it('rejects a repeated password before reaching the API', async () => {
     const changePassword = jest.spyOn(authService, 'changePassword');
     useAuthStore.setState(loggedIn);
 
@@ -525,7 +525,7 @@ describe('E1-H3. Cierre de Sesión', () => {
     isInitialized: true,
   };
 
-  it('E1-H3.CA2 - logging out revokes the token in the backend and wipes the local session', async () => {
+  it('revokes the token in the backend and wipes the local session on logout', async () => {
     const logout = jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
     useAuthStore.setState(loggedInSession);
     renderScreen(<ProfileScreen />);
@@ -540,7 +540,7 @@ describe('E1-H3. Cierre de Sesión', () => {
     expect(useAuthStore.getState().refreshToken).toBeNull();
   });
 
-  it('E1-H3.CA2 - still wipes the local session when the backend revocation is unreachable', async () => {
+  it('still wipes the local session when backend revocation is unreachable', async () => {
     // Exercises the real authService.logout (see authService.test.ts for its own
     // best-effort coverage): a rejected POST must not stop the local wipe below.
     jest.spyOn(apiClient, 'post').mockRejectedValueOnce(new Error('Network Error'));
