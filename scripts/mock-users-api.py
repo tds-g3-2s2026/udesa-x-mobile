@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-"""Mock de los endpoints de autenticación de users-api.
+"""Mock implementation of the users-api authentication endpoints.
 
-Existe para poder recorrer las pantallas autenticadas de la app mientras
-udesa-x-users-api solo expone /healthcheck. No es parte de la aplicación: es una
-herramienta de desarrollo local y se borra cuando la API real implemente
+It makes it possible to use the app's authenticated screens while
+udesa-x-users-api only exposes /healthcheck. It is a local development tool,
+not part of the application, and will be removed once the real API implements
 /api/v1/auth/*.
 
-Además de desbloquear las pruebas, este archivo es el contrato que la API real
-tiene que cumplir: los dos clientes TypeScript (mobile y backoffice) leen campos
-en camelCase, así que users-api necesita un alias generator en Pydantic y no
-snake_case crudo.
+Besides enabling testing, this file specifies the contract the real API must
+meet: both TypeScript clients (mobile and backoffice) read camelCase fields, so
+users-api needs a Pydantic alias generator instead of raw snake_case.
 
-Uso:
-    python3 scripts/mock-users-api.py [puerto]
+Usage:
+    python3 scripts/mock-users-api.py [port]
 
-Sin dependencias: solo biblioteca estándar.
+No dependencies: standard library only.
 """
 
 from __future__ import annotations
@@ -30,46 +29,55 @@ from itertools import count
 from typing import Any
 
 BASE_PATH = "/api/v1"
-# La app puede apuntar al mock con o sin el prefijo /api, así que las dos formas
-# resuelven al mismo endpoint.
+# The app can point to the mock with or without the /api prefix, so both forms
+# resolve to the same endpoint.
 BASE_PATHS = (BASE_PATH, "/v1")
-# 8000 es el puerto documentado de users-api, pero suele estar tomado por otro
-# servicio local. El puerto se puede pasar como primer argumento.
+# Port 8000 is documented for users-api but is often occupied by another local
+# service. The port can be passed as the first argument.
 DEFAULT_PORT = 8020
 
-# Cualquier registro nuevo se verifica con este código.
+# Every new registration is verified with this code.
 VERIFICATION_CODE = "123456"
 
-# Cuenta ya verificada, para entrar al feed sin pasar por el registro.
+# Pre-verified account for entering the feed without registering.
 DEMO_EMAIL = "demo@udesa.edu.ar"
 DEMO_HANDLE = "@demo"
 DEMO_PASSWORD = "Password123"
 
-# Almacén en memoria: {email: {"user": {...}, "password": "..."}}.
-# Se pierde al cortar el proceso, que es lo que queremos de un mock.
+# In-memory store: {email: {"user": {...}, "password": "..."}}.
+# It is lost when the process stops, which is the desired mock behavior.
 accounts: dict[str, dict[str, Any]] = {}
 
-# Prefijo de los refresh tokens que emite el mock: el handle viaja adentro, así el
-# refresco no necesita una tabla de sesiones.
+# Prefix for refresh tokens issued by the mock: the handle travels inside it, so
+# refreshing does not need a session table.
 REFRESH_TOKEN_PREFIX = "mock-refresh-token-"
 
-# Cada emisión lleva un número distinto, así se ve en la app que el token cambió
-# después de un refresco.
+# Each issuance has a different number so the app can observe a token changing
+# after a refresh.
 token_issues = count(1)
 
-# Tokens de recuperación emitidos: {token: {"email", "expires_at", "used"}}.
+# Issued recovery tokens: {token: {"email", "expires_at", "used"}}.
 reset_tokens: dict[str, dict[str, Any]] = {}
 
-# Momentos en que se pidió un link por identificador, para el límite de pedidos.
+# Failed password-change attempts per account. This is separate from the login
+# lockout: failures here do not block entry to the app.
+change_password_attempts: dict[str, int] = {}
+CHANGE_PASSWORD_ATTEMPT_LIMIT = 3
+CHANGE_PASSWORD_LOCK_SECONDS = 900
+
+# Latest invalidated issuance number per account: {handle without @: serial}.
+sessions_revoked_up_to: dict[str, int] = {}
+
+# Times a link was requested per identifier, used for request limiting.
 reset_requests: dict[str, list[float]] = {}
 
 RESET_TOKEN_PREFIX = "mock-reset-token-"
-# Base de los `type` de error, igual que la que usa users-api: el último
-# segmento es el identificador que el cliente rutea.
+# Base for error `type` values, matching users-api: the last segment is the
+# identifier used by the client.
 ERROR_TYPE_BASE = "https://udesa-x.dev/errors"
-# El link dura 10 minutos, el máximo que fija la historia.
+# Links last 10 minutes, the maximum defined by the requirement.
 RESET_TOKEN_TTL_SECONDS = 600
-# Tres pedidos por hora para el mismo identificador.
+# Three requests per hour for the same identifier.
 RESET_REQUEST_LIMIT = 3
 RESET_REQUEST_WINDOW_SECONDS = 3600
 
@@ -162,18 +170,42 @@ def issue_reset_token(email: str) -> str:
     return token
 
 
+def split_access_token(token: str) -> tuple[str, int] | None:
+    """Handle y número de emisión de un access token emitido por este mock."""
+    prefix = "mock-access-token-"
+    if not token.startswith(prefix):
+        return None
+    handle, _, serial = token[len(prefix) :].rpartition("-")
+    if not handle or not serial.isdigit():
+        return None
+    return handle, int(serial)
+
+
+def is_access_token_revoked(token: str) -> bool:
+    """Un token queda revocado si su emisión es anterior al último corte de la cuenta.
+
+    Modela "se revocaron todas las sesiones" sin llevar una tabla de sesiones:
+    alcanza con recordar hasta qué número de emisión quedó todo invalidado.
+    """
+    parts = split_access_token(token)
+    if parts is None:
+        return False
+    handle, serial = parts
+    return serial <= sessions_revoked_up_to.get(handle, 0)
+
+
 def handle_from_refresh_token(token: str) -> str | None:
-    """Handle codificado en un refresh token emitido por este mock."""
+    """Handle encoded in a refresh token issued by this mock."""
     if not token.startswith(REFRESH_TOKEN_PREFIX):
         return None
-    # El handle solo admite letras, números y guiones bajos, así que el último
-    # guion siempre separa el número de emisión.
+    # The handle only permits letters, numbers, and underscores, so the final
+    # hyphen always separates the issuance number.
     handle = token[len(REFRESH_TOKEN_PREFIX) :].rsplit("-", 1)[0]
     return handle or None
 
 
 class AuthHandler(BaseHTTPRequestHandler):
-    # Content-Length va en todas las respuestas, así que keep-alive es seguro.
+    # Every response includes Content-Length, so keep-alive is safe.
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
@@ -192,6 +224,10 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         if endpoint_path == "/auth/logout":
             self.logout()
+            return
+
+        if endpoint_path == "/me/change-password":
+            self.change_password()
             return
 
         body = self.read_json()
@@ -276,8 +312,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         account = find_account(str(body.get("identifier", "")))
         password = str(body.get("password", ""))
 
-        # Mismo mensaje para usuario inexistente y contraseña equivocada: sin
-        # enumeración de usuarios.
+        # The same message is used for an unknown user and a wrong password to
+        # prevent user enumeration.
         if account is None or account["password"] != password:
             self.send_problem(401, "Credenciales inválidas", "Credenciales inválidas")
             return
@@ -336,14 +372,14 @@ class AuthHandler(BaseHTTPRequestHandler):
             token = issue_reset_token(account["user"]["email"])
             print(f"    recuperación de {account['user']['handle']}: el código es {token}")
         else:
-            # Sin cuenta no hay token, pero la respuesta es la misma: que no se
-            # pueda distinguir es justamente el punto.
+            # No account means no token, but the response is the same so the
+            # client cannot distinguish the two cases.
             print(f"    recuperación pedida para <{identifier}>: no hay cuenta, no se emite token")
 
         self.send_json(202, {"status": "accepted"})
 
     def reset_password(self, body: dict[str, Any]) -> None:
-        """Cambia la contraseña con un token de un solo uso."""
+        """Changes a password using a single-use token."""
         token = str(body.get("token", "")).strip()
         password = str(body.get("password", ""))
         confirmation = str(body.get("password_confirmation", ""))
@@ -355,9 +391,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         for message in policy_errors:
             errors.append({"field": "password", "message": message})
 
-        # Si la contraseña ya falló su propia validación, el aviso de que la
-        # confirmación no coincide se suprime: primero hay que arreglar la
-        # contraseña. Mismo criterio que la API real.
+        # When the password fails its own validation, suppress the confirmation
+        # mismatch notice: the password has to be fixed first, as in the real API.
         if not policy_errors and password != confirmation:
             errors.append(
                 {
@@ -376,8 +411,8 @@ class AuthHandler(BaseHTTPRequestHandler):
             return
 
         data = reset_tokens.get(token)
-        # Un mismo error para inexistente, vencido y ya usado: el cliente ofrece
-        # pedir otro link en los tres casos.
+        # The same error is used for missing, expired, or used tokens: the client
+        # offers another link request in every case.
         if data is None or data["used"] or time.time() > data["expires_at"]:
             self.send_problem(
                 400,
@@ -412,16 +447,131 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         self.send_json(200, {"status": "reset", "handle": account["user"]["handle"]})
 
+    def change_password(self) -> None:
+        """Changes the active session password and revokes all sessions.
+
+        This is the only endpoint that checks revocation, as in the real API:
+        /auth/logout still accepts an already revoked token.
+        """
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer ") or not auth_header[len("Bearer ") :].strip():
+            # Without a header, FastAPI produces the 401 instead of the formatter:
+            # it has no `type` and is in English. Mirror it for the real API behavior.
+            self.send_json(
+                401,
+                {"detail": "Not authenticated"},
+                extra_headers={"WWW-Authenticate": "Bearer"},
+            )
+            return
+
+        token = auth_header[len("Bearer ") :].strip()
+        parts = split_access_token(token)
+        if parts is None:
+            self.send_problem(
+                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
+            )
+            return
+        if is_access_token_revoked(token):
+            self.send_problem(
+                401,
+                "La sesión ya no es válida",
+                "Tu sesión se cerró. Iniciá sesión de nuevo",
+                code="session-revoked",
+            )
+            return
+
+        account = find_account(parts[0])
+        if account is None:
+            self.send_problem(
+                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
+            )
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        current = str(body.get("current_password", ""))
+        password = str(body.get("password", ""))
+        confirmation = str(body.get("password_confirmation", ""))
+
+        errors: list[dict[str, str]] = []
+        if not current:
+            errors.append({"field": "current_password", "message": "Field required"})
+
+        policy_errors = password_policy_errors(password)
+        for message in policy_errors:
+            errors.append({"field": "password", "message": message})
+        if not policy_errors and password != confirmation:
+            errors.append(
+                {
+                    "field": "password_confirmation",
+                    "message": "Value error, Las contraseñas no coinciden",
+                }
+            )
+        if errors:
+            self.send_problem(
+                422,
+                "Datos inválidos",
+                "Revisá los campos marcados.",
+                code="validation-failed",
+                errors=errors,
+            )
+            return
+
+        handle = account["user"]["handle"]
+        # Check the limit before the password: once the limit is reached, a
+        # correct password does not matter.
+        if change_password_attempts.get(handle, 0) >= CHANGE_PASSWORD_ATTEMPT_LIMIT:
+            self.send_problem(
+                429,
+                "Demasiados intentos",
+                "Erraste la contraseña actual demasiadas veces. Volvé a intentar el cambio en 15 minutos",
+                code="too-many-password-attempts",
+                extra_headers={"Retry-After": str(CHANGE_PASSWORD_LOCK_SECONDS)},
+            )
+            return
+
+        if account["password"] != current:
+            change_password_attempts[handle] = change_password_attempts.get(handle, 0) + 1
+            # This is 400, not 401: the token is valid and a form field failed.
+            # A 401 would make the client treat it as an expired session.
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "La contraseña actual no es correcta",
+                code="invalid-current-password",
+            )
+            return
+
+        if password == current:
+            self.send_problem(
+                400,
+                "No se pudo cambiar la contraseña",
+                "La contraseña nueva tiene que ser distinta de la actual",
+                code="password-unchanged",
+            )
+            return
+
+        account["password"] = password
+        change_password_attempts.pop(handle, None)
+        # Every session issued so far becomes invalid, including the one that
+        # made this request.
+        sessions_revoked_up_to[handle.lstrip("@")] = parts[1]
+        print(f"    contraseña cambiada desde la sesión de {handle}")
+
+        self.send_json(200, {"status": "changed"})
+
     def logout(self) -> None:
-        """Revoca el token del header Authorization. Sin cuerpo, así que no
-        pasa por read_json como el resto de los endpoints."""
+        """Revokes the Authorization header token without reading a request body."""
         auth_header = self.headers.get("Authorization", "")
         token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
         if not token:
-            # El 401 por token inválido lo formatea users-api, así que trae
-            # `type` y texto en español. El 401 por header ausente o mal
-            # formado lo genera FastAPI y sale sin `type` y en inglés; el mock
-            # no lo distingue porque la app traga cualquier error del logout.
+            # users-api formats invalid-token 401s with a Spanish `type` and text.
+            # FastAPI generates missing or malformed-header 401s without `type` in
+            # English; the mock does not distinguish them because the app swallows
+            # every logout error.
             self.send_problem(
                 401,
                 "No se pudo cerrar la sesión",
@@ -429,8 +579,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                 code="invalid-token",
             )
             return
-        # El mock no mantiene una lista de revocación: alcanza con responder 204,
-        # que es lo único que el cliente observa (idempotente, igual que la API real).
+        # The mock does not keep a revocation list: replying 204 is sufficient,
+        # since that is all the client observes (idempotent, like the real API).
         self.send_response(204)
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -469,16 +619,15 @@ class AuthHandler(BaseHTTPRequestHandler):
         errors: list[dict[str, str]] | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
-        """Error en formato Problem Details, como pide ARQUITECTURA.md.
+        """Sends a Problem Details error as required by ARQUITECTURA.md.
 
-        `code` identifica la falla para que el cliente elija qué ofrecer sin
-        leer el texto, y viaja dentro de `type`. `errors` lleva un campo
-        rechazado por entrada.
+        `code` identifies the failure so the client can choose a response
+        without reading text, and travels inside `type`. `errors` contains one
+        rejected field per entry.
         """
         payload: dict[str, Any] = {
-            # RFC 9457 pone el identificador del error en el último segmento de
-            # `type`: la API real no manda ningún campo `code` aparte, así que
-            # el cliente lo lee de acá.
+            # RFC 9457 puts the error identifier in the final `type` segment.
+            # The real API sends no separate `code` field, so the client reads it here.
             "type": f"{ERROR_TYPE_BASE}/{code}" if code else "about:blank",
             "title": title,
             "status": status,
@@ -499,7 +648,7 @@ class AuthHandler(BaseHTTPRequestHandler):
 
 
 def lan_address() -> str:
-    """IP de esta máquina en la red local."""
+    """IP address of this machine on the local network."""
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         probe.connect(("8.8.8.8", 80))
@@ -511,10 +660,10 @@ def lan_address() -> str:
 
 
 def tailnet_hosts() -> list[str]:
-    """IP y nombre MagicDNS en la tailnet, si Tailscale está corriendo.
+    """IP and MagicDNS name in the tailnet when Tailscale is running.
 
-    Un celular conectado por Tailscale no llega a la IP de la red local, así que
-    esta es la dirección que hay que usar en ese caso.
+    A phone connected through Tailscale cannot reach the local-network IP, so
+    this is the address to use in that case.
     """
     try:
         result = subprocess.run(
@@ -532,7 +681,7 @@ def tailnet_hosts() -> list[str]:
         return []
 
     node = status.get("Self") or {}
-    # Solo IPv4: es la que entienden todas las redes móviles.
+    # IPv4 only: it is supported by every mobile network.
     hosts = [address for address in node.get("TailscaleIPs", []) if ":" not in address]
 
     dns_name = str(node.get("DNSName", "")).rstrip(".")
@@ -548,8 +697,8 @@ def main() -> None:
         "password": DEMO_PASSWORD,
     }
 
-    # Se bindea antes de imprimir: si el puerto está tomado, el mensaje útil es
-    # el del error y no un banner de un servidor que nunca arrancó.
+    # Bind before printing: if the port is occupied, show the useful error rather
+    # than a banner for a server that never started.
     try:
         server = ThreadingHTTPServer(("0.0.0.0", port), AuthHandler)
     except OSError as error:
@@ -557,8 +706,8 @@ def main() -> None:
         print(f"Probá con otro: python3 scripts/mock-users-api.py {port + 1}")
         raise SystemExit(1) from error
 
-    # La tailnet va primero: si el celular entra por Tailscale, la IP de la red
-    # local no le sirve.
+    # Tailnet comes first: a phone connecting through Tailscale cannot use the
+    # local-network IP.
     hosts = [(host, "tailnet") for host in tailnet_hosts()]
     hosts.append((lan_address(), "red local"))
 

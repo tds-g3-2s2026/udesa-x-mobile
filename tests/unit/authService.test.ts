@@ -279,6 +279,72 @@ describe('Auth service', () => {
     });
   });
 
+  describe('E1-H13. Cambiar Contraseña', () => {
+    const change = {
+      currentPassword: 'Vieja1234',
+      password: 'Nueva1234',
+      passwordConfirmation: 'Nueva1234',
+    };
+
+    it('E1-H13.CA1 - posts the three fields to /me/change-password in snake_case', async () => {
+      post.mockResolvedValueOnce(apiSuccess({ status: 'changed' }));
+
+      await authService.changePassword(change);
+
+      // This endpoint is under /me rather than /auth and requires a token.
+      expect(post).toHaveBeenCalledWith('/me/change-password', {
+        current_password: 'Vieja1234',
+        password: 'Nueva1234',
+        password_confirmation: 'Nueva1234',
+      });
+    });
+
+    it('E1-H13.CA4 - returns an incorrect current password as a field error, not a session error', async () => {
+      // It deliberately uses 400 rather than 401: otherwise the interceptor
+      // would treat a typing error as an expired session and sign the user out.
+      post.mockRejectedValueOnce(
+        apiFailure(400, {
+          type: 'https://udesa-x.dev/errors/invalid-current-password',
+          detail: 'La contraseña actual no es correcta',
+        })
+      );
+
+      await expect(authService.changePassword(change)).rejects.toMatchObject({
+        code: 'invalid-current-password',
+        message: 'La contraseña actual no es correcta',
+      });
+    });
+
+    it('E1-H13.CA4 - uses an attempt-limit identifier distinct from the login one', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(429, {
+          type: 'https://udesa-x.dev/errors/too-many-password-attempts',
+          detail:
+            'Erraste la contraseña actual demasiadas veces. Volvé a intentar el cambio en 15 minutos',
+        })
+      );
+
+      await expect(authService.changePassword(change)).rejects.toMatchObject({
+        // This is not `too-many-attempts`, the login lockout that blocks entry.
+        // This counter is separate and does not prevent sign-in.
+        code: 'too-many-password-attempts',
+      });
+    });
+
+    it('E1-H13.CA3 - identifies a revoked session so the screen can return to login', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(authService.changePassword(change)).rejects.toMatchObject({
+        code: 'session-revoked',
+      });
+    });
+  });
+
   describe('E1-H3. Cierre de Sesión', () => {
     it('E1-H3.CA2 - requests the revocation of the active session token with a short timeout', async () => {
       post.mockResolvedValueOnce(apiSuccess(undefined));

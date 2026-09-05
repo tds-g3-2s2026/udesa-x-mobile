@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors } from '../../src/features/auth/components/authTheme';
 import { authService } from '../../src/features/auth/services/authService';
 import { AppScreen } from '../../src/features/shell/components/AppScreen';
@@ -7,6 +8,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 
 // The Perfil tab. It owns the session data and the logout.
 export default function ProfileScreen() {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
 
@@ -49,6 +51,15 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </View>
+
+      <TouchableOpacity
+        style={styles.changePasswordButton}
+        onPress={() => router.push('/change-password')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="key-outline" size={18} color={colors.primary} />
+        <Text style={styles.changePasswordLabel}>Cambiar contraseña</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.logoutButton}
@@ -131,13 +142,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.danger,
   },
-  logoutButton: {
+  changePasswordButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     height: 48,
     marginTop: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.field,
+  },
+  changePasswordLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    // Tighter than the gap to the card above: the two buttons read as one block.
+    marginTop: 12,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.danger,

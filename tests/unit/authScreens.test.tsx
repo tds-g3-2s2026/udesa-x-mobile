@@ -13,6 +13,7 @@ import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
 import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
+import ChangePasswordScreen from '../../app/(app)/change-password';
 import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
 import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
@@ -23,12 +24,14 @@ import { AUTH_SCREEN_BODY } from '../../src/features/auth/components/AuthScreen'
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
     push: mockPush,
+    back: mockBack,
     dismissAll: mockDismissAll,
     canDismiss: () => true,
   }),
@@ -404,6 +407,163 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
   });
 });
 
+describe('E1-H13. Cambiar Contraseña', () => {
+  const loggedIn = {
+    user: {
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
+      fullName: 'Joaquín León',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  async function fillChange(current: string, next: string, confirmation: string) {
+    const fields = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.changeText(fields[0], current);
+    fireEvent.changeText(fields[1], next);
+    fireEvent.changeText(fields[2], confirmation);
+  }
+
+  it('E1-H13.CA3 - wipes the local session after a successful password change', async () => {
+    jest.spyOn(authService, 'changePassword').mockResolvedValue(undefined);
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    // The backend revoked every session, including the one that made this request.
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_access_token');
+  });
+
+  it('E1-H13.CA4 - marks an incorrect current password without closing the session', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError('La contraseña actual no es correcta', 'invalid-current-password')
+      );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Equivocada1', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() =>
+      expect(screen.getByText('La contraseña actual no es correcta')).toBeTruthy()
+    );
+    // A typing error must not sign the user out of the app.
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it('E1-H13.CA3 - wipes the local session when it has already been revoked', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+  });
+
+  it('E1-H13.CA4 - shows the attempt limit without closing the session', async () => {
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(
+        new ApiError(
+          'Erraste la contraseña actual demasiadas veces. Volvé a intentar el cambio en 15 minutos',
+          'too-many-password-attempts'
+        )
+      );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Equivocada1', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(screen.getByText(/demasiadas veces/)).toBeTruthy());
+    // This counter is separate from the login lockout, so the user remains signed in.
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it('marks the field rejected by the API and ignores unknown fields', async () => {
+    jest.spyOn(authService, 'changePassword').mockRejectedValue(
+      new ApiError('Revisá los campos marcados.', 'validation-failed', {
+        password_confirmation: 'Las contraseñas no coinciden',
+        unexpected_field: 'No se muestra en este formulario',
+      })
+    );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() => expect(screen.getByText('Las contraseñas no coinciden')).toBeTruthy());
+  });
+
+  it('returns to the previous screen and advances between password fields', async () => {
+    useAuthStore.setState(loggedIn);
+    renderScreen(<ChangePasswordScreen />);
+
+    fireEvent(screen.getAllByPlaceholderText('••••••••')[0], 'submitEditing');
+    fireEvent(screen.getAllByPlaceholderText('••••••••')[1], 'submitEditing');
+    await press('Cancelar');
+
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('shows a connection failure as a general error instead of blaming the current password field', async () => {
+    // A connection failure carries no `code` (see ApiError/toAuthError), so it
+    // must not fall through to the "current password" field by default.
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest
+      .spyOn(authService, 'changePassword')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Nueva1234', 'Nueva1234');
+    await press('Guardar contraseña');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+    expect(
+      screen.queryByText('No se pudo conectar con el servidor. Revisá tu conexión.')
+    ).toBeNull();
+  });
+
+  it('E1-H13.CA2 - rejects a repeated password before reaching the API', async () => {
+    const changePassword = jest.spyOn(authService, 'changePassword');
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ChangePasswordScreen />);
+    await fillChange('Vieja1234', 'Vieja1234', 'Vieja1234');
+    await press('Guardar contraseña');
+
+    expect(
+      screen.getByText('La contraseña nueva tiene que ser distinta de la actual')
+    ).toBeTruthy();
+    expect(changePassword).not.toHaveBeenCalled();
+  });
+});
+
 describe('E1-H3. Cierre de Sesión', () => {
   const loggedInSession = {
     user: {
@@ -444,6 +604,30 @@ describe('E1-H3. Cierre de Sesión', () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
     expect(useAuthStore.getState().refreshToken).toBeNull();
+  });
+
+  it('reports a local wipe failure and keeps the profile visible', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
+    jest.spyOn(useAuthStore.getState(), 'clearSession').mockRejectedValue(new Error('SecureStore'));
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Cerrar Sesión');
+
+    expect(alert).toHaveBeenCalledWith(
+      'Error',
+      'No se pudieron borrar todos los datos de la sesión del dispositivo.'
+    );
+  });
+
+  it('opens the password change screen from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Cambiar contraseña');
+
+    expect(mockPush).toHaveBeenCalledWith('/change-password');
   });
 });
 

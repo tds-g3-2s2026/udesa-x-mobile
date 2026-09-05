@@ -30,6 +30,7 @@ bun x tsc --noEmit      # Chequeo de tipos
 - El `apiClient` de `src/features/auth/services/authService.ts` tiene los interceptores de Axios: agrega el `Bearer` de la sesión y refresca el token ante un 401.
 - `users-api` todavía no expone `/auth`: para recorrer las pantallas autenticadas se usa `bun run mock-api`.
 - Documentación general del sistema: consultar `../udesa-x-platform/docs/` (`ARQUITECTURA.md`, `CONVENCIONES.md`, `PLANIFICACION.md`).
+- **Identificadores de historia (`E1-H13`, `CA.4`, etc.): solo en el nombre de la función de test**, como pide "Trazabilidad de criterios de aceptación" en `CONVENCIONES.md` (formato `test_e1_h13_ca4_...`). No van en código de producción (`src/`) ni en el docstring o los comentarios del propio archivo de test: ahí se explica el porqué de la regla, no su número. Un identificador que se cuela en un comentario de `src/` sobrevive a un refactor de la historia que lo puso; el nombre del test es el único lugar donde vale la pena que quede fijo, porque es lo que se filtra en la defensa.
 
 <!-- FIN BLOQUE PROPIO -->
 

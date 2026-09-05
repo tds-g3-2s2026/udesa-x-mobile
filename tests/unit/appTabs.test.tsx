@@ -59,7 +59,7 @@ beforeEach(() => {
   persistSession();
 });
 
-// T-51: these tests run the real route tree of app/(app), so they fail if a tab
+// These tests run the real route tree of app/(app), so they fail if a tab
 // file is renamed, removed or dropped from the navigator.
 describe('T-51. Navegación por tabs', () => {
   it('T-51 - the authenticated area exposes the four tabs of the product', async () => {
