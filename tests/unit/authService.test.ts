@@ -320,7 +320,7 @@ describe('Auth service', () => {
       patch.mockRestore();
     });
 
-    it('E1-H6.CA5 - keeps the field the API rejected so the screen can mark the right input', async () => {
+    it('E1-H6 - keeps the field the API rejected so the screen can mark the right input', async () => {
       const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(
         apiFailure(422, {
           type: 'https://udesa-x.dev/errors/validation-failed',

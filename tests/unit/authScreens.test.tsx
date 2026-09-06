@@ -717,7 +717,7 @@ describe('E1-H6. Editar mi perfil', () => {
     expect(getProfile).toHaveBeenCalledTimes(1);
   });
 
-  it('E1-H6.CA5 - a field rejected by the API marks that input', async () => {
+  it('E1-H6 - a field rejected by the API marks that input', async () => {
     jest.spyOn(authService, 'getProfile').mockResolvedValue({
       id: 'usr-1',
       email: 'jleon@udesa.edu.ar',

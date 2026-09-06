@@ -279,7 +279,7 @@ describe('E1-H6. Editar mi perfil', () => {
     expect(trimmed.data.displayName).toBe('Juan');
   });
 
-  it("E1-H6.CA5 - rejects a display name over users-api's 50 character cap", () => {
+  it("E1-H6.CA1 - rejects a display name over users-api's 50 character cap", () => {
     const result = editProfileSchema.safeParse({ displayName: 'a'.repeat(51), bio: '' });
     expect(result.success).toBe(false);
     if (result.success) return;

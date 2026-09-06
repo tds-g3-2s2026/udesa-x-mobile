@@ -88,8 +88,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setProfile: async (profile) => {
     const { user } = get();
     // Nothing to merge into if the session ended between the request going
-    // out and the response coming back.
-    if (!user) return;
+    // out and the response coming back, and nothing to merge if a different
+    // account logged in during that window: this response is for whoever
+    // was signed in when the request was made, not for the current session.
+    if (!user || user.id !== profile.id) return;
 
     const updated: User = { ...user, ...profile };
     try {

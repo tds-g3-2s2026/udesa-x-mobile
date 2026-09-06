@@ -170,6 +170,28 @@ describe('Auth store', () => {
 
       expect(useAuthStore.getState().user).toBeNull();
     });
+
+    it('E1-H6 - does nothing if a different account signed in before the response came back', async () => {
+      // The fire-and-forget getProfile() call after a login is in flight for
+      // user A. Before it resolves, A logs out and B logs in on the same
+      // device. When A's stale response finally arrives, it must not merge
+      // onto B's session just because a user happens to be present.
+      await useAuthStore.getState().setSession(user, tokens);
+      const otherUser: User = { ...user, id: 'usr-2', handle: '@otro' };
+      await useAuthStore.getState().setSession(otherUser, tokens);
+
+      await useAuthStore.getState().setProfile({
+        id: user.id,
+        email: user.email,
+        handle: user.handle,
+        displayName: 'Joaquín',
+        bio: 'Estudiante',
+      });
+
+      const state = useAuthStore.getState();
+      expect(state.user?.id).toBe('usr-2');
+      expect(state.user?.displayName).toBeUndefined();
+    });
   });
 
   describe('T-52. Refresco de token', () => {
