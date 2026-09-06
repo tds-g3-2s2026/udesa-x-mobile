@@ -784,6 +784,85 @@ describe('E1-H6. Editar mi perfil', () => {
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
   });
 
+  it('E1-H6 - a non-session load failure shows a general error and goes back', async () => {
+    jest
+      .spyOn(authService, 'getProfile')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('E1-H6 - a session revoked while saving signs the user out without touching the form', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: '',
+    });
+    jest
+      .spyOn(authService, 'updateProfile')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByDisplayValue('Joaco');
+    await press('Guardar cambios');
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+    // The screen returns as soon as the session is cleared: it must not also
+    // pop the navigation stack, which the guards already do by swapping groups.
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('E1-H6 - "next" on the name field focuses bio instead of submitting, and typing a bio reaches the save', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: '',
+    });
+    const updateProfile = jest.spyOn(authService, 'updateProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: 'Estudiante de sistemas',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByDisplayValue('Joaco');
+
+    fireEvent(screen.getByPlaceholderText('Como querés que te vean'), 'submitEditing');
+    expect(updateProfile).not.toHaveBeenCalled();
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Contá algo sobre vos (opcional)'),
+      'Estudiante de sistemas'
+    );
+    await press('Guardar cambios');
+
+    expect(updateProfile).toHaveBeenCalledWith({
+      displayName: 'Joaco',
+      bio: 'Estudiante de sistemas',
+    });
+  });
+
   it('cancels back without saving', async () => {
     jest.spyOn(authService, 'getProfile').mockResolvedValue({
       id: 'usr-1',
