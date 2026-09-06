@@ -1,4 +1,4 @@
-import { AppScreen, EmptyState } from '../../src/features/shell/components/AppScreen';
+import { AppScreen, EmptyState } from '../../../src/features/shell/components/AppScreen';
 
 // The Notificaciones tab. Notifications come from their own epic, so the tab
 // exists with its empty state instead of faking activity.

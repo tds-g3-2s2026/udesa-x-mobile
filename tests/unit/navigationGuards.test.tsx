@@ -1,6 +1,7 @@
-import { act, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
+import { authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { User } from '../../src/types/auth';
 
@@ -93,5 +94,66 @@ describe('Guardas de navegación', () => {
 
     expect(await screen.findByText(LOGIN_SUBTITLE)).toBeTruthy();
     expect(secureStoreValues.size).toBe(0);
+  });
+
+  it('lands on the feed and not on a hidden stack screen when the session is already there', async () => {
+    persistSession();
+
+    // No sub-path, same as a real login: Stack.Protected swaps from (auth) to
+    // (app) without navigating to any particular screen inside it.
+    //
+    // Does NOT actually guard the bug that motivated it: change-password and
+    // edit-profile once lived as Tabs.Screen entries ordered before index,
+    // which briefly made one of them the tab bar's default landing screen
+    // instead of the feed. Confirmed by hand that this exact test still
+    // passes even with that ordering reintroduced — renderRouter resolves a
+    // group path like this one by static file convention, not by asking the
+    // real navigator which child it would land on. Kept anyway because the
+    // assertion is still a correct, worthwhile one; the actual protection
+    // against that class of bug is architectural now (change-password and
+    // edit-profile physically cannot be Tabs.Screen entries anymore).
+    renderRouter('app', { initialUrl: '/(app)' });
+
+    expect(await screen.findByText(FEED_EMPTY_TITLE)).toBeTruthy();
+    expect(screen.queryByText('Cambiar contraseña')).toBeNull();
+  });
+
+  it('returns to the profile, not to change-password, after saving an edit to the profile', async () => {
+    persistSession();
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: user.email,
+      handle: user.handle,
+      displayName: 'Joaco',
+      bio: '',
+    });
+    jest.spyOn(authService, 'updateProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: user.email,
+      handle: user.handle,
+      displayName: 'Joaco Nuevo',
+      bio: '',
+    });
+
+    // change-password and edit-profile used to be Tabs.Screen entries, siblings
+    // of Perfil inside the same Tabs navigator. Tabs do not share one linear
+    // back history between siblings the way a Stack does, so router.back()
+    // after pushing from Perfil into one of them did not reliably return to
+    // Perfil. They are now Stack screens one level up for exactly this reason.
+    renderRouter('app', { initialUrl: '/profile' });
+    await screen.findByText('Editar perfil');
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Editar perfil'));
+    });
+    await screen.findByDisplayValue('Joaco');
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Guardar cambios'));
+    });
+
+    await waitFor(() => expect(useAuthStore.getState().user?.displayName).toBe('Joaco Nuevo'));
+    expect(await screen.findByText(LOGOUT_LABEL)).toBeTruthy();
+    expect(screen.queryByText('Guardar contraseña')).toBeNull();
   });
 });

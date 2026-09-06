@@ -87,12 +87,30 @@ export const changePasswordSchema = z
     path: ['password'],
   });
 
+// The resolved reading here is that this is the display name, not the
+// handle — the handle is immutable (registration already guarantees it is
+// unique and set) and PATCH /me rejects it outright if sent. Trimmed so a
+// whitespace-only value is caught by min(1) instead of slipping through.
+// The 50-character cap is not in the consigna: it is users-api's own choice,
+// modeled after X's display name field, checked here too for fast feedback.
+export const editProfileSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'El nombre visible no puede quedar vacío')
+    .max(50, 'El nombre visible no puede superar los 50 caracteres'),
+  // Optional — an empty bio just means the user cleared it — capped at the
+  // same 160 characters the backend enforces.
+  bio: z.string().max(160, 'La biografía no puede superar los 160 caracteres'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type EditProfileInput = z.infer<typeof editProfileSchema>;
 
 export type RegisterField = keyof RegisterInput;
 

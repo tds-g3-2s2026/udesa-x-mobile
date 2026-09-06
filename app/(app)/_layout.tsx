@@ -1,70 +1,18 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
-import { colors } from '../../src/features/auth/components/authTheme';
+import { Stack } from 'expo-router';
 
-// The authenticated area is a bottom tab bar with the four sections of the
-// product. Every screen draws its own header, so the navigator only owns the bar.
+// A real navigation stack around the tab bar. change-password and
+// edit-profile live here and not inside (tabs)/_layout.tsx: as Stack screens,
+// pushing to one and calling router.back() returns to whatever screen pushed
+// it, the same as any other stack. As Tabs.Screen entries (their previous
+// home) `.back()` did not reliably return to Perfil — Tabs do not share a
+// linear back history between sibling tabs the way a Stack does. Every
+// screen draws its own header, so the stack only owns navigation, not chrome.
 export default function AppLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.divider,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-      }}
-    >
-      {/* Reachable from the Perfil tab, not from the bar: `href: null` keeps it
-          routable without adding a fifth icon. */}
-      <Tabs.Screen name="change-password" options={{ href: null }} />
-
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Inicio',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Buscar',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'Notificaciones',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'notifications' : 'notifications-outline'}
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="change-password" />
+      <Stack.Screen name="edit-profile" />
+    </Stack>
   );
 }

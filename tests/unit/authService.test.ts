@@ -279,6 +279,82 @@ describe('Auth service', () => {
     });
   });
 
+  describe('E1-H6. Editar mi perfil', () => {
+    const profileBody = {
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      display_name: 'Joaquín León',
+      bio: 'Estudiante',
+    };
+
+    it('E1-H6 - maps display_name to displayName when reading the profile', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockResolvedValueOnce(apiSuccess(profileBody));
+
+      const profile = await authService.getProfile();
+
+      expect(get).toHaveBeenCalledWith('/me');
+      expect(profile).toEqual({
+        id: 'usr-1',
+        email: 'jleon@udesa.edu.ar',
+        handle: '@joaquin_dev',
+        displayName: 'Joaquín León',
+        bio: 'Estudiante',
+      });
+      get.mockRestore();
+    });
+
+    it('E1-H6.CA3 - sends display_name in snake_case and maps the response back', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockResolvedValueOnce(apiSuccess(profileBody));
+
+      const profile = await authService.updateProfile({
+        displayName: 'Joaquín León',
+        bio: 'Estudiante',
+      });
+
+      expect(patch).toHaveBeenCalledWith('/me', {
+        display_name: 'Joaquín León',
+        bio: 'Estudiante',
+      });
+      expect(profile.displayName).toBe('Joaquín León');
+      patch.mockRestore();
+    });
+
+    it('E1-H6 - keeps the field the API rejected so the screen can mark the right input', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/validation-failed',
+          detail: 'Revisá los campos marcados.',
+          errors: [
+            {
+              field: 'display_name',
+              message: 'Value error, El nombre visible no puede quedar vacío',
+            },
+          ],
+        })
+      );
+
+      await expect(
+        authService.updateProfile({ displayName: 'Joaquín', bio: '' })
+      ).rejects.toMatchObject({
+        fieldErrors: { display_name: 'Value error, El nombre visible no puede quedar vacío' },
+      });
+      patch.mockRestore();
+    });
+
+    it('E1-H6 - identifies a revoked session while loading or saving the profile', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(authService.getProfile()).rejects.toMatchObject({ code: 'session-revoked' });
+      get.mockRestore();
+    });
+  });
+
   describe('E1-H13. Cambiar Contraseña', () => {
     const change = {
       currentPassword: 'Vieja1234',

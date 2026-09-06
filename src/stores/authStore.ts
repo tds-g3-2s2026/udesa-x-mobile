@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { z } from 'zod';
-import { User, AuthTokens } from '../types/auth';
+import { User, AuthTokens, UserProfile } from '../types/auth';
 
 const REFRESH_TOKEN_KEY = 'udesa_x_refresh_token';
 const ACCESS_TOKEN_KEY = 'udesa_x_access_token';
@@ -16,6 +16,8 @@ const storedUserSchema = z.object({
   fullName: z.string().min(1),
   isVerified: z.boolean(),
   avatarUrl: z.string().optional(),
+  displayName: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
 });
 
 function parseStoredUser(raw: string | null): User | null {
@@ -48,11 +50,14 @@ interface AuthState {
   isInitialized: boolean;
   setSession: (user: User, tokens: AuthTokens) => Promise<void>;
   setTokens: (tokens: AuthTokens) => Promise<void>;
+  // Merges a GET/PATCH /me response into the signed-in user so an edit
+  // shows up right away, without a second round trip to re-fetch it.
+  setProfile: (profile: UserProfile) => Promise<void>;
   clearSession: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
@@ -78,6 +83,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   setTokens: async (tokens) => {
     await persistTokens(tokens);
     set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+  },
+
+  setProfile: async (profile) => {
+    const { user } = get();
+    // Nothing to merge into if the session ended between the request going
+    // out and the response coming back, and nothing to merge if a different
+    // account logged in during that window: this response is for whoever
+    // was signed in when the request was made, not for the current session.
+    if (!user || user.id !== profile.id) return;
+
+    const updated: User = { ...user, ...profile };
+    try {
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updated));
+    } catch {
+      // Best effort, same as setSession: the in-memory session still applies.
+    }
+    set({ user: updated });
   },
 
   // Local session data and the JWT are removed from secure storage. A
