@@ -136,6 +136,42 @@ describe('Auth store', () => {
     });
   });
 
+  describe('E1-H6. Editar mi perfil', () => {
+    it('E1-H6.CA6 - setProfile merges a profile response into the session and persists it', async () => {
+      await useAuthStore.getState().setSession(user, tokens);
+
+      await useAuthStore.getState().setProfile({
+        id: user.id,
+        email: user.email,
+        handle: user.handle,
+        displayName: 'Joaquín',
+        bio: 'Estudiante',
+      });
+
+      const state = useAuthStore.getState();
+      expect(state.user?.displayName).toBe('Joaquín');
+      expect(state.user?.bio).toBe('Estudiante');
+      // Everything else about the session is untouched.
+      expect(state.user?.fullName).toBe(user.fullName);
+      expect(state.user?.isVerified).toBe(user.isVerified);
+
+      const stored = JSON.parse(secureStoreValues.get(USER_KEY) ?? '{}');
+      expect(stored.displayName).toBe('Joaquín');
+    });
+
+    it('E1-H6 - does nothing if the session ended before the response came back', async () => {
+      await useAuthStore.getState().setProfile({
+        id: 'usr-1',
+        email: 'jleon@udesa.edu.ar',
+        handle: '@joaquin_dev',
+        displayName: 'Joaquín',
+        bio: null,
+      });
+
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
+
   describe('T-52. Refresco de token', () => {
     const renewed = {
       accessToken: 'access-token-renewed',

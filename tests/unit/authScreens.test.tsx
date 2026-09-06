@@ -14,6 +14,7 @@ import VerifyEmailScreen from '../../app/(auth)/verify-email';
 import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
 import ChangePasswordScreen from '../../app/(app)/change-password';
+import EditProfileScreen from '../../app/(app)/edit-profile';
 import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
 import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
@@ -564,6 +565,190 @@ describe('E1-H13. Cambiar Contraseña', () => {
   });
 });
 
+describe('E1-H6. Editar mi perfil', () => {
+  const loggedIn = {
+    user: {
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
+      fullName: 'Joaquín León',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  it('shows the display name and bio on the profile once set, in place of fullName', async () => {
+    useAuthStore.setState({
+      ...loggedIn,
+      user: { ...loggedIn.user, displayName: 'Joaco', bio: 'Estudiante de sistemas' },
+    });
+
+    renderScreen(<ProfileScreen />);
+
+    expect(screen.getByText('Joaco')).toBeTruthy();
+    expect(screen.getByText('Estudiante de sistemas')).toBeTruthy();
+    expect(screen.queryByText('Joaquín León')).toBeNull();
+  });
+
+  it('falls back to fullName on the profile until a display name is set', async () => {
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<ProfileScreen />);
+
+    expect(screen.getByText('Joaquín León')).toBeTruthy();
+  });
+
+  it('E1-H6 - loads the current profile to prefill the form', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: 'Estudiante',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+
+    expect(await screen.findByDisplayValue('Joaco')).toBeTruthy();
+    expect(screen.getByDisplayValue('Estudiante')).toBeTruthy();
+  });
+
+  it('E1-H6.CA5 - a blank display name is rejected before reaching the API', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: '',
+      bio: '',
+    });
+    const updateProfile = jest.spyOn(authService, 'updateProfile');
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await waitFor(() => expect(screen.queryByText('Guardar cambios')).toBeTruthy());
+    await press('Guardar cambios');
+
+    expect(screen.getByText('El nombre visible no puede quedar vacío')).toBeTruthy();
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('E1-H6.CA6 - a successful save updates the store and the profile screen reflects it immediately, without a second GET', async () => {
+    const getProfile = jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: '',
+      bio: '',
+    });
+    jest.spyOn(authService, 'updateProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: 'Estudiante',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByPlaceholderText('Como querés que te vean');
+    fireEvent.changeText(screen.getByPlaceholderText('Como querés que te vean'), 'Joaco');
+    await press('Guardar cambios');
+
+    await waitFor(() => expect(useAuthStore.getState().user?.displayName).toBe('Joaco'));
+    expect(useAuthStore.getState().user?.bio).toBe('Estudiante');
+    // getProfile only ran once, on mount: the PATCH response is what updated
+    // the store, no extra round trip to re-fetch the profile.
+    expect(getProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('E1-H6.CA5 - a field rejected by the API marks that input', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: '',
+    });
+    jest.spyOn(authService, 'updateProfile').mockRejectedValue(
+      new ApiError('Revisá los campos marcados.', 'validation-failed', {
+        display_name: 'Value error, El nombre visible no puede quedar vacío',
+      })
+    );
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByDisplayValue('Joaco');
+    await press('Guardar cambios');
+
+    await waitFor(() =>
+      expect(screen.getByText('Value error, El nombre visible no puede quedar vacío')).toBeTruthy()
+    );
+  });
+
+  it('shows a connection failure as a general error instead of blaming a field', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: '',
+    });
+    jest
+      .spyOn(authService, 'updateProfile')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByDisplayValue('Joaco');
+    await press('Guardar cambios');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+    expect(
+      screen.queryByText('No se pudo conectar con el servidor. Revisá tu conexión.')
+    ).toBeNull();
+  });
+
+  it('E1-H6 - a session revoked while loading the profile signs the user out', async () => {
+    jest
+      .spyOn(authService, 'getProfile')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+  });
+
+  it('cancels back without saving', async () => {
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: '',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<EditProfileScreen />);
+    await screen.findByDisplayValue('Joaco');
+    await press('Cancelar');
+
+    expect(mockBack).toHaveBeenCalled();
+  });
+});
+
 describe('E1-H3. Cierre de Sesión', () => {
   const loggedInSession = {
     user: {
@@ -628,6 +813,15 @@ describe('E1-H3. Cierre de Sesión', () => {
     await press('Cambiar contraseña');
 
     expect(mockPush).toHaveBeenCalledWith('/change-password');
+  });
+
+  it('opens the edit profile screen from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Editar perfil');
+
+    expect(mockPush).toHaveBeenCalledWith('/edit-profile');
   });
 });
 

@@ -1,5 +1,6 @@
 import {
   changePasswordSchema,
+  editProfileSchema,
   forgotPasswordSchema,
   loginSchema,
   normalizeHandle,
@@ -260,6 +261,42 @@ describe('E1-H13. Cambiar Contraseña', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues[0].path).toEqual(['passwordConfirmation']);
+  });
+});
+
+describe('E1-H6. Editar mi perfil', () => {
+  it('E1-H6.CA5 - requires a non-blank display name, trimmed', () => {
+    expect(editProfileSchema.safeParse({ displayName: 'Juan Pérez', bio: '' }).success).toBe(true);
+
+    const empty = editProfileSchema.safeParse({ displayName: '   ', bio: '' });
+    expect(empty.success).toBe(false);
+    if (empty.success) return;
+    expect(empty.error.issues[0].message).toBe('El nombre visible no puede quedar vacío');
+
+    const trimmed = editProfileSchema.safeParse({ displayName: '  Juan  ', bio: '' });
+    expect(trimmed.success).toBe(true);
+    if (!trimmed.success) return;
+    expect(trimmed.data.displayName).toBe('Juan');
+  });
+
+  it("E1-H6.CA5 - rejects a display name over users-api's 50 character cap", () => {
+    const result = editProfileSchema.safeParse({ displayName: 'a'.repeat(51), bio: '' });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0].message).toBe(
+      'El nombre visible no puede superar los 50 caracteres'
+    );
+  });
+
+  it('E1-H6.CA3 - accepts an empty bio: clearing it is a valid edit', () => {
+    expect(editProfileSchema.safeParse({ displayName: 'Juan', bio: '' }).success).toBe(true);
+  });
+
+  it('E1-H6.CA1 - rejects a bio over 160 characters', () => {
+    const result = editProfileSchema.safeParse({ displayName: 'Juan', bio: 'a'.repeat(161) });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0].message).toBe('La biografía no puede superar los 160 caracteres');
   });
 });
 

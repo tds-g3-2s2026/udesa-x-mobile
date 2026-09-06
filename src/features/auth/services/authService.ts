@@ -1,6 +1,13 @@
-import { AuthResponse, AuthTokens, RefreshResponse, RegisterResponse } from '../../../types/auth';
+import {
+  AuthResponse,
+  AuthTokens,
+  RefreshResponse,
+  RegisterResponse,
+  UserProfile,
+} from '../../../types/auth';
 import {
   ChangePasswordInput,
+  EditProfileInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -24,6 +31,27 @@ const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
 // Short-circuits the default 10s client timeout so a slow or unreachable
 // backend never delays the local wipe by more than this.
 const LOGOUT_TIMEOUT_MS = 3000;
+
+// Wire shape of GET/PATCH /me: display_name is the one field that does not
+// match this file's camelCase convention, same quirk as terms_accepted and
+// password_confirmation elsewhere in this contract.
+interface ProfileResponseBody {
+  id: string;
+  email: string;
+  handle: string;
+  display_name: string | null;
+  bio: string | null;
+}
+
+function toUserProfile(body: ProfileResponseBody): UserProfile {
+  return {
+    id: body.id,
+    email: body.email,
+    handle: body.handle,
+    displayName: body.display_name,
+    bio: body.bio,
+  };
+}
 
 export const authService = {
   async login(credentials: LoginInput): Promise<AuthResponse> {
@@ -124,6 +152,36 @@ export const authService = {
       });
     } catch (error) {
       throw toAuthError(error, 'No se pudo cambiar la contraseña. Intentalo de nuevo.');
+    }
+  },
+
+  // Current profile, to prefill the edit form. Requires a token, same as
+  // changePassword.
+  async getProfile(): Promise<UserProfile> {
+    try {
+      const response = await apiClient.get<ProfileResponseBody>('/me');
+      return toUserProfile(response.data);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo cargar tu perfil. Intentalo de nuevo.');
+    }
+  },
+
+  // PATCH /me is a real partial update on the server — an omitted field is
+  // left untouched — but this form always edits both fields together (it
+  // loads the current profile with getProfile() first), so it always sends
+  // both. Returns the full, sanitized profile the server actually stored,
+  // which the caller must display instead of what the user typed (tags and
+  // scripts are stripped server-side, so the response is the only source of
+  // truth for what was really saved).
+  async updateProfile(data: EditProfileInput): Promise<UserProfile> {
+    try {
+      const response = await apiClient.patch<ProfileResponseBody>('/me', {
+        display_name: data.displayName,
+        bio: data.bio,
+      });
+      return toUserProfile(response.data);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo actualizar tu perfil. Intentalo de nuevo.');
     }
   },
 

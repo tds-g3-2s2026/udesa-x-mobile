@@ -194,6 +194,17 @@ def is_access_token_revoked(token: str) -> bool:
     return serial <= sessions_revoked_up_to.get(handle, 0)
 
 
+_SCRIPT_TAG_RE = re.compile(r"<script\b[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def sanitize_text(value: str) -> str:
+    """Approximates the server's sanitizer (nh3): a script tag is removed with
+    its content, any other tag is stripped but the text inside it stays."""
+    without_scripts = _SCRIPT_TAG_RE.sub("", value)
+    return _HTML_TAG_RE.sub("", without_scripts)
+
+
 def handle_from_refresh_token(token: str) -> str | None:
     """Handle encoded in a refresh token issued by this mock."""
     if not token.startswith(REFRESH_TOKEN_PREFIX):
@@ -213,7 +224,18 @@ class AuthHandler(BaseHTTPRequestHandler):
         if route == "/healthcheck" or strip_base_path(route) == "/healthcheck":
             self.send_json(200, {"status": "ok", "mock": True})
             return
+        if strip_base_path(route) == "/me":
+            self.get_profile()
+            return
         self.send_problem(404, "Ruta no encontrada", f"{self.path} no existe en el mock.")
+
+    def do_PATCH(self) -> None:
+        route = self.path.split("?")[0]
+        endpoint_path = strip_base_path(route)
+        if endpoint_path == "/me":
+            self.update_profile()
+            return
+        self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
 
     def do_POST(self) -> None:
         route = self.path.split("?")[0]
@@ -447,11 +469,12 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         self.send_json(200, {"status": "reset", "handle": account["user"]["handle"]})
 
-    def change_password(self) -> None:
-        """Changes the active session password and revokes all sessions.
-
-        This is the only endpoint that checks revocation, as in the real API:
-        /auth/logout still accepts an already revoked token.
+    def resolve_authenticated_account(self, error_title: str) -> dict[str, Any] | None:
+        """Resolves the account from the Authorization header, or sends the
+        matching error and returns None. Shared by every endpoint under /me:
+        no header or a malformed one (FastAPI's own 401, no `type`), a token
+        that does not decode (401 invalid-token), or a session already
+        revoked (401 session-revoked).
         """
         auth_header = self.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer ") or not auth_header[len("Bearer ") :].strip():
@@ -462,15 +485,13 @@ class AuthHandler(BaseHTTPRequestHandler):
                 {"detail": "Not authenticated"},
                 extra_headers={"WWW-Authenticate": "Bearer"},
             )
-            return
+            return None
 
         token = auth_header[len("Bearer ") :].strip()
         parts = split_access_token(token)
         if parts is None:
-            self.send_problem(
-                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
-            )
-            return
+            self.send_problem(401, error_title, "El token no es válido", code="invalid-token")
+            return None
         if is_access_token_revoked(token):
             self.send_problem(
                 401,
@@ -478,13 +499,120 @@ class AuthHandler(BaseHTTPRequestHandler):
                 "Tu sesión se cerró. Iniciá sesión de nuevo",
                 code="session-revoked",
             )
-            return
+            return None
 
         account = find_account(parts[0])
         if account is None:
+            self.send_problem(401, error_title, "El token no es válido", code="invalid-token")
+            return None
+        return account
+
+    def profile_payload(self, account: dict[str, Any]) -> dict[str, Any]:
+        user = account["user"]
+        return {
+            "id": user["id"],
+            "email": user["email"],
+            "handle": user["handle"],
+            "display_name": account.get("display_name"),
+            "bio": account.get("bio"),
+        }
+
+    def get_profile(self) -> None:
+        account = self.resolve_authenticated_account("No se pudo cargar tu perfil")
+        if account is None:
+            return
+        self.send_json(200, self.profile_payload(account))
+
+    def update_profile(self) -> None:
+        account = self.resolve_authenticated_account("No se pudo actualizar tu perfil")
+        if account is None:
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        # email and handle are immutable, and the real API rejects them
+        # outright rather than ignoring them in silence.
+        rejected = [field for field in ("email", "handle") if field in body]
+        if rejected:
             self.send_problem(
-                401, "No se pudo cambiar la contraseña", "El token no es válido", code="invalid-token"
+                422,
+                "Datos inválidos",
+                "Hay campos que no se pueden modificar.",
+                code="validation-failed",
+                errors=[
+                    {"field": field, "message": "Extra inputs are not permitted"}
+                    for field in rejected
+                ],
             )
+            return
+
+        errors: list[dict[str, str]] = []
+
+        display_name: str | None = None
+        if "display_name" in body:
+            raw_name = body["display_name"]
+            if raw_name is None:
+                errors.append(
+                    {
+                        "field": "display_name",
+                        "message": "Value error, El nombre visible no puede quedar vacío",
+                    }
+                )
+            # Measured on the raw input, same as the real API — a value that
+            # only goes over the limit once sanitized is still fine.
+            elif len(str(raw_name)) > 50:
+                errors.append(
+                    {"field": "display_name", "message": "String should have at most 50 characters"}
+                )
+            else:
+                display_name = sanitize_text(str(raw_name))
+                if not display_name.strip():
+                    errors.append(
+                        {
+                            "field": "display_name",
+                            "message": "Value error, El nombre visible no puede quedar vacío",
+                        }
+                    )
+
+        bio: str | None = None
+        if "bio" in body:
+            raw_bio = body["bio"]
+            if raw_bio is not None:
+                if len(str(raw_bio)) > 160:
+                    errors.append(
+                        {"field": "bio", "message": "String should have at most 160 characters"}
+                    )
+                else:
+                    bio = sanitize_text(str(raw_bio))
+
+        if errors:
+            self.send_problem(
+                422,
+                "Datos inválidos",
+                "Revisá los campos marcados.",
+                code="validation-failed",
+                errors=errors,
+            )
+            return
+
+        if "display_name" in body:
+            account["display_name"] = display_name
+        if "bio" in body:
+            account["bio"] = bio
+
+        self.send_json(200, self.profile_payload(account))
+
+    def change_password(self) -> None:
+        """Changes the active session password and revokes all sessions.
+
+        This is the only endpoint that checks revocation, as in the real API:
+        /auth/logout still accepts an already revoked token.
+        """
+        account = self.resolve_authenticated_account("No se pudo cambiar la contraseña")
+        if account is None:
             return
 
         body = self.read_json()
@@ -590,7 +718,10 @@ class AuthHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b"{}"
         try:
             parsed = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # json.loads decodes the bytes before parsing them; malformed UTF-8
+            # fails there with UnicodeDecodeError, a different exception than
+            # the JSON syntax error this was already handling.
             return None
         return parsed if isinstance(parsed, dict) else None
 

@@ -90,7 +90,11 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(function FormInpu
       ) : (
         <TextInput
           ref={ref}
-          style={[styles.field, hasAlert && styles.fieldAlert]}
+          style={[
+            styles.field,
+            inputProps.multiline && styles.multilineField,
+            hasAlert && styles.fieldAlert,
+          ]}
           placeholderTextColor={colors.placeholder}
           {...inputProps}
           onFocus={handleFocus}
@@ -137,6 +141,15 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 15,
     color: colors.text,
+  },
+  // The fixed `height` of `field` above would clip a growing text area, and
+  // Android needs `textAlignVertical` set explicitly or it centers the text.
+  multilineField: {
+    height: undefined,
+    minHeight: 90,
+    paddingTop: 12,
+    paddingBottom: 12,
+    textAlignVertical: 'top',
   },
   fieldAlert: {
     borderColor: colors.danger,

@@ -33,10 +33,14 @@ export default function ProfileScreen() {
     <AppScreen title="Perfil">
       <View style={styles.card}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarInitial}>{user.fullName.charAt(0).toUpperCase()}</Text>
+          {/* The display name replaces fullName here once the user sets one,
+              so an edit is visible where the user actually looks for it. */}
+          <Text style={styles.avatarInitial}>
+            {(user.displayName || user.fullName).charAt(0).toUpperCase()}
+          </Text>
         </View>
 
-        <Text style={styles.fullName}>{user.fullName}</Text>
+        <Text style={styles.fullName}>{user.displayName || user.fullName}</Text>
         <Text style={styles.handle}>{user.handle}</Text>
         <Text style={styles.email}>{user.email}</Text>
 
@@ -50,15 +54,26 @@ export default function ProfileScreen() {
             {user.isVerified ? 'Correo verificado' : 'Correo sin verificar'}
           </Text>
         </View>
+
+        {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
       </View>
 
       <TouchableOpacity
-        style={styles.changePasswordButton}
+        style={styles.actionButton}
+        onPress={() => router.push('/edit-profile')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="create-outline" size={18} color={colors.primary} />
+        <Text style={styles.actionButtonLabel}>Editar perfil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.actionButton, styles.stackedButton]}
         onPress={() => router.push('/change-password')}
         accessibilityRole="button"
       >
         <Ionicons name="key-outline" size={18} color={colors.primary} />
-        <Text style={styles.changePasswordLabel}>Cambiar contraseña</Text>
+        <Text style={styles.actionButtonLabel}>Cambiar contraseña</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -142,7 +157,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.danger,
   },
-  changePasswordButton: {
+  // Shared by "Editar perfil" and "Cambiar contraseña": same look, only the
+  // gap to whatever is above differs (see stackedButton).
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -154,10 +171,21 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.field,
   },
-  changePasswordLabel: {
+  // Tighter than the gap from the card above: stacked buttons read as one block.
+  stackedButton: {
+    marginTop: 12,
+  },
+  actionButtonLabel: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
+  },
+  bio: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+    textAlign: 'center',
   },
   logoutButton: {
     flexDirection: 'row',
