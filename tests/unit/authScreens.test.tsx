@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import * as SecureStore from 'expo-secure-store';
-import ProfileScreen from '../../app/(app)/profile';
+import ProfileScreen from '../../app/(app)/(tabs)/profile';
 import LoginScreen from '../../app/(auth)/login';
 import RegisterNameScreen from '../../app/(auth)/register/index';
 import RegisterHandleScreen from '../../app/(auth)/register/handle';
@@ -261,6 +261,59 @@ describe('E1-H2. Inicio de Sesión', () => {
     // itself, and tests/unit/navigationGuards.test.tsx covers that.
     await waitFor(() => expect(useAuthStore.getState().user?.handle).toBe('@joaquin_dev'));
     expect(useAuthStore.getState().accessToken).toBe('jwt-access-token');
+  });
+
+  it('fetches the profile after login, since login never returns display name or bio', async () => {
+    jest.spyOn(authService, 'login').mockResolvedValue({
+      user: {
+        id: 'usr-1',
+        handle: '@joaquin_dev',
+        email: 'jleon@udesa.edu.ar',
+        fullName: 'Joaquín León',
+        isVerified: true,
+      },
+      tokens: { accessToken: 'jwt-access-token', refreshToken: 'jwt-refresh-token' },
+    });
+    jest.spyOn(authService, 'getProfile').mockResolvedValue({
+      id: 'usr-1',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+      displayName: 'Joaco',
+      bio: 'Estudiante',
+    });
+
+    renderScreen(<LoginScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_PLACEHOLDER), '@joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'Password123');
+    await press('Iniciar Sesión');
+
+    await waitFor(() => expect(useAuthStore.getState().user?.displayName).toBe('Joaco'));
+    expect(useAuthStore.getState().user?.bio).toBe('Estudiante');
+    // The rest of the session set by login is untouched by the merge.
+    expect(useAuthStore.getState().user?.fullName).toBe('Joaquín León');
+  });
+
+  it('does not block or alert on a successful login when fetching the profile fails', async () => {
+    jest.spyOn(authService, 'login').mockResolvedValue({
+      user: {
+        id: 'usr-1',
+        handle: '@joaquin_dev',
+        email: 'jleon@udesa.edu.ar',
+        fullName: 'Joaquín León',
+        isVerified: true,
+      },
+      tokens: { accessToken: 'jwt-access-token', refreshToken: 'jwt-refresh-token' },
+    });
+    jest.spyOn(authService, 'getProfile').mockRejectedValue(new ApiError('down'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<LoginScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_PLACEHOLDER), '@joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'Password123');
+    await press('Iniciar Sesión');
+
+    await waitFor(() => expect(useAuthStore.getState().user?.handle).toBe('@joaquin_dev'));
+    expect(alert).not.toHaveBeenCalled();
   });
 
   it('E1-H2.CA3 - shows the generic credentials error raised by the service', async () => {

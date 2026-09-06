@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { TextInput, View } from 'react-native';
-import { colors } from '../../src/features/auth/components/authTheme';
+import { colors } from '../../../src/features/auth/components/authTheme';
 import {
   AppScreen,
   EmptyState,
   searchFieldStyles,
-} from '../../src/features/shell/components/AppScreen';
+} from '../../../src/features/shell/components/AppScreen';
 
 // The Buscar tab. The field is real, but users-api exposes no search endpoint
 // yet, so the screen says so instead of showing invented results.

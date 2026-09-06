@@ -2,6 +2,7 @@
   "name": "udesa-x-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "packageManager": "bun@1.2.20",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -19,6 +20,7 @@
     "axios": "^1.20.0",
     "expo": "~54.0.37",
     "expo-constants": "~18.0.14",
+    "expo-dev-client": "~6.0.21",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",

@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { Text, TouchableOpacity } from 'react-native';
-import { colors } from '../../src/features/auth/components/authTheme';
+import { colors } from '../../../src/features/auth/components/authTheme';
 import {
   AppScreen,
   EmptyState,
   searchFieldStyles,
-} from '../../src/features/shell/components/AppScreen';
+} from '../../../src/features/shell/components/AppScreen';
 
 // The home tab. The feed itself arrives with the publication epic, so the
 // screen shows the shortcut to the search tab and the empty state.

@@ -685,8 +685,16 @@ class AuthHandler(BaseHTTPRequestHandler):
         account["password"] = password
         change_password_attempts.pop(handle, None)
         # Every session issued so far becomes invalid, including the one that
-        # made this request.
-        sessions_revoked_up_to[handle.lstrip("@")] = parts[1]
+        # made this request. Recomputed here instead of reusing a `parts` from
+        # resolve_authenticated_account: that helper returns the account, not
+        # the parsed token, and this line used to assume it had a `parts` of
+        # its own left over from before that helper existed — it did not,
+        # which crashed every successful change with a NameError.
+        auth_header = self.headers.get("Authorization", "")
+        token = auth_header[len("Bearer ") :].strip()
+        parts = split_access_token(token)
+        if parts is not None:
+            sessions_revoked_up_to[handle.lstrip("@")] = parts[1]
         print(f"    contraseña cambiada desde la sesión de {handle}")
 
         self.send_json(200, {"status": "changed"})

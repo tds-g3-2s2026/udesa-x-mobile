@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '../../src/features/auth/components/authTheme';
-import { authService } from '../../src/features/auth/services/authService';
-import { AppScreen } from '../../src/features/shell/components/AppScreen';
-import { useAuthStore } from '../../src/stores/authStore';
+import { colors } from '../../../src/features/auth/components/authTheme';
+import { authService } from '../../../src/features/auth/services/authService';
+import { AppScreen } from '../../../src/features/shell/components/AppScreen';
+import { useAuthStore } from '../../../src/stores/authStore';
 
 // The Perfil tab. It owns the session data and the logout.
 export default function ProfileScreen() {
