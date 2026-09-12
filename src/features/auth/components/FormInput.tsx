@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,7 +9,8 @@ import {
   type LayoutChangeEvent,
   type TextInputProps,
 } from 'react-native';
-import { colors } from './authTheme';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { Colors } from '../../../theme/colors';
 import { useFormScroll, type FieldRect } from './formScroll';
 
 type FormInputProps = Omit<TextInputProps, 'style' | 'onLayout' | 'secureTextEntry'> & {
@@ -35,6 +36,8 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(function FormInpu
   const { revealField } = useFormScroll();
   const fieldRect = useRef<FieldRect>({ y: 0, height: 0 });
   const [isValueVisible, setIsValueVisible] = useState(false);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { y, height } = event.nativeEvent.layout;
@@ -106,73 +109,75 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(function FormInpu
   );
 });
 
-const styles = StyleSheet.create({
-  group: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  field: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: colors.text,
-    backgroundColor: colors.field,
-  },
-  secureWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 50,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    backgroundColor: colors.field,
-  },
-  secureInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: colors.text,
-  },
-  // The fixed `height` of `field` above would clip a growing text area, and
-  // Android needs `textAlignVertical` set explicitly or it centers the text.
-  multilineField: {
-    height: undefined,
-    minHeight: 90,
-    paddingTop: 12,
-    paddingBottom: 12,
-    textAlignVertical: 'top',
-  },
-  fieldAlert: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerSoft,
-  },
-  toggle: {
-    paddingLeft: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleLabel: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  alertMessage: {
-    color: colors.danger,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  hintMessage: {
-    color: colors.muted,
-    fontSize: 12,
-    marginTop: 4,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    group: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    field: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      fontSize: 15,
+      color: colors.text,
+      backgroundColor: colors.field,
+    },
+    secureWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 50,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      backgroundColor: colors.field,
+    },
+    secureInput: {
+      flex: 1,
+      height: '100%',
+      fontSize: 15,
+      color: colors.text,
+    },
+    // The fixed `height` of `field` above would clip a growing text area, and
+    // Android needs `textAlignVertical` set explicitly or it centers the text.
+    multilineField: {
+      height: undefined,
+      minHeight: 90,
+      paddingTop: 12,
+      paddingBottom: 12,
+      textAlignVertical: 'top',
+    },
+    fieldAlert: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
+    toggle: {
+      paddingLeft: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    toggleLabel: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    alertMessage: {
+      color: colors.danger,
+      fontSize: 12,
+      marginTop: 4,
+    },
+    hintMessage: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 4,
+    },
+  });
+}

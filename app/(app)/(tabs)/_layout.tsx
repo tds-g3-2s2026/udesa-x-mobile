@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
-import { colors } from '../../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../../src/theme/useThemeColors';
 
 // The bottom tab bar with the four sections of the product. change-password
 // and edit-profile are NOT here: they are Stack screens one level up, in
@@ -8,6 +8,8 @@ import { colors } from '../../../src/features/auth/components/authTheme';
 // real navigation stack instead of a tab switch. Every screen draws its own
 // header, so the navigator only owns the bar.
 export default function TabsLayout() {
+  const colors = useThemeColors();
+
   return (
     <Tabs
       screenOptions={{

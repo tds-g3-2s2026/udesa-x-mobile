@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ApiError } from '../../src/api/apiClient';
@@ -6,7 +6,9 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { editProfileSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
-import { authStyles, colors } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../src/theme/useThemeColors';
+import { Colors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/stores/authStore';
 
 type FormField = 'displayName' | 'bio';
@@ -28,6 +30,9 @@ export default function EditProfileScreen() {
   const clearSession = useAuthStore((state) => state.clearSession);
   const setProfile = useAuthStore((state) => state.setProfile);
   const bioRef = useRef<TextInput>(null);
+  const authStyles = useAuthStyles();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
@@ -180,11 +185,13 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    loading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+  });
+}

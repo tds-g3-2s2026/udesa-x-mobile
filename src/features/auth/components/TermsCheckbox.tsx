@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { colors } from './authTheme';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { Colors } from '../../../theme/colors';
 
 type TermsCheckboxProps = {
   value: boolean;
@@ -14,6 +15,8 @@ type TermsCheckboxProps = {
 // acceptance by accident.
 export function TermsCheckbox({ value, onChange }: TermsCheckboxProps) {
   const router = useRouter();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.row}>
@@ -46,24 +49,26 @@ export function TermsCheckbox({ value, onChange }: TermsCheckboxProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
-    gap: 10,
-  },
-  box: {
-    paddingTop: 1,
-  },
-  label: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  link: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginTop: 16,
+      gap: 10,
+    },
+    box: {
+      paddingTop: 1,
+    },
+    label: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.muted,
+    },
+    link: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+  });
+}

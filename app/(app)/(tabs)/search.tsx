@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { TextInput, View } from 'react-native';
-import { colors } from '../../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../../src/theme/useThemeColors';
 import {
   AppScreen,
   EmptyState,
-  searchFieldStyles,
+  useSearchFieldStyles,
 } from '../../../src/features/shell/components/AppScreen';
 
 // The Buscar tab. The field is real, but users-api exposes no search endpoint
 // yet, so the screen says so instead of showing invented results.
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const colors = useThemeColors();
+  const searchFieldStyles = useSearchFieldStyles();
 
   return (
     <AppScreen title="Buscar">

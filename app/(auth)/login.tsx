@@ -6,12 +6,13 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { loginSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
-import { authStyles } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const setSession = useAuthStore((state) => state.setSession);
   const setProfile = useAuthStore((state) => state.setProfile);
+  const authStyles = useAuthStyles();
   const passwordRef = useRef<TextInput>(null);
 
   const [identifier, setIdentifier] = useState('');
