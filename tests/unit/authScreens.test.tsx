@@ -20,6 +20,7 @@ import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useThemeStore } from '../../src/stores/themeStore';
 import { useRegisterDraft } from '../../src/stores/registerDraftStore';
 import { AUTH_SCREEN_BODY } from '../../src/features/auth/components/AuthScreen';
 
@@ -74,6 +75,7 @@ afterEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
   useRegisterDraft.getState().reset();
+  useThemeStore.setState({ theme: 'light', isInitialized: false });
 });
 
 describe('E1-H1. Registro de Usuarios', () => {
@@ -651,6 +653,35 @@ describe('E1-H6. Editar mi perfil', () => {
     renderScreen(<ProfileScreen />);
 
     expect(screen.getByText('Joaquín León')).toBeTruthy();
+  });
+
+  it('E1-H10.CA1 - toggling the theme switch persists the preference locally, nowhere else', async () => {
+    useAuthStore.setState(loggedIn);
+    renderScreen(<ProfileScreen />);
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Tema oscuro'), 'valueChange', true);
+    });
+
+    expect(useThemeStore.getState().theme).toBe('dark');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('udesa_x_theme', 'dark');
+  });
+
+  it('E1-H10.CA2 - the screen reflects the new theme immediately, without unmounting', async () => {
+    useAuthStore.setState(loggedIn);
+    renderScreen(<ProfileScreen />);
+
+    // The icon next to the switch is driven by the same theme value as the
+    // colors: if it flips in place, the screen re-rendered with the new
+    // palette instead of needing a reload to pick it up.
+    expect(screen.UNSAFE_getByProps({ name: 'sunny-outline' })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Tema oscuro'), 'valueChange', true);
+    });
+
+    expect(screen.UNSAFE_getByProps({ name: 'moon-outline' })).toBeTruthy();
+    expect(screen.getByLabelText('Tema oscuro').props.value).toBe(true);
   });
 
   it('E1-H6 - loads the current profile to prefill the form', async () => {

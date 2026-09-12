@@ -1,16 +1,23 @@
+import { useMemo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '../../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../../src/theme/useThemeColors';
+import { Colors } from '../../../src/theme/colors';
+import { useThemeStore } from '../../../src/stores/themeStore';
 import { authService } from '../../../src/features/auth/services/authService';
 import { AppScreen } from '../../../src/features/shell/components/AppScreen';
 import { useAuthStore } from '../../../src/stores/authStore';
 
-// The Perfil tab. It owns the session data and the logout.
+// The Perfil tab. It owns the session data, the logout and the theme toggle.
 export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // The root layout only mounts this group when there is a session, so a null
   // user means the group is being unmounted: nothing to draw.
@@ -76,6 +83,24 @@ export default function ProfileScreen() {
         <Text style={styles.actionButtonLabel}>Cambiar contraseña</Text>
       </TouchableOpacity>
 
+      <View style={[styles.actionButton, styles.stackedButton, styles.themeRow]}>
+        <View style={styles.themeRowLabel}>
+          <Ionicons
+            name={theme === 'dark' ? 'moon-outline' : 'sunny-outline'}
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={styles.actionButtonLabel}>Tema oscuro</Text>
+        </View>
+        <Switch
+          value={theme === 'dark'}
+          onValueChange={(isDark) => setTheme(isDark ? 'dark' : 'light')}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={colors.onPrimary}
+          accessibilityLabel="Tema oscuro"
+        />
+      </View>
+
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={handleLogout}
@@ -88,121 +113,134 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.field,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    marginBottom: 8,
-  },
-  avatarInitial: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  fullName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  handle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  email: {
-    fontSize: 14,
-    color: colors.muted,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: colors.primarySoft,
-  },
-  pendingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: colors.dangerSoft,
-  },
-  verifiedLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  pendingLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.danger,
-  },
-  // Shared by "Editar perfil" and "Cambiar contraseña": same look, only the
-  // gap to whatever is above differs (see stackedButton).
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    marginTop: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.field,
-  },
-  // Tighter than the gap from the card above: stacked buttons read as one block.
-  stackedButton: {
-    marginTop: 12,
-  },
-  actionButtonLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  bio: {
-    marginTop: 12,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    // Tighter than the gap to the card above: the two buttons read as one block.
-    marginTop: 12,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerSoft,
-  },
-  logoutLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.danger,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    card: {
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 24,
+      paddingHorizontal: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.divider,
+      backgroundColor: colors.field,
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+      marginBottom: 8,
+    },
+    avatarInitial: {
+      fontSize: 30,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    fullName: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    handle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    email: {
+      fontSize: 14,
+      color: colors.muted,
+    },
+    verifiedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 12,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+    },
+    pendingBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 12,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      backgroundColor: colors.dangerSoft,
+    },
+    verifiedLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    pendingLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.danger,
+    },
+    // Shared by "Editar perfil" and "Cambiar contraseña": same look, only the
+    // gap to whatever is above differs (see stackedButton).
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      height: 48,
+      marginTop: 24,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.field,
+    },
+    // Tighter than the gap from the card above: stacked buttons read as one block.
+    stackedButton: {
+      marginTop: 12,
+    },
+    // Not a button: the switch itself is the control, so the row spreads its
+    // three pieces instead of centering them like the buttons above.
+    themeRow: {
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+    },
+    themeRowLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    actionButtonLabel: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    bio: {
+      marginTop: 12,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.text,
+      textAlign: 'center',
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      height: 48,
+      // Tighter than the gap to the card above: the two buttons read as one block.
+      marginTop: 12,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
+    logoutLabel: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.danger,
+    },
+  });
+}
