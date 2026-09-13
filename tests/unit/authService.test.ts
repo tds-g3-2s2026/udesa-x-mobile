@@ -368,7 +368,7 @@ describe('Auth service', () => {
       get.mockRestore();
     });
 
-    it('sends only the field that changed, in snake_case, as a real partial update', async () => {
+    it('sends only profile_visibility when that is the field that changed', async () => {
       const patch = jest
         .spyOn(apiClient, 'patch')
         .mockResolvedValueOnce(
@@ -382,7 +382,19 @@ describe('Auth service', () => {
       patch.mockRestore();
     });
 
-    it('identifies a revoked session while loading or saving preferences', async () => {
+    it('sends only feed_language when that is the field that changed', async () => {
+      const patch = jest
+        .spyOn(apiClient, 'patch')
+        .mockResolvedValueOnce(apiSuccess({ profile_visibility: 'public', feed_language: 'es' }));
+
+      const preferences = await authService.updatePreferences({ feedLanguage: 'es' });
+
+      expect(patch).toHaveBeenCalledWith('/me/preferences', { feed_language: 'es' });
+      expect(preferences).toEqual({ profileVisibility: 'public', feedLanguage: 'es' });
+      patch.mockRestore();
+    });
+
+    it('identifies a revoked session while loading preferences', async () => {
       const get = jest.spyOn(apiClient, 'get').mockRejectedValueOnce(
         apiFailure(401, {
           type: 'https://udesa-x.dev/errors/session-revoked',
@@ -392,6 +404,20 @@ describe('Auth service', () => {
 
       await expect(authService.getPreferences()).rejects.toMatchObject({ code: 'session-revoked' });
       get.mockRestore();
+    });
+
+    it('identifies a revoked session while saving preferences', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(
+        authService.updatePreferences({ profileVisibility: 'protected' })
+      ).rejects.toMatchObject({ code: 'session-revoked' });
+      patch.mockRestore();
     });
   });
 

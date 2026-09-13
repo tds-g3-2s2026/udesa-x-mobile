@@ -961,6 +961,25 @@ describe('Preferencias', () => {
     expect(screen.queryByText('Guardar cambios')).toBeNull();
   });
 
+  it('saves the feed language independently of the profile visibility', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    const updatePreferences = jest.spyOn(authService, 'updatePreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'en',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Todos');
+    await press('Inglés');
+
+    expect(updatePreferences).toHaveBeenCalledWith({ feedLanguage: 'en' });
+    expect(await screen.findByText('Inglés')).toBeTruthy();
+  });
+
   it('does nothing when tapping the option that is already selected', async () => {
     jest.spyOn(authService, 'getPreferences').mockResolvedValue({
       profileVisibility: 'public',
@@ -986,6 +1005,26 @@ describe('Preferencias', () => {
     useAuthStore.setState(loggedIn);
 
     renderScreen(<PreferencesScreen />);
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+  });
+
+  it('a session revoked while saving preferences signs the user out', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    jest
+      .spyOn(authService, 'updatePreferences')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Protegido');
 
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
   });
