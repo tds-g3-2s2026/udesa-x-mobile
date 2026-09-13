@@ -81,6 +81,19 @@ RESET_TOKEN_TTL_SECONDS = 600
 RESET_REQUEST_LIMIT = 3
 RESET_REQUEST_WINDOW_SECONDS = 3600
 
+PROFILE_VISIBILITY_VALUES = ("public", "protected")
+FEED_LANGUAGE_VALUES = ("es", "en", "all")
+
+
+def pydantic_enum_message(values: tuple[str, ...]) -> str:
+    """Mirrors Pydantic's default message for a Literal field: comma-joined,
+    with "or" before the last option and no comma before it when there are
+    only two."""
+    quoted = [f"'{value}'" for value in values]
+    if len(quoted) == 1:
+        return f"Input should be {quoted[0]}"
+    return f"Input should be {', '.join(quoted[:-1])} or {quoted[-1]}"
+
 
 def build_user(handle: str, email: str, full_name: str, is_verified: bool) -> dict[str, Any]:
     return {
@@ -227,6 +240,9 @@ class AuthHandler(BaseHTTPRequestHandler):
         if strip_base_path(route) == "/me":
             self.get_profile()
             return
+        if strip_base_path(route) == "/me/preferences":
+            self.get_preferences()
+            return
         self.send_problem(404, "Ruta no encontrada", f"{self.path} no existe en el mock.")
 
     def do_PATCH(self) -> None:
@@ -234,6 +250,9 @@ class AuthHandler(BaseHTTPRequestHandler):
         endpoint_path = strip_base_path(route)
         if endpoint_path == "/me":
             self.update_profile()
+            return
+        if endpoint_path == "/me/preferences":
+            self.update_preferences()
             return
         self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
 
@@ -604,6 +623,63 @@ class AuthHandler(BaseHTTPRequestHandler):
             account["bio"] = bio
 
         self.send_json(200, self.profile_payload(account))
+
+    def preferences_payload(self, account: dict[str, Any]) -> dict[str, Any]:
+        # Any account that never touched this endpoint reads back the
+        # defaults, the same ones a fresh registration gets.
+        return {
+            "profile_visibility": account.get("profile_visibility", "public"),
+            "feed_language": account.get("feed_language", "all"),
+        }
+
+    def get_preferences(self) -> None:
+        account = self.resolve_authenticated_account("No se pudieron cargar tus preferencias")
+        if account is None:
+            return
+        self.send_json(200, self.preferences_payload(account))
+
+    def update_preferences(self) -> None:
+        account = self.resolve_authenticated_account("No se pudo guardar la preferencia")
+        if account is None:
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        known_fields = {"profile_visibility": PROFILE_VISIBILITY_VALUES, "feed_language": FEED_LANGUAGE_VALUES}
+        errors: list[dict[str, str]] = []
+
+        for field in body:
+            if field not in known_fields:
+                errors.append({"field": field, "message": "Extra inputs are not permitted"})
+
+        for field, allowed in known_fields.items():
+            if field not in body:
+                continue
+            value = body[field]
+            if value is None:
+                errors.append({"field": field, "message": "Value error, No puede ser nulo"})
+            elif value not in allowed:
+                errors.append({"field": field, "message": pydantic_enum_message(allowed)})
+
+        if errors:
+            self.send_problem(
+                422,
+                "Datos inválidos",
+                "Revisá las preferencias enviadas.",
+                code="validation-failed",
+                errors=errors,
+            )
+            return
+
+        if "profile_visibility" in body:
+            account["profile_visibility"] = body["profile_visibility"]
+        if "feed_language" in body:
+            account["feed_language"] = body["feed_language"]
+
+        self.send_json(200, self.preferences_payload(account))
 
     def change_password(self) -> None:
         """Changes the active session password and revokes all sessions.
