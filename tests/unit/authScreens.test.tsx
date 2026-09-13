@@ -15,6 +15,7 @@ import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
 import ChangePasswordScreen from '../../app/(app)/change-password';
 import EditProfileScreen from '../../app/(app)/edit-profile';
+import PreferencesScreen from '../../app/(app)/preferences';
 import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
 import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
@@ -912,6 +913,131 @@ describe('E1-H6. Editar mi perfil', () => {
   });
 });
 
+describe('Preferencias', () => {
+  const loggedIn = {
+    user: {
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
+      fullName: 'Joaquín León',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  it('loads and shows the currently saved preferences', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'protected',
+      feedLanguage: 'en',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+
+    expect(await screen.findByText('Protegido')).toBeTruthy();
+    expect(screen.getByText('Inglés')).toBeTruthy();
+  });
+
+  it('saves a changed option right away, with no separate save button', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    const updatePreferences = jest.spyOn(authService, 'updatePreferences').mockResolvedValue({
+      profileVisibility: 'protected',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Protegido');
+
+    // Only the field that was tapped travels, same partial-update contract as
+    // the rest of /me: the language the user never touched is not resent.
+    expect(updatePreferences).toHaveBeenCalledWith({ profileVisibility: 'protected' });
+    expect(screen.queryByText('Guardar cambios')).toBeNull();
+  });
+
+  it('does nothing when tapping the option that is already selected', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    const updatePreferences = jest.spyOn(authService, 'updatePreferences');
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Público');
+
+    expect(updatePreferences).not.toHaveBeenCalled();
+  });
+
+  it('a session revoked while loading preferences signs the user out', async () => {
+    jest
+      .spyOn(authService, 'getPreferences')
+      .mockRejectedValue(
+        new ApiError('Tu sesión se cerró. Iniciá sesión de nuevo', 'session-revoked')
+      );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
+  });
+
+  it('a non-session load failure shows a general error and goes back', async () => {
+    jest
+      .spyOn(authService, 'getPreferences')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('a failed save shows a general error and keeps the previous selection', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    const updatePreferences = jest
+      .spyOn(authService, 'updatePreferences')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Protegido');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+
+    // The failed save must not have moved the local selection: pressing the
+    // option that was already selected before the failure has to still be a
+    // no-op, which only holds if it is still the one showing as selected.
+    await press('Público');
+    expect(updatePreferences).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('E1-H3. Cierre de Sesión', () => {
   const loggedInSession = {
     user: {
@@ -985,6 +1111,15 @@ describe('E1-H3. Cierre de Sesión', () => {
     await press('Editar perfil');
 
     expect(mockPush).toHaveBeenCalledWith('/edit-profile');
+  });
+
+  it('opens the preferences screen from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Configuración');
+
+    expect(mockPush).toHaveBeenCalledWith('/preferences');
   });
 });
 

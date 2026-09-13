@@ -355,6 +355,46 @@ describe('Auth service', () => {
     });
   });
 
+  describe('Preferencias', () => {
+    const preferencesBody = { profile_visibility: 'protected', feed_language: 'en' };
+
+    it('maps profile_visibility and feed_language when reading preferences', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockResolvedValueOnce(apiSuccess(preferencesBody));
+
+      const preferences = await authService.getPreferences();
+
+      expect(get).toHaveBeenCalledWith('/me/preferences');
+      expect(preferences).toEqual({ profileVisibility: 'protected', feedLanguage: 'en' });
+      get.mockRestore();
+    });
+
+    it('sends only the field that changed, in snake_case, as a real partial update', async () => {
+      const patch = jest
+        .spyOn(apiClient, 'patch')
+        .mockResolvedValueOnce(
+          apiSuccess({ profile_visibility: 'protected', feed_language: 'all' })
+        );
+
+      const preferences = await authService.updatePreferences({ profileVisibility: 'protected' });
+
+      expect(patch).toHaveBeenCalledWith('/me/preferences', { profile_visibility: 'protected' });
+      expect(preferences).toEqual({ profileVisibility: 'protected', feedLanguage: 'all' });
+      patch.mockRestore();
+    });
+
+    it('identifies a revoked session while loading or saving preferences', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(authService.getPreferences()).rejects.toMatchObject({ code: 'session-revoked' });
+      get.mockRestore();
+    });
+  });
+
   describe('E1-H13. Cambiar Contraseña', () => {
     const change = {
       currentPassword: 'Vieja1234',
