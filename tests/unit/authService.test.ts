@@ -355,6 +355,72 @@ describe('Auth service', () => {
     });
   });
 
+  describe('Preferencias', () => {
+    const preferencesBody = { profile_visibility: 'protected', feed_language: 'en' };
+
+    it('maps profile_visibility and feed_language when reading preferences', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockResolvedValueOnce(apiSuccess(preferencesBody));
+
+      const preferences = await authService.getPreferences();
+
+      expect(get).toHaveBeenCalledWith('/me/preferences');
+      expect(preferences).toEqual({ profileVisibility: 'protected', feedLanguage: 'en' });
+      get.mockRestore();
+    });
+
+    it('sends only profile_visibility when that is the field that changed', async () => {
+      const patch = jest
+        .spyOn(apiClient, 'patch')
+        .mockResolvedValueOnce(
+          apiSuccess({ profile_visibility: 'protected', feed_language: 'all' })
+        );
+
+      const preferences = await authService.updatePreferences({ profileVisibility: 'protected' });
+
+      expect(patch).toHaveBeenCalledWith('/me/preferences', { profile_visibility: 'protected' });
+      expect(preferences).toEqual({ profileVisibility: 'protected', feedLanguage: 'all' });
+      patch.mockRestore();
+    });
+
+    it('sends only feed_language when that is the field that changed', async () => {
+      const patch = jest
+        .spyOn(apiClient, 'patch')
+        .mockResolvedValueOnce(apiSuccess({ profile_visibility: 'public', feed_language: 'es' }));
+
+      const preferences = await authService.updatePreferences({ feedLanguage: 'es' });
+
+      expect(patch).toHaveBeenCalledWith('/me/preferences', { feed_language: 'es' });
+      expect(preferences).toEqual({ profileVisibility: 'public', feedLanguage: 'es' });
+      patch.mockRestore();
+    });
+
+    it('identifies a revoked session while loading preferences', async () => {
+      const get = jest.spyOn(apiClient, 'get').mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(authService.getPreferences()).rejects.toMatchObject({ code: 'session-revoked' });
+      get.mockRestore();
+    });
+
+    it('identifies a revoked session while saving preferences', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(
+        apiFailure(401, {
+          type: 'https://udesa-x.dev/errors/session-revoked',
+          detail: 'Tu sesión se cerró. Iniciá sesión de nuevo',
+        })
+      );
+
+      await expect(
+        authService.updatePreferences({ profileVisibility: 'protected' })
+      ).rejects.toMatchObject({ code: 'session-revoked' });
+      patch.mockRestore();
+    });
+  });
+
   describe('E1-H13. Cambiar Contraseña', () => {
     const change = {
       currentPassword: 'Vieja1234',

@@ -24,6 +24,16 @@ export interface UserProfile {
   bio: string | null;
 }
 
+export type ProfileVisibility = 'public' | 'protected';
+export type FeedLanguage = 'es' | 'en' | 'all';
+
+// Shape of GET and PATCH /me/preferences. Both fields always have a value —
+// unlike bio, neither has an "empty" state to fall back to.
+export interface UserPreferences {
+  profileVisibility: ProfileVisibility;
+  feedLanguage: FeedLanguage;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;

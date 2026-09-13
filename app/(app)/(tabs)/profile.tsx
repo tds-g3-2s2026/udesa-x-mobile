@@ -83,6 +83,15 @@ export default function ProfileScreen() {
         <Text style={styles.actionButtonLabel}>Cambiar contraseña</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.actionButton, styles.stackedButton]}
+        onPress={() => router.push('/preferences')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="options-outline" size={18} color={colors.primary} />
+        <Text style={styles.actionButtonLabel}>Configuración</Text>
+      </TouchableOpacity>
+
       <View style={[styles.actionButton, styles.stackedButton, styles.themeRow]}>
         <View style={styles.themeRowLabel}>
           <Ionicons

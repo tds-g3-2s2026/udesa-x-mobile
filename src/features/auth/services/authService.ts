@@ -3,6 +3,7 @@ import {
   AuthTokens,
   RefreshResponse,
   RegisterResponse,
+  UserPreferences,
   UserProfile,
 } from '../../../types/auth';
 import {
@@ -50,6 +51,20 @@ function toUserProfile(body: ProfileResponseBody): UserProfile {
     handle: body.handle,
     displayName: body.display_name,
     bio: body.bio,
+  };
+}
+
+// Wire shape of GET/PATCH /me/preferences: same snake_case quirk as the
+// profile endpoint.
+interface PreferencesResponseBody {
+  profile_visibility: UserPreferences['profileVisibility'];
+  feed_language: UserPreferences['feedLanguage'];
+}
+
+function toUserPreferences(body: PreferencesResponseBody): UserPreferences {
+  return {
+    profileVisibility: body.profile_visibility,
+    feedLanguage: body.feed_language,
   };
 }
 
@@ -182,6 +197,32 @@ export const authService = {
       return toUserProfile(response.data);
     } catch (error) {
       throw toAuthError(error, 'No se pudo actualizar tu perfil. Intentalo de nuevo.');
+    }
+  },
+
+  // Current preferences, to prefill the settings screen. Requires a token.
+  async getPreferences(): Promise<UserPreferences> {
+    try {
+      const response = await apiClient.get<PreferencesResponseBody>('/me/preferences');
+      return toUserPreferences(response.data);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar tus preferencias. Intentalo de nuevo.');
+    }
+  },
+
+  // A real partial update, same as PATCH /me: the caller sends only the one
+  // preference the user just changed, and the field it did not touch is
+  // left as the server already had it.
+  async updatePreferences(data: Partial<UserPreferences>): Promise<UserPreferences> {
+    try {
+      const body: Partial<PreferencesResponseBody> = {};
+      if (data.profileVisibility) body.profile_visibility = data.profileVisibility;
+      if (data.feedLanguage) body.feed_language = data.feedLanguage;
+
+      const response = await apiClient.patch<PreferencesResponseBody>('/me/preferences', body);
+      return toUserPreferences(response.data);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo guardar la preferencia. Intentalo de nuevo.');
     }
   },
 
