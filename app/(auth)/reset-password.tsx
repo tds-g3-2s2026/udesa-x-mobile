@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -7,7 +7,9 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { resetPasswordSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
-import { authStyles, colors } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../src/theme/useThemeColors';
+import { Colors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/stores/authStore';
 
 type FormField = 'token' | 'password' | 'passwordConfirmation';
@@ -29,6 +31,9 @@ const EXPIRED_TOKEN_CODE = 'reset-token-invalid';
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const clearSession = useAuthStore((state) => state.clearSession);
+  const authStyles = useAuthStyles();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const passwordRef = useRef<TextInput>(null);
   const confirmationRef = useRef<TextInput>(null);
 
@@ -201,15 +206,17 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  expiredBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.dangerSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    expiredBadge: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.dangerSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+      marginBottom: 16,
+    },
+  });
+}

@@ -8,7 +8,7 @@ import { REGISTER_STEPS } from '../registerFlow';
 import { AuthScreen } from './AuthScreen';
 import { FormInput } from './FormInput';
 import { StepProgress } from './StepProgress';
-import { authStyles } from './authTheme';
+import { useAuthStyles } from './authTheme';
 
 type RegisterStepProps = {
   field: RegisterField;
@@ -42,6 +42,7 @@ export function RegisterStep({
   const value = useRegisterDraft((state) => state.values[field]);
   const setValue = useRegisterDraft((state) => state.setValue);
   const [error, setError] = useState<string | null>(null);
+  const authStyles = useAuthStyles();
 
   const index = REGISTER_STEPS.findIndex((step) => step.field === field);
   const step = REGISTER_STEPS[index];

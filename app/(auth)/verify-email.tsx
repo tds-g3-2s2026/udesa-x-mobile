@@ -5,10 +5,11 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { verifyEmailSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { OtpInput } from '../../src/features/auth/components/OtpInput';
-import { authStyles } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
+  const authStyles = useAuthStyles();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = params.email?.trim() ?? '';
   const emailLabel = email || 'tu correo registrado';

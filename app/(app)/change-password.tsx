@@ -6,7 +6,7 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { changePasswordSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
-import { authStyles } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 import { useAuthStore } from '../../src/stores/authStore';
 
 type FormField = 'currentPassword' | 'password' | 'passwordConfirmation';
@@ -36,6 +36,7 @@ const SESSION_ENDED_CODES = ['session-revoked', 'invalid-token', 'account-suspen
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const clearSession = useAuthStore((state) => state.clearSession);
+  const authStyles = useAuthStyles();
   const passwordRef = useRef<TextInput>(null);
   const confirmationRef = useRef<TextInput>(null);
 

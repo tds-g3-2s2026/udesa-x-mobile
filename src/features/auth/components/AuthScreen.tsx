@@ -22,7 +22,8 @@ import {
 } from 'react-native';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from './authTheme';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { Colors } from '../../../theme/colors';
 import {
   FormScrollContext,
   keyboardOverlap,
@@ -75,6 +76,8 @@ export function AuthScreen({
   progress,
 }: AuthScreenProps) {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Height of the navigation header above this view: 0 when the screen hides it
   // and when the screen is rendered outside a navigator. The keyboard reports its
   // position in screen coordinates while this view starts below the header, so the
@@ -234,55 +237,57 @@ export function AuthScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  fill: {
-    flex: 1,
-  },
-  // flexGrow plus centering keeps a short form centered and lets a long one scroll.
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  button: {
-    height: 50,
-    backgroundColor: colors.primary,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonLabel: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  footerLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+    fill: {
+      flex: 1,
+    },
+    // flexGrow plus centering keeps a short form centered and lets a long one scroll.
+    content: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 8,
+      paddingBottom: 16,
+    },
+    header: {
+      marginBottom: 24,
+    },
+    footer: {
+      paddingHorizontal: 24,
+      paddingTop: 12,
+      backgroundColor: colors.surface,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.divider,
+    },
+    button: {
+      height: 50,
+      backgroundColor: colors.primary,
+      borderRadius: 25,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonLabel: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    footerLinks: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 12,
+    },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -8,7 +8,8 @@ import {
   type LayoutChangeEvent,
   type TextInputProps,
 } from 'react-native';
-import { colors } from './authTheme';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { Colors } from '../../../theme/colors';
 import { useFormScroll, type FieldRect } from './formScroll';
 
 type OtpInputProps = Omit<
@@ -42,6 +43,8 @@ export function OtpInput({
   const fieldRect = useRef<FieldRect>({ y: 0, height: 0 });
   const inputRef = useRef<TextInput>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { y, height } = event.nativeEvent.layout;
@@ -127,79 +130,81 @@ export function OtpInput({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-    width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  slotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    position: 'relative',
-  },
-  slot: {
-    width: 48,
-    height: 58,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.field,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  slotFilled: {
-    borderColor: colors.text,
-    backgroundColor: colors.surface,
-  },
-  slotFocused: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  slotError: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerSoft,
-  },
-  slotText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  slotTextError: {
-    color: colors.danger,
-  },
-  cursor: {
-    position: 'absolute',
-    bottom: 12,
-    width: 16,
-    height: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 1,
-  },
-  hiddenInput: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.01,
-    color: 'transparent',
-  },
-  errorText: {
-    fontSize: 13,
-    color: colors.danger,
-    marginTop: 10,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 20,
+      width: '100%',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    slotsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      width: '100%',
+      position: 'relative',
+    },
+    slot: {
+      width: 48,
+      height: 58,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.field,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    slotFilled: {
+      borderColor: colors.text,
+      backgroundColor: colors.surface,
+    },
+    slotFocused: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    slotError: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+    },
+    slotText: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    slotTextError: {
+      color: colors.danger,
+    },
+    cursor: {
+      position: 'absolute',
+      bottom: 12,
+      width: 16,
+      height: 2,
+      backgroundColor: colors.primary,
+      borderRadius: 1,
+    },
+    hiddenInput: {
+      ...StyleSheet.absoluteFillObject,
+      opacity: 0.01,
+      color: 'transparent',
+    },
+    errorText: {
+      fontSize: 13,
+      color: colors.danger,
+      marginTop: 10,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+  });
+}

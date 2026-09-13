@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../src/theme/useThemeColors';
+import { Colors } from '../../src/theme/colors';
 
 // Static text linked from the terms checkbox of the signup form. Placeholder
 // copy for the class project, modeled after a typical social app's privacy
@@ -51,6 +52,9 @@ const SECTIONS: { title: string; body: string }[] = [
 ];
 
 export default function PrivacyScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.updated}>Última actualización: agosto de 2026</Text>
@@ -65,32 +69,34 @@ export default function PrivacyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 40,
-  },
-  updated: {
-    fontSize: 13,
-    color: colors.placeholder,
-    marginBottom: 20,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  heading: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  body: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.muted,
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+    content: {
+      padding: 24,
+      paddingBottom: 40,
+    },
+    updated: {
+      fontSize: 13,
+      color: colors.placeholder,
+      marginBottom: 20,
+    },
+    section: {
+      marginBottom: 20,
+    },
+    heading: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    body: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.muted,
+    },
+  });
+}

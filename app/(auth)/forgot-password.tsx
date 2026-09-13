@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -6,7 +6,9 @@ import { authService, getAuthErrorMessage } from '../../src/features/auth/servic
 import { forgotPasswordSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
-import { authStyles, colors } from '../../src/features/auth/components/authTheme';
+import { useAuthStyles } from '../../src/features/auth/components/authTheme';
+import { useThemeColors } from '../../src/theme/useThemeColors';
+import { Colors } from '../../src/theme/colors';
 
 // Shown once the request went through, whether or not the account exists: the
 // API answers the same either way and the screen must not tell them apart.
@@ -16,6 +18,9 @@ const SENT_MESSAGE =
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const authStyles = useAuthStyles();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,16 +121,18 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  hintBox: {
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primarySoft,
-  },
-  hintText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: Colors) {
+  return StyleSheet.create({
+    hintBox: {
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: colors.primarySoft,
+    },
+    hintText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.text,
+      textAlign: 'center',
+    },
+  });
+}

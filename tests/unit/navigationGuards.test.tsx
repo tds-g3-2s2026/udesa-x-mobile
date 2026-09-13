@@ -3,6 +3,7 @@ import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useThemeStore } from '../../src/stores/themeStore';
 import { User } from '../../src/types/auth';
 
 // Same in-memory SecureStore double as authStore.test.ts: the factory owns the
@@ -56,6 +57,7 @@ beforeEach(() => {
     refreshToken: null,
     isInitialized: false,
   });
+  useThemeStore.setState({ theme: 'light', isInitialized: false });
 });
 
 // The root layout mounts one navigation group or the other with Stack.Protected.
@@ -155,5 +157,17 @@ describe('Guardas de navegación', () => {
     await waitFor(() => expect(useAuthStore.getState().user?.displayName).toBe('Joaco Nuevo'));
     expect(await screen.findByText(LOGOUT_LABEL)).toBeTruthy();
     expect(screen.queryByText('Guardar contraseña')).toBeNull();
+  });
+});
+
+describe('E1-H10. Tema de la Aplicación', () => {
+  it('E1-H10.CA1 - a theme saved on a previous run is applied before the first screen shows', async () => {
+    persistSession();
+    secureStoreValues.set('udesa_x_theme', 'dark');
+
+    renderRouter('app', { initialUrl: '/(app)' });
+
+    await screen.findByText(FEED_EMPTY_TITLE);
+    expect(useThemeStore.getState().theme).toBe('dark');
   });
 });
