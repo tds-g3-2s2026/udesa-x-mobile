@@ -83,6 +83,14 @@ describe('Follow service', () => {
       expect(del).toHaveBeenCalledWith('/users/usr-2/follow');
     });
 
+    it('reports an unfollow failure with the generic message', async () => {
+      del.mockRejectedValueOnce(networkFailure());
+
+      await expect(followService.unfollow('usr-2')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+
     it('E3-H1.CA2 - lists the follow requests aimed at the current user', async () => {
       const requests: FollowRequestSummary[] = [
         { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
@@ -117,6 +125,14 @@ describe('Follow service', () => {
       await followService.rejectFollowRequest('freq-1');
 
       expect(post).toHaveBeenCalledWith('/follow-requests/freq-1/reject');
+    });
+
+    it('reports a reject failure with the generic message', async () => {
+      post.mockRejectedValueOnce(networkFailure());
+
+      await expect(followService.rejectFollowRequest('freq-1')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
     });
 
     it('propagates the API message when a request was already resolved', async () => {

@@ -147,6 +147,17 @@ describe('T-52. Interceptores de Axios', () => {
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('udesa_x_refresh_token');
   });
 
+  it('T-52 - a rejected refresh reports the original error even if clearing the session also fails', async () => {
+    adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
+    jest.spyOn(SecureStore, 'deleteItemAsync').mockRejectedValueOnce(new Error('disk full'));
+
+    // The device wipe failing must not replace the 401 with an unrelated
+    // "disk full" error, and must not leave an unhandled rejection either.
+    await expect(apiClient.get('/feed')).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+  });
+
   it('T-52 - a 401 without a stored refresh token ends the session right away', async () => {
     useAuthStore.setState({ refreshToken: null });
     adapter.mockImplementation((config) => Promise.reject(unauthorized(config)));
