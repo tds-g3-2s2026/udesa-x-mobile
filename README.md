@@ -70,6 +70,20 @@ abrir en el navegador del celular y separar un problema de red de uno de la app.
 El mock también sirve de contrato: responde en camelCase y devuelve los errores en
 formato Problem Details, que es lo que la API real tiene que cumplir.
 
+`udesa-x-posts-api` ya expone seguir y dejar de seguir (`udesa-x-posts-api#22`), pero
+todavía no las solicitudes de cuentas protegidas (`udesa-x-posts-api#13`), así que hay un
+segundo mock para `GET /follow-requests` y para aprobar o rechazar una solicitud, que es un
+servicio aparte con su propia URL:
+
+```bash
+bun run mock-posts-api                   # escucha en el puerto 8021
+python3 scripts/mock-posts-api.py 9001   # o el puerto que prefieras
+```
+
+Usa el mismo token que emite `mock-users-api.py`, así que hay que loguearse ahí primero.
+Trae 2 solicitudes pendientes ya cargadas para `@demo`. La URL se toma de
+`EXPO_PUBLIC_POSTS_API_URL`, igual que `EXPO_PUBLIC_API_URL` para users-api.
+
 ## Checks
 
 ```bash
@@ -128,10 +142,13 @@ app/                      Rutas de Expo Router
   (app)/search.tsx        Tab Buscar
   (app)/notifications.tsx Tab Notificaciones
   (app)/profile.tsx       Tab Perfil: datos de la sesión y cierre de sesión
-scripts/                  Checks y mock local de los endpoints /auth
+scripts/                  Checks y mocks locales de users-api y posts-api
+src/api/                  Clientes Axios de cada servicio (apiClient, postsApiClient)
 src/features/auth/        Esquemas Zod, servicio de autenticación y componentes de formulario
 src/features/shell/       Chrome compartido por las pantallas de los tabs
-src/stores/               Estado global (sesión y borrador del registro)
+src/features/social/      Servicio del grafo social (solicitudes de seguimiento)
+src/stores/               Estado global (sesión, tema y borrador del registro)
+src/theme/                Paletas claro/oscuro y el hook de lectura
 src/types/                Tipos compartidos
 tests/unit/               Tests unitarios trazados a los criterios de aceptación
 ```
@@ -146,21 +163,36 @@ la suite:
 bun run test -- -t "E1-H1.CA3"
 ```
 
-| Criterio    | Qué verifica                                                        | Archivo                                                                                                   |
-| ----------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `E1-H1.CA2` | Formato de email y error de email duplicado en pantalla             | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`     |
-| `E1-H1.CA3` | Handle con `@` inicial, entre 4 y 15 caracteres alfanuméricos o `_` | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                       |
-| `E1-H1.CA4` | Contraseña de 8 caracteres o más, con mayúscula y número            | `tests/unit/authSchemas.test.ts`                                                                          |
-| `E1-H1.CA5` | Campos obligatorios no vacíos en registro y login                   | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                       |
-| `E1-H1.CA6` | Código de verificación de 6 dígitos y reenvío del código            | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`     |
-| `E1-H2.CA1` | Login válido, tokens recibidos y sesión persistida en SecureStore   | `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`       |
-| `E1-H2.CA3` | Mensaje genérico de credenciales inválidas                          | `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                       |
-| `E1-H3.CA2` | Borrado seguro del JWT y de los datos locales de sesión             | `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`, `tests/unit/navigationGuards.test.tsx` |
-| `T-51`      | Los cuatro tabs del área autenticada y el contenido de cada uno     | `tests/unit/appTabs.test.tsx`                                                                             |
-| `T-52`      | Refresco de token, interceptores de Axios y renovación en el store  | `tests/unit/authInterceptors.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`   |
+| Criterio    | Qué verifica                                                        | Archivo                                                                                                                |
+| ----------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `E1-H1.CA2` | Formato de email y error de email duplicado en pantalla             | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
+| `E1-H1.CA3` | Handle con `@` inicial, entre 4 y 15 caracteres alfanuméricos o `_` | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
+| `E1-H1.CA4` | Contraseña de 8 caracteres o más, con mayúscula y número            | `tests/unit/authSchemas.test.ts`                                                                                       |
+| `E1-H1.CA5` | Campos obligatorios no vacíos en registro y login                   | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
+| `E1-H1.CA6` | Código de verificación de 6 dígitos y reenvío del código            | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
+| `E1-H2.CA1` | Login válido, tokens recibidos y sesión persistida en SecureStore   | `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`                    |
+| `E1-H2.CA3` | Mensaje genérico de credenciales inválidas                          | `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
+| `E1-H3.CA2` | Borrado seguro del JWT y de los datos locales de sesión             | `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`, `tests/unit/navigationGuards.test.tsx`              |
+| `T-51`      | Los cuatro tabs del área autenticada y el contenido de cada uno     | `tests/unit/appTabs.test.tsx`                                                                                          |
+| `T-52`      | Refresco de token, interceptores de Axios y renovación en el store  | `tests/unit/authInterceptors.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`                |
+| `E3-H1.CA1` | El botón Seguir sigue a una cuenta pública y refleja el estado      | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                 |
+| `E3-H1.CA2` | Listar, aprobar y rechazar solicitudes de seguimiento pendientes    | `tests/unit/followService.test.ts`, `tests/unit/followRequestsScreen.test.tsx`, `tests/unit/navigationGuards.test.tsx` |
+| `E3-H1.CA3` | El mensaje de la API al intentar seguirse a uno mismo llega a la UI | `tests/unit/followService.test.ts`                                                                                     |
+| `E3-H1.CA5` | El mensaje de rate limit de la API llega a la UI                    | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                 |
 
-Los criterios que dependen del backend (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`,
-`E1-H2.CA5`, `E1-H3.CA1`) se verifican en `udesa-x-users-api`.
+Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
+cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
+`E3-H1.CA4`) se verifican en `udesa-x-users-api` o `udesa-x-posts-api` según corresponda. Las
+demás CA de `E3-H1` de la tabla de arriba son reglas del servicio (a quién se puede seguir,
+límites, mensajes de error): lo que se prueba acá es que mobile llama a la ruta correcta y
+muestra lo que la API responde, no la regla en sí.
+
+`FollowButton` (`src/features/social/components/FollowButton.tsx`) sigue y deja de seguir
+contra `posts-api` real (`udesa-x-posts-api#22`, ya mergeado), pero ninguna pantalla lo usa
+todavía: la pantalla del perfil de otro usuario es `E2-H14`, sin empezar. El estado
+`Solicitado` tampoco es alcanzable: `udesa-x-posts-api#13` (cuentas protegidas) sigue sin
+implementarse, así que seguir una cuenta protegida da un error explícito en vez de una
+solicitud.
 
 ## Code Guidelines (Reglas del Equipo)
 

@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { authService } from '../../src/features/auth/services/authService';
+import { followService } from '../../src/features/social/services/followService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { User } from '../../src/types/auth';
@@ -169,5 +170,29 @@ describe('E1-H10. Tema de la Aplicación', () => {
 
     await screen.findByText(FEED_EMPTY_TITLE);
     expect(useThemeStore.getState().theme).toBe('dark');
+  });
+});
+
+describe('E3-H1. Seguir a un Usuario', () => {
+  it('returns to the profile, not to another tab, after leaving the pending requests screen', async () => {
+    persistSession();
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue([]);
+
+    // Same reasoning as edit-profile and change-password: follow-requests is
+    // a Stack screen one level up, not a tab, so router.back() has to return
+    // to whatever screen pushed it.
+    renderRouter('app', { initialUrl: '/profile' });
+    await screen.findByText(LOGOUT_LABEL);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Solicitudes pendientes'));
+    });
+    await screen.findByText('No tenés solicitudes pendientes');
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(/Volver/));
+    });
+
+    expect(await screen.findByText(LOGOUT_LABEL)).toBeTruthy();
   });
 });

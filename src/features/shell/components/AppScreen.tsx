@@ -1,5 +1,5 @@
 import { ReactNode, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../theme/useThemeColors';
@@ -14,7 +14,12 @@ interface AppScreenProps {
 }
 
 // Shared chrome of the tab screens. The tab navigator draws no header, so each
-// screen owns its top inset: doing it here keeps the four tabs aligned.
+// screen owns its top inset: doing it here keeps the four tabs aligned. The
+// content scrolls: Perfil in particular has grown past a single screen's
+// height with its account actions, and a fixed View just clipped the rest
+// with no way to reach it. `flexGrow: 1` on the content keeps EmptyState's
+// own centering working when there is little to show, same trick AuthScreen
+// uses for its short forms.
 export function AppScreen({ title, brand = false, children }: AppScreenProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -22,8 +27,10 @@ export function AppScreen({ title, brand = false, children }: AppScreenProps) {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
-      <Text style={brand ? styles.brand : styles.title}>{title}</Text>
-      {children}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={brand ? styles.brand : styles.title}>{title}</Text>
+        {children}
+      </ScrollView>
     </View>
   );
 }
@@ -90,6 +97,11 @@ function createStyles(colors: Colors) {
       flex: 1,
       paddingHorizontal: 20,
       backgroundColor: colors.surface,
+    },
+    content: {
+      flexGrow: 1,
+      // Clears the tab bar: without it the last button sits flush against it.
+      paddingBottom: 32,
     },
     brand: {
       fontSize: 26,

@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "mock-api": "python3 scripts/mock-users-api.py",
+    "mock-posts-api": "python3 scripts/mock-posts-api.py",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "jest",
