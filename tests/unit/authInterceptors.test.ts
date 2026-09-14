@@ -1,6 +1,7 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
+import { postsApiClient } from '../../src/api/postsApiClient';
 import { useAuthStore } from '../../src/stores/authStore';
 import { AuthTokens, User } from '../../src/types/auth';
 
@@ -44,6 +45,12 @@ function unauthorized(config: InternalAxiosRequestConfig): AxiosError {
 const adapter = jest.fn<Promise<AxiosResponse>, [InternalAxiosRequestConfig]>();
 apiClient.defaults.adapter = adapter;
 
+// posts-api is a different deployment with its own client, but both share the
+// same interceptor pair (see attachAuthInterceptors): its own adapter proves
+// that sharing is real and not just true for apiClient.
+const postsAdapter = jest.fn<Promise<AxiosResponse>, [InternalAxiosRequestConfig]>();
+postsApiClient.defaults.adapter = postsAdapter;
+
 function requestsTo(url: string): InternalAxiosRequestConfig[] {
   return adapter.mock.calls.map(([config]) => config).filter((config) => config.url === url);
 }
@@ -54,6 +61,7 @@ function authorizationOf(call: number): unknown {
 
 beforeEach(() => {
   adapter.mockReset();
+  postsAdapter.mockReset();
   jest.clearAllMocks();
   useAuthStore.setState({
     user,
@@ -172,5 +180,37 @@ describe('T-52. Interceptores de Axios', () => {
 
     expect(adapter).toHaveBeenCalledTimes(1);
     expect(requestsTo('/auth/refresh')).toHaveLength(0);
+  });
+
+  it('T-52 - posts-api requests carry the same access token', async () => {
+    postsAdapter.mockImplementation((config) => Promise.resolve(apiSuccess(config, { items: [] })));
+
+    await postsApiClient.get('/follow-requests');
+
+    const authorization = new AxiosHeaders(postsAdapter.mock.calls[0][0].headers).get(
+      'Authorization'
+    );
+    expect(authorization).toBe('Bearer access-token-1');
+  });
+
+  it('T-52 - a 401 from posts-api refreshes through users-api and retries on posts-api', async () => {
+    adapter.mockImplementation((config) =>
+      Promise.resolve(apiSuccess(config, { tokens: renewed }))
+    );
+    postsAdapter.mockImplementationOnce((config) => Promise.reject(unauthorized(config)));
+    postsAdapter.mockImplementationOnce((config) =>
+      Promise.resolve(apiSuccess(config, { items: [] }))
+    );
+
+    await postsApiClient.get('/follow-requests');
+
+    // The refresh itself is a users-api call, so it goes out on apiClient's
+    // adapter, never on posts-api's.
+    expect(requestsTo('/auth/refresh')).toHaveLength(1);
+    expect(postsAdapter).toHaveBeenCalledTimes(2);
+    const retryAuthorization = new AxiosHeaders(postsAdapter.mock.calls[1][0].headers).get(
+      'Authorization'
+    );
+    expect(retryAuthorization).toBe(`Bearer ${renewed.accessToken}`);
   });
 });

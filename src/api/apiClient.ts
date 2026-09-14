@@ -1,4 +1,4 @@
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { z } from 'zod';
 import { AuthTokens, RefreshResponse } from '../types/auth';
 import { useAuthStore } from '../stores/authStore';
@@ -104,19 +104,11 @@ interface RetriedRequestConfig extends InternalAxiosRequestConfig {
   isRetry?: boolean;
 }
 
-// Every call carries the access token of the live session. Reading the store
-// at request time means a refresh applies to the next request without rewiring.
-apiClient.interceptors.request.use((config) => {
-  const accessToken = useAuthStore.getState().accessToken;
-  if (accessToken && config.url !== REFRESH_PATH) {
-    config.headers.set('Authorization', `Bearer ${accessToken}`);
-  }
-  return config;
-});
-
-// One refresh shared by every request that got a 401 at the same time. Without it
-// each one would spend the refresh token, and the losers would drop the session
-// that the winner had just renewed.
+// One refresh shared by every request that got a 401 at the same time, on
+// either service: without it each one would spend the refresh token, and the
+// losers would drop the session the winner had just renewed. Refreshing is
+// always a users-api call, so it goes through `apiClient` regardless of which
+// client's request triggered it.
 let pendingRefresh: Promise<AuthTokens> | null = null;
 
 function refreshSession(): Promise<AuthTokens> {
@@ -132,40 +124,58 @@ function refreshSession(): Promise<AuthTokens> {
   return pendingRefresh;
 }
 
-// A 401 is answered with a refresh and a single replay of the failed request.
-// When the refresh itself fails the local session is dropped, which is what sends
-// the user back to the login through the guards of the root layout.
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: unknown) => {
-    if (!axios.isAxiosError(error)) throw error;
-
-    const config = error.config as RetriedRequestConfig | undefined;
-    if (
-      !config ||
-      error.response?.status !== 401 ||
-      config.isRetry ||
-      config.url === REFRESH_PATH ||
-      config.url === LOGOUT_PATH
-    ) {
-      throw error;
+// Wires the token attach + refresh-and-retry pair onto any platform service
+// client. Every service accepts the same JWT users-api issues, so this is the
+// one place both `apiClient` and `postsApiClient` get their auth behavior
+// from, instead of two copies of the same interceptor pair drifting apart.
+export function attachAuthInterceptors(client: AxiosInstance): void {
+  // Every call carries the access token of the live session. Reading the store
+  // at request time means a refresh applies to the next request without rewiring.
+  client.interceptors.request.use((config) => {
+    const accessToken = useAuthStore.getState().accessToken;
+    if (accessToken && config.url !== REFRESH_PATH) {
+      config.headers.set('Authorization', `Bearer ${accessToken}`);
     }
+    return config;
+  });
 
-    try {
-      await refreshSession();
-    } catch {
-      // clearSession already dropped the in-memory session; a failure wiping the
-      // device must not replace the 401 the caller has to handle.
-      await useAuthStore
-        .getState()
-        .clearSession()
-        .catch(() => undefined);
-      throw error;
+  // A 401 is answered with a refresh and a single replay of the failed request.
+  // When the refresh itself fails the local session is dropped, which is what sends
+  // the user back to the login through the guards of the root layout.
+  client.interceptors.response.use(
+    (response) => response,
+    async (error: unknown) => {
+      if (!axios.isAxiosError(error)) throw error;
+
+      const config = error.config as RetriedRequestConfig | undefined;
+      if (
+        !config ||
+        error.response?.status !== 401 ||
+        config.isRetry ||
+        config.url === REFRESH_PATH ||
+        config.url === LOGOUT_PATH
+      ) {
+        throw error;
+      }
+
+      try {
+        await refreshSession();
+      } catch {
+        // clearSession already dropped the in-memory session; a failure wiping the
+        // device must not replace the 401 the caller has to handle.
+        await useAuthStore
+          .getState()
+          .clearSession()
+          .catch(() => undefined);
+        throw error;
+      }
+
+      // The request interceptor reads the token that setTokens just stored, so the
+      // replay goes out authenticated without touching the headers here.
+      config.isRetry = true;
+      return client.request(config);
     }
+  );
+}
 
-    // The request interceptor reads the token that setTokens just stored, so the
-    // replay goes out authenticated without touching the headers here.
-    config.isRetry = true;
-    return apiClient.request(config);
-  }
-);
+attachAuthInterceptors(apiClient);
