@@ -30,6 +30,7 @@ export default function AppLayout() {
           headerTitleStyle: { fontWeight: '600', color: colors.text },
         }}
       />
+      <Stack.Screen name="follow-requests" />
     </Stack>
   );
 }

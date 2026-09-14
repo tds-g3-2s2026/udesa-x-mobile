@@ -92,6 +92,15 @@ export default function ProfileScreen() {
         <Text style={styles.actionButtonLabel}>Configuración</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.actionButton, styles.stackedButton]}
+        onPress={() => router.push('/follow-requests')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="people-outline" size={18} color={colors.primary} />
+        <Text style={styles.actionButtonLabel}>Solicitudes pendientes</Text>
+      </TouchableOpacity>
+
       <View style={[styles.actionButton, styles.stackedButton, styles.themeRow]}>
         <View style={styles.themeRowLabel}>
           <Ionicons
