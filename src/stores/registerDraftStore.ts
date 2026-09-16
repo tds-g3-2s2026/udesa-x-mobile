@@ -5,7 +5,6 @@ import type { RegisterField } from '../features/auth/schemas/authSchemas';
 // so the draft lives outside the screens and survives going back and forth.
 // It is kept in memory only: nothing here reaches the device storage.
 const EMPTY_DRAFT: Record<RegisterField, string> = {
-  fullName: '',
   email: '',
   handle: '',
   password: '',

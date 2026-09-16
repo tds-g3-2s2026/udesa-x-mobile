@@ -1,10 +1,9 @@
 import { z } from 'zod';
 
-// A handle is '@' plus 3 to 14 word characters, so 4 to 15 characters in total.
-const HANDLE_PATTERN = /^@[a-zA-Z0-9_]{3,14}$/;
-
-// The email verification code is exactly 6 digits.
-const VERIFICATION_CODE_PATTERN = /^[0-9]{6}$/;
+// A handle is '@' plus 4 to 15 word characters, so 5 to 16 characters in
+// total — matches users-api's own pattern and its `Field(min_length=5,
+// max_length=16)` on the handle exactly.
+const HANDLE_PATTERN = /^@[a-zA-Z0-9_]{4,15}$/;
 
 const HANDLE_MESSAGE =
   'El usuario debe comenzar con @ y tener entre 4 y 15 caracteres, usando solo letras, números y guiones bajos';
@@ -29,7 +28,6 @@ export const registerSchema = z.object({
     .trim()
     .min(1, 'El correo electrónico es obligatorio')
     .email('Ingresá un correo electrónico válido'),
-  fullName: z.string().trim().min(2, 'El nombre completo debe tener al menos 2 caracteres'),
   password: passwordSchema,
 });
 
@@ -54,11 +52,10 @@ export const resetPasswordSchema = z
     path: ['passwordConfirmation'],
   });
 
+// The token is pasted from the email link, same shape as the password
+// reset's: users-api's /auth/verify takes an opaque token, not a numeric code.
 export const verifyEmailSchema = z.object({
-  code: z
-    .string()
-    .min(1, 'El código es obligatorio')
-    .regex(VERIFICATION_CODE_PATTERN, 'El código debe tener exactamente 6 dígitos'),
+  token: z.string().trim().min(1, 'Pegá el código que te llegó por correo'),
 });
 
 // Keeps the leading '@' the handle format requires while the user types it.
