@@ -29,6 +29,10 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 
+const mockUseLocalSearchParams = jest.fn<{ email?: string }, []>(() => ({
+  email: 'jleon@udesa.edu.ar',
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
@@ -37,7 +41,7 @@ jest.mock('expo-router', () => ({
     dismissAll: mockDismissAll,
     canDismiss: () => true,
   }),
-  useLocalSearchParams: () => ({ email: 'jleon@udesa.edu.ar' }),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -175,6 +179,71 @@ describe('E1-H1. Registro de Usuarios', () => {
     await press('Verificar cuenta');
 
     await waitFor(() => expect(screen.getByText('El código expiró')).toBeTruthy());
+  });
+
+  it('E1-H1.CA6 - pressing "Iniciar Sesión" on the success alert goes to the login', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ handle: '@joaquin_dev' });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
+    await press('Verificar cuenta');
+
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    const buttons = alert.mock.calls[0][2];
+    await act(async () => {
+      buttons?.[0]?.onPress?.();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('shows a local error and never calls the API when the email param is missing', async () => {
+    mockUseLocalSearchParams.mockReturnValueOnce({});
+    const resendVerification = jest.spyOn(authService, 'resendVerification');
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    expect(
+      screen.getByText('No se encontró el correo a verificar. Volvé al registro.')
+    ).toBeTruthy();
+    expect(resendVerification).not.toHaveBeenCalled();
+  });
+
+  it('E1-H1.CA6 - resends the verification link', async () => {
+    const resendVerification = jest
+      .spyOn(authService, 'resendVerification')
+      .mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    expect(resendVerification).toHaveBeenCalledWith('jleon@udesa.edu.ar');
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Link reenviado',
+        'Revisá tu bandeja de entrada en jleon@udesa.edu.ar'
+      )
+    );
+  });
+
+  it('E1-H1.CA6 - shows the API error when resending fails', async () => {
+    jest
+      .spyOn(authService, 'resendVerification')
+      .mockRejectedValue(new Error('No se pudo reenviar el código. Intentalo en unos minutos.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error al reenviar',
+        'No se pudo reenviar el código. Intentalo en unos minutos.'
+      )
+    );
   });
 
   it('E1-H1.CA6 - verifies the pasted token and offers to go to the login', async () => {

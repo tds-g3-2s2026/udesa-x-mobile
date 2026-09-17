@@ -232,6 +232,16 @@ describe('Auth store', () => {
       expect(state.user).toEqual(user);
     });
 
+    it('T-52 - setTokens with no refresh token clears any previous one', async () => {
+      await useAuthStore.getState().setSession(user, tokens);
+
+      await useAuthStore.getState().setTokens({ accessToken: 'access-token-renewed' });
+
+      const state = useAuthStore.getState();
+      expect(state.accessToken).toBe('access-token-renewed');
+      expect(state.refreshToken).toBeNull();
+    });
+
     it('T-52 - the renewed tokens are the ones restored on the next launch', async () => {
       await useAuthStore.getState().setSession(user, tokens);
       await useAuthStore.getState().setTokens(renewed);
