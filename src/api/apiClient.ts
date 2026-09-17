@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { AuthTokens, RefreshResponse } from '../types/auth';
 import { useAuthStore } from '../stores/authStore';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Every service publishes its endpoints under /api: the cluster has a single
+// Ingress for the whole system and routes by path, so the prefix is what tells
+// it which service a request belongs to. No version segment: /api is what the
+// services actually serve.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 const CONNECTION_ERROR_MESSAGE = 'No se pudo conectar con el servidor. Revisá tu conexión.';
 const UNEXPECTED_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intentalo de nuevo.';
