@@ -32,7 +32,6 @@ const user: User = {
   id: 'usr-1',
   handle: '@joaquin_dev',
   email: 'jleon@udesa.edu.ar',
-  fullName: 'Joaquín León',
   isVerified: true,
 };
 
@@ -66,6 +65,28 @@ describe('Auth store', () => {
       expect(secureStoreValues.get(ACCESS_TOKEN_KEY)).toBe(tokens.accessToken);
       expect(secureStoreValues.get(REFRESH_TOKEN_KEY)).toBe(tokens.refreshToken);
       expect(secureStoreValues.get(USER_KEY)).toBe(JSON.stringify(user));
+    });
+
+    it('E1-H2.CA1 - setSession and restoreSession both work with no refresh token at all', async () => {
+      // The real shape today: users-api issues no refresh token yet.
+      await useAuthStore.getState().setSession(user, { accessToken: tokens.accessToken });
+
+      expect(useAuthStore.getState().refreshToken).toBeNull();
+      expect(secureStoreValues.has(REFRESH_TOKEN_KEY)).toBe(false);
+
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isInitialized: false,
+      });
+      await useAuthStore.getState().restoreSession();
+
+      const state = useAuthStore.getState();
+      expect(state.user).toEqual(user);
+      expect(state.accessToken).toBe(tokens.accessToken);
+      expect(state.refreshToken).toBeNull();
+      expect(state.isInitialized).toBe(true);
     });
 
     it('E1-H2.CA1 - restoreSession brings back the session that was persisted', async () => {
@@ -152,7 +173,7 @@ describe('Auth store', () => {
       expect(state.user?.displayName).toBe('Joaquín');
       expect(state.user?.bio).toBe('Estudiante');
       // Everything else about the session is untouched.
-      expect(state.user?.fullName).toBe(user.fullName);
+      expect(state.user?.handle).toBe(user.handle);
       expect(state.user?.isVerified).toBe(user.isVerified);
 
       const stored = JSON.parse(secureStoreValues.get(USER_KEY) ?? '{}');

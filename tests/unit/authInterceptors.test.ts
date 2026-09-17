@@ -15,7 +15,6 @@ const user: User = {
   id: 'usr-1',
   handle: '@joaquin_dev',
   email: 'jleon@udesa.edu.ar',
-  fullName: 'Joaquín León',
   isVerified: true,
 };
 
