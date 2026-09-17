@@ -34,10 +34,11 @@ bun run web         # Abre la app en el navegador
 ```
 
 La URL de la API se toma de la variable de entorno `EXPO_PUBLIC_API_URL`. Si no está
-definida, la app usa `http://localhost:8000/api/v1`.
+definida, la app usa `http://localhost:8000/api`. El sufijo `/api` no es opcional: es el
+prefijo bajo el que todos los servicios publican sus endpoints.
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.0.10:8000/api/v1 bun run start
+EXPO_PUBLIC_API_URL=http://192.168.0.10:8000/api bun run start
 ```
 
 En un dispositivo físico hay que usar una dirección alcanzable desde el celular, nunca
