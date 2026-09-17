@@ -11,7 +11,6 @@ import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 export default function LoginScreen() {
   const router = useRouter();
   const setSession = useAuthStore((state) => state.setSession);
-  const setProfile = useAuthStore((state) => state.setProfile);
   const authStyles = useAuthStyles();
   const passwordRef = useRef<TextInput>(null);
 
@@ -37,19 +36,12 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const response = await authService.login(validation.data);
+      // authService.login already resolves the identity via GET /me (the
+      // login response itself carries no user data), so display name and bio
+      // are already here — no second fetch needed.
       // No navigation here: the root layout mounts the authenticated group as
       // soon as the session exists.
       await setSession(response.user, response.tokens);
-
-      // Login never returns display_name/bio, only GET /me does, so without
-      // this the profile screen would show fullName with no bio until the
-      // user edits their profile again in this same session. Best effort and
-      // not awaited: a slow or failed fetch must never delay or block a
-      // login that already succeeded.
-      authService
-        .getProfile()
-        .then(setProfile)
-        .catch(() => undefined);
     } catch (error) {
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {

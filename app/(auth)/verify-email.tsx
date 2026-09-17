@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
 import { verifyEmailSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
-import { OtpInput } from '../../src/features/auth/components/OtpInput';
+import { FormInput } from '../../src/features/auth/components/FormInput';
 import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 
 export default function VerifyEmailScreen() {
@@ -14,7 +14,7 @@ export default function VerifyEmailScreen() {
   const email = params.email?.trim() ?? '';
   const emailLabel = email || 'tu correo registrado';
 
-  const [code, setCode] = useState('');
+  const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +22,7 @@ export default function VerifyEmailScreen() {
   const handleVerify = async () => {
     setError(null);
 
-    if (!email) {
-      setError('No se encontró el correo a verificar. Volvé al registro.');
-      return;
-    }
-
-    const validation = verifyEmailSchema.safeParse({ code });
+    const validation = verifyEmailSchema.safeParse({ token });
     if (!validation.success) {
       setError(validation.error.issues[0].message);
       return;
@@ -35,16 +30,12 @@ export default function VerifyEmailScreen() {
 
     setIsLoading(true);
     try {
-      const response = await authService.verifyEmail(email, validation.data);
-      if (response.verified) {
-        Alert.alert(
-          '¡Cuenta verificada!',
-          'Tu correo fue verificado correctamente. Ya podés iniciar sesión.',
-          [{ text: 'Iniciar Sesión', onPress: () => router.replace('/(auth)/login') }]
-        );
-      } else {
-        setError('El código ingresado no pudo ser validado. Solicitá uno nuevo.');
-      }
+      await authService.verifyEmail(validation.data);
+      Alert.alert(
+        '¡Cuenta verificada!',
+        'Tu correo fue verificado correctamente. Ya podés iniciar sesión.',
+        [{ text: 'Iniciar Sesión', onPress: () => router.replace('/(auth)/login') }]
+      );
     } catch (verifyError) {
       setError(getAuthErrorMessage(verifyError));
     } finally {
@@ -62,7 +53,7 @@ export default function VerifyEmailScreen() {
     setError(null);
     try {
       await authService.resendVerification(email);
-      Alert.alert('Código enviado', `Revisá tu bandeja de entrada en ${emailLabel}`);
+      Alert.alert('Link reenviado', `Revisá tu bandeja de entrada en ${emailLabel}`);
     } catch (resendError) {
       Alert.alert('Error al reenviar', getAuthErrorMessage(resendError));
     } finally {
@@ -79,7 +70,7 @@ export default function VerifyEmailScreen() {
           </View>
           <Text style={authStyles.title}>Revisá tu correo</Text>
           <Text style={authStyles.subtitle}>
-            Enviamos un código de verificación de 6 dígitos a{'\n'}
+            Te mandamos un link para verificar tu cuenta a{'\n'}
             <Text style={authStyles.emphasis}>{emailLabel}</Text>
           </Text>
         </>
@@ -92,22 +83,24 @@ export default function VerifyEmailScreen() {
           <Text style={authStyles.footerText}>¿No recibiste el correo? </Text>
           <TouchableOpacity onPress={handleResend} disabled={isResending}>
             <Text style={authStyles.footerLink}>
-              {isResending ? 'Reenviando...' : 'Reenviar código'}
+              {isResending ? 'Reenviando...' : 'Reenviar link'}
             </Text>
           </TouchableOpacity>
         </>
       }
     >
-      <OtpInput
-        label="Código de verificación"
-        placeholder="123456"
+      <FormInput
+        label="Código del correo"
+        placeholder="Pegá el código acá"
+        autoCapitalize="none"
+        autoCorrect={false}
         autoFocus
         returnKeyType="done"
         onSubmitEditing={handleVerify}
-        value={code}
+        value={token}
         error={error}
         onChangeText={(value) => {
-          setCode(value);
+          setToken(value);
           if (error) setError(null);
         }}
       />

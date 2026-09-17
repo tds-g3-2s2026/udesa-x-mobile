@@ -2,11 +2,7 @@ import type { TextInputProps } from 'react-native';
 import type { RegisterField } from './schemas/authSchemas';
 
 // Route of every step. Declared as literals so `router.push` keeps its typed routes.
-type StepRoute =
-  | '/(auth)/register'
-  | '/(auth)/register/email'
-  | '/(auth)/register/handle'
-  | '/(auth)/register/password';
+type StepRoute = '/(auth)/register' | '/(auth)/register/handle' | '/(auth)/register/password';
 
 export type RegisterStepDefinition = {
   field: RegisterField;
@@ -25,19 +21,10 @@ export type RegisterStepDefinition = {
 // One question per screen, easiest first and the password last.
 export const REGISTER_STEPS: RegisterStepDefinition[] = [
   {
-    field: 'fullName',
-    route: '/(auth)/register',
-    title: '¿Cómo te llamás?',
-    subtitle: 'Usá tu nombre real: así te encuentran tus compañeros de cursada.',
-    label: 'Nombre completo',
-    placeholder: 'Joaquín León',
-    input: { autoCapitalize: 'words', autoComplete: 'name' },
-  },
-  {
     field: 'email',
-    route: '/(auth)/register/email',
+    route: '/(auth)/register',
     title: '¿Cuál es tu correo?',
-    subtitle: 'Te mandamos un código de 6 dígitos para verificar que es tuyo.',
+    subtitle: 'Te mandamos un link para verificar que es tuyo.',
     label: 'Correo universitario',
     placeholder: 'nombre@udesa.edu.ar',
     input: { keyboardType: 'email-address', autoCapitalize: 'none', autoCorrect: false },

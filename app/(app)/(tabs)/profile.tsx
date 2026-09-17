@@ -40,14 +40,15 @@ export default function ProfileScreen() {
     <AppScreen title="Perfil">
       <View style={styles.card}>
         <View style={styles.avatar}>
-          {/* The display name replaces fullName here once the user sets one,
-              so an edit is visible where the user actually looks for it. */}
+          {/* There is no full name anywhere in the account: the handle (minus
+              its leading @) is what a fresh account has until the owner sets
+              a display name. */}
           <Text style={styles.avatarInitial}>
-            {(user.displayName || user.fullName).charAt(0).toUpperCase()}
+            {(user.displayName || user.handle.slice(1)).charAt(0).toUpperCase()}
           </Text>
         </View>
 
-        <Text style={styles.fullName}>{user.displayName || user.fullName}</Text>
+        <Text style={styles.displayName}>{user.displayName || user.handle}</Text>
         <Text style={styles.handle}>{user.handle}</Text>
         <Text style={styles.email}>{user.email}</Text>
 
@@ -157,7 +158,7 @@ function createStyles(colors: Colors) {
       fontWeight: '800',
       color: colors.primary,
     },
-    fullName: {
+    displayName: {
       fontSize: 20,
       fontWeight: '800',
       color: colors.text,
