@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Mock implementation of the users-api authentication endpoints.
 
-It makes it possible to use the app's authenticated screens while
-udesa-x-users-api only exposes /healthcheck. It is a local development tool,
-not part of the application, and will be removed once the real API implements
-/api/v1/auth/*.
+Verified against the real service's current code (registration, login,
+logout, email verification, password reset and change, profile). Kept as
+close to it as the mock pattern allows: same routes, same wire field names
+(snake_case), same status codes, same Problem Details error codes. Where the
+two ever disagree, the real service wins — this file is the one to fix.
 
-Besides enabling testing, this file specifies the contract the real API must
-meet: both TypeScript clients (mobile and backoffice) read camelCase fields, so
-users-api needs a Pydantic alias generator instead of raw snake_case.
+Notably: users-api issues only a short-lived access token today. There is no
+refresh endpoint (tracked as its own issue there, not built yet), so none is
+mocked here either — the app already degrades correctly without one.
 
 Usage:
     python3 scripts/mock-users-api.py [port]
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 import socket
 import subprocess
 import sys
@@ -36,9 +38,6 @@ BASE_PATHS = (BASE_PATH, "/v1")
 # service. The port can be passed as the first argument.
 DEFAULT_PORT = 8020
 
-# Every new registration is verified with this code.
-VERIFICATION_CODE = "123456"
-
 # Pre-verified account for entering the feed without registering.
 DEMO_EMAIL = "demo@udesa.edu.ar"
 DEMO_HANDLE = "@demo"
@@ -48,13 +47,14 @@ DEMO_PASSWORD = "Password123"
 # It is lost when the process stops, which is the desired mock behavior.
 accounts: dict[str, dict[str, Any]] = {}
 
-# Prefix for refresh tokens issued by the mock: the handle travels inside it, so
-# refreshing does not need a session table.
-REFRESH_TOKEN_PREFIX = "mock-refresh-token-"
-
-# Each issuance has a different number so the app can observe a token changing
-# after a refresh.
+# Each issuance has a different number so the app can observe an access token
+# changing after a fresh login.
 token_issues = count(1)
+
+# Issued email-verification tokens: {token: {"email", "expires_at", "used"}}.
+VERIFICATION_TOKEN_PREFIX = "mock-verify-token-"
+VERIFICATION_TOKEN_TTL_SECONDS = 24 * 3600
+verification_tokens: dict[str, dict[str, Any]] = {}
 
 # Issued recovery tokens: {token: {"email", "expires_at", "used"}}.
 reset_tokens: dict[str, dict[str, Any]] = {}
@@ -95,13 +95,15 @@ def pydantic_enum_message(values: tuple[str, ...]) -> str:
     return f"Input should be {', '.join(quoted[:-1])} or {quoted[-1]}"
 
 
-def build_user(handle: str, email: str, full_name: str, is_verified: bool) -> dict[str, Any]:
+def build_user(handle: str, email: str, *, is_verified: bool) -> dict[str, Any]:
+    # This dict is the mock's own bookkeeping, not a wire response: real
+    # users-api never transmits is_verified explicitly anywhere either, not
+    # even from /me. A session existing at all already proves it.
     return {
         "id": f"usr-{len(accounts) + 1}",
         "handle": handle,
         "email": email,
-        "fullName": full_name,
-        "isVerified": is_verified,
+        "is_verified": is_verified,
     }
 
 
@@ -126,14 +128,11 @@ def strip_base_path(route: str) -> str | None:
     return None
 
 
-def issue_tokens(handle: str) -> dict[str, str]:
-    """Par de tokens nuevo para una cuenta."""
+def issue_access_token(handle: str) -> str:
+    """Token nuevo para una cuenta. Solo de acceso: no hay refresh todavía."""
     bare = handle.lstrip("@")
     serial = next(token_issues)
-    return {
-        "accessToken": f"mock-access-token-{bare}-{serial}",
-        "refreshToken": f"{REFRESH_TOKEN_PREFIX}{bare}-{serial}",
-    }
+    return f"mock-access-token-{bare}-{serial}"
 
 
 def password_policy_errors(password: str) -> list[str]:
@@ -183,6 +182,21 @@ def issue_reset_token(email: str) -> str:
     return token
 
 
+def issue_verification_token(email: str) -> str:
+    """Token de verificación nuevo, viaja en el link que manda el mail real."""
+    for token, data in list(verification_tokens.items()):
+        if data["email"] == email:
+            del verification_tokens[token]
+
+    token = f"{VERIFICATION_TOKEN_PREFIX}{secrets.token_hex(4)}"
+    verification_tokens[token] = {
+        "email": email,
+        "expires_at": time.time() + VERIFICATION_TOKEN_TTL_SECONDS,
+        "used": False,
+    }
+    return token
+
+
 def split_access_token(token: str) -> tuple[str, int] | None:
     """Handle y número de emisión de un access token emitido por este mock."""
     prefix = "mock-access-token-"
@@ -218,19 +232,21 @@ def sanitize_text(value: str) -> str:
     return _HTML_TAG_RE.sub("", without_scripts)
 
 
-def handle_from_refresh_token(token: str) -> str | None:
-    """Handle encoded in a refresh token issued by this mock."""
-    if not token.startswith(REFRESH_TOKEN_PREFIX):
-        return None
-    # The handle only permits letters, numbers, and underscores, so the final
-    # hyphen always separates the issuance number.
-    handle = token[len(REFRESH_TOKEN_PREFIX) :].rsplit("-", 1)[0]
-    return handle or None
-
-
 class AuthHandler(BaseHTTPRequestHandler):
     # Every response includes Content-Length, so keep-alive is safe.
     protocol_version = "HTTP/1.1"
+
+    def do_OPTIONS(self) -> None:
+        """Answers the browser's CORS preflight. Native clients never send one:
+        this only matters for `bun run web`, where the app and the mock are on
+        different origins and the browser blocks the real request otherwise.
+        """
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self) -> None:
         route = self.path.split("?")[0]
@@ -279,9 +295,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         endpoints = {
             "/auth/register": self.register,
             "/auth/login": self.login,
-            "/auth/verify-email": self.verify_email,
+            "/auth/verify": self.verify_email,
             "/auth/resend-verification": self.resend_verification,
-            "/auth/refresh": self.refresh,
             "/auth/forgot-password": self.forgot_password,
             "/auth/reset-password": self.reset_password,
         }
@@ -294,60 +309,69 @@ class AuthHandler(BaseHTTPRequestHandler):
     def register(self, body: dict[str, Any]) -> None:
         email = str(body.get("email", "")).strip().lower()
         handle = str(body.get("handle", "")).strip()
-        full_name = str(body.get("fullName", "")).strip()
 
-        if not email or not handle or not full_name:
+        if not email or not handle:
             self.send_problem(422, "Datos incompletos", "Faltan campos obligatorios.")
             return
-        # users-api expects this one field in snake_case, unlike the rest of
-        # the contract (confirmed against their actual code, no camelCase
-        # alias exists for it).
+        # users-api expects this field in snake_case, unlike the rest of the
+        # camelCase-free contract it happens to already use everywhere.
         if body.get("terms_accepted") is not True:
             self.send_problem(
                 422, "Términos no aceptados", "Hay que aceptar los términos y la política de privacidad."
             )
             return
         if email in accounts:
-            self.send_problem(409, "Correo en uso", "El correo ya está registrado")
+            self.send_problem(409, "No se pudo crear la cuenta", "El email o el nombre de usuario ya están en uso", code="account-already-exists")
             return
         if find_account(handle) is not None:
-            self.send_problem(409, "Usuario en uso", "Ese nombre de usuario ya está en uso")
+            self.send_problem(409, "No se pudo crear la cuenta", "El email o el nombre de usuario ya están en uso", code="account-already-exists")
             return
 
-        user = build_user(handle, email, full_name, is_verified=False)
+        user = build_user(handle, email, is_verified=False)
         accounts[email] = {"user": user, "password": str(body.get("password", ""))}
-        print(f"    registro de {handle} <{email}>: el código es {VERIFICATION_CODE}")
+        verification_token = issue_verification_token(email)
+        print(f"    registro de {handle} <{email}>: el link de verificación lleva ?token={verification_token}")
 
-        self.send_json(
-            201,
-            {
-                "user": user,
-                "message": "Registro exitoso. Revisá tu correo.",
-                "requireVerification": True,
-            },
-        )
+        # The real response is exactly this: no message, no flag, since the
+        # account is always created unverified, with no branch where it is not.
+        self.send_json(201, {"id": user["id"], "email": user["email"], "handle": user["handle"]})
 
     def verify_email(self, body: dict[str, Any]) -> None:
-        account = find_account(str(body.get("email", "")))
-        if account is None:
-            self.send_problem(404, "Cuenta inexistente", "No hay una cuenta con ese correo.")
-            return
-        if str(body.get("code", "")) != VERIFICATION_CODE:
+        token = str(body.get("token", "")).strip()
+        data = verification_tokens.get(token)
+        if data is None or data["used"] or time.time() > data["expires_at"]:
             self.send_problem(
-                400, "Código inválido", "El código es inválido o expiró. Pedí uno nuevo."
+                400,
+                "No se pudo validar la cuenta",
+                "El link de validación es inválido o expiró. Pedí uno nuevo desde el login",
+                code="verification-token-invalid",
             )
             return
 
-        account["user"]["isVerified"] = True
-        self.send_json(200, {"verified": True})
+        account = accounts.get(data["email"])
+        if account is None:
+            self.send_problem(
+                400,
+                "No se pudo validar la cuenta",
+                "El link de validación es inválido o expiró. Pedí uno nuevo desde el login",
+                code="verification-token-invalid",
+            )
+            return
+
+        data["used"] = True
+        account["user"]["is_verified"] = True
+        self.send_json(200, {"status": "verified", "handle": account["user"]["handle"]})
 
     def resend_verification(self, body: dict[str, Any]) -> None:
+        # Always the same answer, registered or not: telling them apart would
+        # leak the same thing the login endpoint is careful to hide.
         account = find_account(str(body.get("email", "")))
-        if account is None:
-            self.send_problem(404, "Cuenta inexistente", "No hay una cuenta con ese correo.")
-            return
-        print(f"    reenvío a <{account['user']['email']}>: el código es {VERIFICATION_CODE}")
-        self.send_json(200, {"sent": True})
+        if account is not None and not account["user"]["is_verified"]:
+            verification_token = issue_verification_token(account["user"]["email"])
+            print(
+                f"    reenvío a <{account['user']['email']}>: el link de verificación lleva ?token={verification_token}"
+            )
+        self.send_json(202, {"status": "accepted"})
 
     def login(self, body: dict[str, Any]) -> None:
         account = find_account(str(body.get("identifier", "")))
@@ -356,34 +380,30 @@ class AuthHandler(BaseHTTPRequestHandler):
         # The same message is used for an unknown user and a wrong password to
         # prevent user enumeration.
         if account is None or account["password"] != password:
-            self.send_problem(401, "Credenciales inválidas", "Credenciales inválidas")
+            self.send_problem(401, "No se pudo iniciar sesión", "Credenciales inválidas", code="invalid-credentials")
             return
-        if not account["user"]["isVerified"]:
+        if not account["user"]["is_verified"]:
             self.send_problem(
                 403,
-                "Cuenta sin verificar",
-                "Tenés que verificar tu correo antes de iniciar sesión.",
+                "No se pudo iniciar sesión",
+                "Revisá tu casilla de correo para validar la cuenta antes de ingresar",
+                code="account-not-verified",
             )
             return
 
+        access_token = issue_access_token(account["user"]["handle"])
+        # No refresh_token, no user: this is the real response shape.
+        # users-api has no refresh endpoint yet (its own tracked issue), and
+        # login never echoes the identity — the app follows up with GET /me.
         self.send_json(
             200,
             {
-                "user": account["user"],
-                "tokens": issue_tokens(account["user"]["handle"]),
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": 900,
+                "must_change_password": False,
             },
         )
-
-    def refresh(self, body: dict[str, Any]) -> None:
-        """Renueva el par de tokens. El usuario no cambia, así que no se devuelve."""
-        handle = handle_from_refresh_token(str(body.get("refreshToken", "")).strip())
-        account = find_account(handle) if handle else None
-        if account is None:
-            self.send_problem(
-                401, "Sesión expirada", "El refresh token no es válido. Iniciá sesión de nuevo."
-            )
-            return
-        self.send_json(200, {"tokens": issue_tokens(account["user"]["handle"])})
 
     def forgot_password(self, body: dict[str, Any]) -> None:
         """Pide un link de recuperación. Responde siempre igual, exista o no la cuenta."""
@@ -795,6 +815,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         # since that is all the client observes (idempotent, like the real API).
         self.send_response(204)
         self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
 
     def read_json(self) -> dict[str, Any] | None:
@@ -820,6 +841,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(raw)))
+        # Only the browser checks this (see do_OPTIONS): native clients ignore it.
+        self.send_header("Access-Control-Allow-Origin", "*")
         for name, value in (extra_headers or {}).items():
             self.send_header(name, value)
         self.end_headers()
@@ -908,7 +931,7 @@ def tailnet_hosts() -> list[str]:
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
     accounts[DEMO_EMAIL] = {
-        "user": build_user(DEMO_HANDLE, DEMO_EMAIL, "Demo UdeSA", is_verified=True),
+        "user": build_user(DEMO_HANDLE, DEMO_EMAIL, is_verified=True),
         "password": DEMO_PASSWORD,
     }
 
@@ -937,7 +960,8 @@ def main() -> None:
     print("Cuenta ya verificada, para entrar directo al feed:")
     print(f"  usuario {DEMO_HANDLE} o {DEMO_EMAIL}")
     print(f"  contraseña {DEMO_PASSWORD}\n")
-    print(f"Código de verificación de cualquier registro nuevo: {VERIFICATION_CODE}\n")
+    print("El link de verificación de cualquier registro nuevo aparece acá cuando pasa.")
+    print("La sesión (solo access token, sin refresh) dura 15 minutos, igual que la real.\n")
 
     try:
         server.serve_forever()
