@@ -11,7 +11,7 @@ export default function AppLayout() {
   const colors = useThemeColors();
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack initialRouteName="(tabs)" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="change-password" />
       <Stack.Screen name="edit-profile" />

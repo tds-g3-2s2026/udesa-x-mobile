@@ -13,7 +13,6 @@ const storedUserSchema = z.object({
   id: z.string().min(1),
   handle: z.string().min(1),
   email: z.string().min(1),
-  fullName: z.string().min(1),
   isVerified: z.boolean(),
   avatarUrl: z.string().optional(),
   displayName: z.string().nullable().optional(),
@@ -30,10 +29,14 @@ function parseStoredUser(raw: string | null): User | null {
 // costs the "stay signed in" feature, so the in-memory session still applies.
 async function persistTokens(tokens: AuthTokens): Promise<void> {
   try {
-    await Promise.all([
-      SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken),
-      SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken),
-    ]);
+    const writes = [SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken)];
+    // users-api issues no refresh token yet (see AuthTokens): nothing to
+    // write, and nothing stale to worry about clearing since one is never
+    // written until that endpoint exists.
+    if (tokens.refreshToken) {
+      writes.push(SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken));
+    }
+    await Promise.all(writes);
   } catch {
     // Nothing to recover from: the tokens still live in the store state.
   }
@@ -73,7 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       user,
       accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      refreshToken: tokens.refreshToken ?? null,
       isInitialized: true,
     });
   },
@@ -82,7 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // so renewing the access token never looks like a new sign-in.
   setTokens: async (tokens) => {
     await persistTokens(tokens);
-    set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken ?? null });
   },
 
   setProfile: async (profile) => {
@@ -125,7 +128,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         SecureStore.getItemAsync(USER_KEY),
       ]);
       const user = parseStoredUser(storedUser);
-      if (refreshToken && accessToken && user) {
+      // No refresh token to require: users-api does not issue one yet, so an
+      // access token on its own is already a complete stored session.
+      if (accessToken && user) {
         set({ user, accessToken, refreshToken, isInitialized: true });
         return;
       }

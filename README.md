@@ -51,10 +51,10 @@ EXPO_PACKAGER_PROXY_URL=http://100.x.y.z:8081 bun run start
 
 ## Probar sin backend
 
-`udesa-x-users-api` todavía solo expone `/healthcheck`, así que ninguna pantalla
-autenticada se puede recorrer contra la API real. Para eso está el mock de los cinco
-endpoints de `/auth` (`register`, `login`, `verify-email`, `resend-verification` y
-`refresh`), que no tiene dependencias y corre con la biblioteca estándar de Python:
+Este mock está verificado contra el código real de `udesa-x-users-api` (registro, login,
+logout, verificación de email, cambio y recuperación de contraseña, perfil), así que se
+puede probar cualquier pantalla autenticada sin depender de que el servicio real esté
+levantado. No tiene dependencias, corre con la biblioteca estándar de Python:
 
 ```bash
 bun run mock-api                        # escucha en el puerto 8020
@@ -63,12 +63,14 @@ python3 scripts/mock-users-api.py 9000  # o el puerto que prefieras
 
 Al arrancar imprime las direcciones alcanzables de la máquina, la de la tailnet primero,
 con el comando exacto para cada una. Trae una cuenta ya verificada, `@demo` con contraseña
-`Password123`, para entrar directo al feed, y verifica cualquier registro nuevo con el
-código `123456`. Si la app no conecta, el banner incluye una URL de `healthcheck` para
-abrir en el navegador del celular y separar un problema de red de uno de la app.
+`Password123`, para entrar directo al feed. Un registro nuevo queda sin verificar hasta
+pegar el token que el mock imprime en su propia consola (simula el link que llegaría por
+mail). Si la app no conecta, el banner incluye una URL de `healthcheck` para abrir en el
+navegador del celular y separar un problema de red de uno de la app.
 
-El mock también sirve de contrato: responde en camelCase y devuelve los errores en
-formato Problem Details, que es lo que la API real tiene que cumplir.
+El mock también sirve de contrato: responde con los mismos nombres de campo (snake_case) y
+los mismos códigos de error que la API real, así que un cambio ahí sin el equivalente del
+otro lado se nota probando.
 
 `udesa-x-posts-api` ya expone seguir y dejar de seguir (`udesa-x-posts-api#22`), pero
 todavía no las solicitudes de cuentas protegidas (`udesa-x-posts-api#13`), así que hay un
@@ -126,9 +128,12 @@ navegación montar: nunca se ve un cuadro de la pantalla equivocada.
 
 El `apiClient` de Axios lleva dos interceptores. El de request agrega
 `Authorization: Bearer <accessToken>` leyendo el store en cada llamada. El de response
-atiende los 401: pide un par de tokens nuevo a `POST /auth/refresh` con el `refreshToken`
-guardado, lo persiste y reintenta una única vez la request que falló. Si el refresco
-falla, borra la sesión del dispositivo y las guardas del layout raíz devuelven al login.
+atiende los 401 pidiendo un token nuevo — pero `users-api` todavía no expone
+`POST /auth/refresh` (está en su propio backlog, no es parte de este repo): sin
+`refreshToken` guardado, el intento de refrescar falla de inmediato, se borra la sesión del
+dispositivo y las guardas del layout raíz devuelven al login. El mecanismo de refresco ya
+está escrito y lo único que falta es que el otro lado exista — `AuthTokens.refreshToken` es
+opcional a propósito, para el día que lo sea.
 
 ## Estructura
 
@@ -169,7 +174,7 @@ bun run test -- -t "E1-H1.CA3"
 | `E1-H1.CA3` | Handle con `@` inicial, entre 4 y 15 caracteres alfanuméricos o `_` | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
 | `E1-H1.CA4` | Contraseña de 8 caracteres o más, con mayúscula y número            | `tests/unit/authSchemas.test.ts`                                                                                       |
 | `E1-H1.CA5` | Campos obligatorios no vacíos en registro y login                   | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
-| `E1-H1.CA6` | Código de verificación de 6 dígitos y reenvío del código            | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
+| `E1-H1.CA6` | Token de verificación pegado del link, y reenvío del link           | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
 | `E1-H2.CA1` | Login válido, tokens recibidos y sesión persistida en SecureStore   | `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`                    |
 | `E1-H2.CA3` | Mensaje genérico de credenciales inválidas                          | `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
 | `E1-H3.CA2` | Borrado seguro del JWT y de los datos locales de sesión             | `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`, `tests/unit/navigationGuards.test.tsx`              |

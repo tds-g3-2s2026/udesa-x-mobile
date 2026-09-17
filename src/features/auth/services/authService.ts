@@ -3,6 +3,7 @@ import {
   AuthTokens,
   RefreshResponse,
   RegisterResponse,
+  User,
   UserPreferences,
   UserProfile,
 } from '../../../types/auth';
@@ -68,11 +69,31 @@ function toUserPreferences(body: PreferencesResponseBody): UserPreferences {
   };
 }
 
+// Wire shape of POST /auth/login. No refresh token (users-api has none yet)
+// and no identity at all: `identifier` on the way in can be either the email
+// or the handle, so there is nothing reliable to build a `User` from without
+// asking `/me`.
+interface LoginResponseBody {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  must_change_password: boolean;
+}
+
 export const authService = {
   async login(credentials: LoginInput): Promise<AuthResponse> {
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-      return response.data;
+      const response = await apiClient.post<LoginResponseBody>('/auth/login', credentials);
+      const accessToken = response.data.access_token;
+
+      // Reaching this line already proves the account is verified: users-api
+      // refuses login otherwise (403 account-not-verified).
+      const profile = await apiClient.get<ProfileResponseBody>('/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const user: User = { ...toUserProfile(profile.data), isVerified: true };
+
+      return { user, tokens: { accessToken } };
     } catch (error) {
       throw toAuthError(error, INVALID_CREDENTIALS_MESSAGE);
     }
@@ -97,24 +118,23 @@ export const authService = {
     }
   },
 
-  async verifyEmail(email: string, data: VerifyEmailInput): Promise<{ verified: boolean }> {
+  // The token travels in the emailed link (/auth/verify?token=...), not as a
+  // numeric code: the screen just has the user paste it. Returns the handle
+  // the API reports so the confirmation can name the account.
+  async verifyEmail(data: VerifyEmailInput): Promise<{ handle: string }> {
     try {
-      const response = await apiClient.post<{ verified: boolean }>('/auth/verify-email', {
-        email,
-        code: data.code,
+      const response = await apiClient.post<{ status: string; handle: string }>('/auth/verify', {
+        token: data.token,
       });
-      return response.data;
+      return { handle: response.data.handle };
     } catch (error) {
       throw toAuthError(error, 'El código es inválido o expiró. Pedí uno nuevo.');
     }
   },
 
-  async resendVerification(email: string): Promise<{ sent: boolean }> {
+  async resendVerification(email: string): Promise<void> {
     try {
-      const response = await apiClient.post<{ sent: boolean }>('/auth/resend-verification', {
-        email,
-      });
-      return response.data;
+      await apiClient.post('/auth/resend-verification', { email });
     } catch (error) {
       throw toAuthError(error, 'No se pudo reenviar el código. Intentalo en unos minutos.');
     }

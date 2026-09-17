@@ -6,10 +6,9 @@ import { HeaderHeightContext } from '@react-navigation/elements';
 import * as SecureStore from 'expo-secure-store';
 import ProfileScreen from '../../app/(app)/(tabs)/profile';
 import LoginScreen from '../../app/(auth)/login';
-import RegisterNameScreen from '../../app/(auth)/register/index';
+import RegisterEmailScreen from '../../app/(auth)/register/index';
 import RegisterHandleScreen from '../../app/(auth)/register/handle';
 import RegisterPasswordScreen from '../../app/(auth)/register/password';
-import RegisterEmailScreen from '../../app/(auth)/register/email';
 import VerifyEmailScreen from '../../app/(auth)/verify-email';
 import TermsScreen from '../../app/(auth)/terms';
 import PrivacyScreen from '../../app/(auth)/privacy';
@@ -30,6 +29,10 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 
+const mockUseLocalSearchParams = jest.fn<{ email?: string }, []>(() => ({
+  email: 'jleon@udesa.edu.ar',
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
@@ -38,7 +41,7 @@ jest.mock('expo-router', () => ({
     dismissAll: mockDismissAll,
     canDismiss: () => true,
   }),
-  useLocalSearchParams: () => ({ email: 'jleon@udesa.edu.ar' }),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -66,7 +69,6 @@ async function press(label: string): Promise<void> {
 }
 // Draft the wizard would hold after walking every step.
 const COMPLETE_DRAFT = {
-  fullName: 'Joaquín León',
   email: 'jleon@udesa.edu.ar',
   handle: '@joaquin_dev',
   password: 'Password123',
@@ -77,20 +79,30 @@ afterEach(() => {
   jest.clearAllMocks();
   useRegisterDraft.getState().reset();
   useThemeStore.setState({ theme: 'light', isInitialized: false });
+  // A test that logs in for real (LoginScreen calling the actual authStore)
+  // must not leave a session for the next one to trip over: nothing here
+  // mocks useAuthStore itself.
+  useAuthStore.setState({
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isInitialized: false,
+  });
 });
 
 describe('E1-H1. Registro de Usuarios', () => {
-  it('E1-H1.CA5 - the first step only moves on once the name is filled', async () => {
-    renderScreen(<RegisterNameScreen />);
+  it('E1-H1.CA2 - the first step only moves on once the email is valid', async () => {
+    renderScreen(<RegisterEmailScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('nombre@udesa.edu.ar'), 'not-an-email');
     await press('Continuar');
 
-    expect(screen.getByText(/al menos 2 caracteres/)).toBeTruthy();
+    expect(screen.getByText('Ingresá un correo electrónico válido')).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
 
-    fireEvent.changeText(screen.getByPlaceholderText('Joaquín León'), 'Joaquín León');
+    fireEvent.changeText(screen.getByPlaceholderText('nombre@udesa.edu.ar'), 'jleon@udesa.edu.ar');
     await press('Continuar');
 
-    expect(mockPush).toHaveBeenCalledWith('/(auth)/register/email');
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register/handle');
   });
 
   it('E1-H1.CA3 - the handle step adds the leading @ and stores the normalized handle', async () => {
@@ -116,15 +128,9 @@ describe('E1-H1. Registro de Usuarios', () => {
 
   it('the last step registers the whole draft, pops the wizard and opens the verification', async () => {
     const register = jest.spyOn(authService, 'register').mockResolvedValue({
-      user: {
-        id: 'usr-1',
-        handle: '@joaquin_dev',
-        email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
-        isVerified: false,
-      },
-      message: 'Registro exitoso',
-      requireVerification: true,
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
     });
     useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: true });
 
@@ -155,14 +161,13 @@ describe('E1-H1. Registro de Usuarios', () => {
     );
   });
 
-  it('E1-H1.CA6 - shows the verification code rule when the code is not 6 digits', async () => {
+  it('E1-H1.CA6 - requires a token before calling the API', async () => {
     const verifyEmail = jest.spyOn(authService, 'verifyEmail');
 
     renderScreen(<VerifyEmailScreen />);
-    fireEvent.changeText(screen.getByPlaceholderText('123456'), '123');
     await press('Verificar cuenta');
 
-    expect(screen.getByText('El código debe tener exactamente 6 dígitos')).toBeTruthy();
+    expect(screen.getByText('Pegá el código que te llegó por correo')).toBeTruthy();
     expect(verifyEmail).not.toHaveBeenCalled();
   });
 
@@ -170,37 +175,101 @@ describe('E1-H1. Registro de Usuarios', () => {
     jest.spyOn(authService, 'verifyEmail').mockRejectedValue(new Error('El código expiró'));
 
     renderScreen(<VerifyEmailScreen />);
-    fireEvent.changeText(screen.getByPlaceholderText('123456'), '123456');
+    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
     await press('Verificar cuenta');
 
     await waitFor(() => expect(screen.getByText('El código expiró')).toBeTruthy());
   });
-  it('E1-H1.CA6 - renders 6 OTP slots and updates displayed digits as user types', () => {
-    renderScreen(<VerifyEmailScreen />);
-    const input = screen.getByPlaceholderText('123456');
-    fireEvent.changeText(input, '123456');
 
-    expect(screen.getByText('1')).toBeTruthy();
-    expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getByText('3')).toBeTruthy();
-    expect(screen.getByText('4')).toBeTruthy();
-    expect(screen.getByText('5')).toBeTruthy();
-    expect(screen.getByText('6')).toBeTruthy();
+  it('E1-H1.CA6 - pressing "Iniciar Sesión" on the success alert goes to the login', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ handle: '@joaquin_dev' });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
+    await press('Verificar cuenta');
+
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    const buttons = alert.mock.calls[0][2];
+    await act(async () => {
+      buttons?.[0]?.onPress?.();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('shows a local error and never calls the API when the email param is missing', async () => {
+    mockUseLocalSearchParams.mockReturnValueOnce({});
+    const resendVerification = jest.spyOn(authService, 'resendVerification');
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    expect(
+      screen.getByText('No se encontró el correo a verificar. Volvé al registro.')
+    ).toBeTruthy();
+    expect(resendVerification).not.toHaveBeenCalled();
+  });
+
+  it('E1-H1.CA6 - resends the verification link', async () => {
+    const resendVerification = jest
+      .spyOn(authService, 'resendVerification')
+      .mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    expect(resendVerification).toHaveBeenCalledWith('jleon@udesa.edu.ar');
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Link reenviado',
+        'Revisá tu bandeja de entrada en jleon@udesa.edu.ar'
+      )
+    );
+  });
+
+  it('E1-H1.CA6 - shows the API error when resending fails', async () => {
+    jest
+      .spyOn(authService, 'resendVerification')
+      .mockRejectedValue(new Error('No se pudo reenviar el código. Intentalo en unos minutos.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    await press('Reenviar link');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error al reenviar',
+        'No se pudo reenviar el código. Intentalo en unos minutos.'
+      )
+    );
+  });
+
+  it('E1-H1.CA6 - verifies the pasted token and offers to go to the login', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ handle: '@joaquin_dev' });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
+    await press('Verificar cuenta');
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        '¡Cuenta verificada!',
+        'Tu correo fue verificado correctamente. Ya podés iniciar sesión.',
+        expect.anything()
+      )
+    );
   });
 });
 
 describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
   it('E1-H12.CA1 - Crear cuenta is blocked until the terms checkbox is checked', async () => {
     const register = jest.spyOn(authService, 'register').mockResolvedValue({
-      user: {
-        id: 'usr-1',
-        handle: '@joaquin_dev',
-        email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
-        isVerified: false,
-      },
-      message: 'Registro exitoso',
-      requireVerification: true,
+      id: 'usr-1',
+      handle: '@joaquin_dev',
+      email: 'jleon@udesa.edu.ar',
     });
     useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: false });
 
@@ -249,10 +318,9 @@ describe('E1-H2. Inicio de Sesión', () => {
         id: 'usr-1',
         handle: '@joaquin_dev',
         email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
         isVerified: true,
       },
-      tokens: { accessToken: 'jwt-access-token', refreshToken: 'jwt-refresh-token' },
+      tokens: { accessToken: 'jwt-access-token' },
     });
 
     renderScreen(<LoginScreen />);
@@ -266,23 +334,17 @@ describe('E1-H2. Inicio de Sesión', () => {
     expect(useAuthStore.getState().accessToken).toBe('jwt-access-token');
   });
 
-  it('fetches the profile after login, since login never returns display name or bio', async () => {
+  it('E1-H2.CA1 - display name and bio are already set, since authService.login resolves /me itself', async () => {
     jest.spyOn(authService, 'login').mockResolvedValue({
       user: {
         id: 'usr-1',
         handle: '@joaquin_dev',
         email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
         isVerified: true,
+        displayName: 'Joaco',
+        bio: 'Estudiante',
       },
-      tokens: { accessToken: 'jwt-access-token', refreshToken: 'jwt-refresh-token' },
-    });
-    jest.spyOn(authService, 'getProfile').mockResolvedValue({
-      id: 'usr-1',
-      email: 'jleon@udesa.edu.ar',
-      handle: '@joaquin_dev',
-      displayName: 'Joaco',
-      bio: 'Estudiante',
+      tokens: { accessToken: 'jwt-access-token' },
     });
 
     renderScreen(<LoginScreen />);
@@ -292,22 +354,12 @@ describe('E1-H2. Inicio de Sesión', () => {
 
     await waitFor(() => expect(useAuthStore.getState().user?.displayName).toBe('Joaco'));
     expect(useAuthStore.getState().user?.bio).toBe('Estudiante');
-    // The rest of the session set by login is untouched by the merge.
-    expect(useAuthStore.getState().user?.fullName).toBe('Joaquín León');
   });
 
-  it('does not block or alert on a successful login when fetching the profile fails', async () => {
-    jest.spyOn(authService, 'login').mockResolvedValue({
-      user: {
-        id: 'usr-1',
-        handle: '@joaquin_dev',
-        email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
-        isVerified: true,
-      },
-      tokens: { accessToken: 'jwt-access-token', refreshToken: 'jwt-refresh-token' },
-    });
-    jest.spyOn(authService, 'getProfile').mockRejectedValue(new ApiError('down'));
+  it('a failure while resolving the account after credentials are accepted shows the generic error', async () => {
+    jest
+      .spyOn(authService, 'login')
+      .mockRejectedValue(new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.'));
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     renderScreen(<LoginScreen />);
@@ -315,8 +367,13 @@ describe('E1-H2. Inicio de Sesión', () => {
     fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'Password123');
     await press('Iniciar Sesión');
 
-    await waitFor(() => expect(useAuthStore.getState().user?.handle).toBe('@joaquin_dev'));
-    expect(alert).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudo conectar con el servidor. Revisá tu conexión.'
+      )
+    );
+    expect(useAuthStore.getState().user).toBeNull();
   });
 
   it('E1-H2.CA3 - shows the generic credentials error raised by the service', async () => {
@@ -445,7 +502,6 @@ describe('E1-H5. Olvidé Mi Contraseña', () => {
         id: 'usr-1',
         handle: '@joaquin_dev',
         email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
         isVerified: true,
       },
       accessToken: 'jwt-access-token',
@@ -470,7 +526,6 @@ describe('E1-H13. Cambiar Contraseña', () => {
       id: 'usr-1',
       handle: '@joaquin_dev',
       email: 'jleon@udesa.edu.ar',
-      fullName: 'Joaquín León',
       isVerified: true,
     },
     accessToken: 'jwt-access-token',
@@ -627,7 +682,6 @@ describe('E1-H6. Editar mi perfil', () => {
       id: 'usr-1',
       handle: '@joaquin_dev',
       email: 'jleon@udesa.edu.ar',
-      fullName: 'Joaquín León',
       isVerified: true,
     },
     accessToken: 'jwt-access-token',
@@ -635,7 +689,7 @@ describe('E1-H6. Editar mi perfil', () => {
     isInitialized: true,
   };
 
-  it('shows the display name and bio on the profile once set, in place of fullName', async () => {
+  it('shows the display name and bio on the profile once set, in place of the handle', async () => {
     useAuthStore.setState({
       ...loggedIn,
       user: { ...loggedIn.user, displayName: 'Joaco', bio: 'Estudiante de sistemas' },
@@ -645,15 +699,16 @@ describe('E1-H6. Editar mi perfil', () => {
 
     expect(screen.getByText('Joaco')).toBeTruthy();
     expect(screen.getByText('Estudiante de sistemas')).toBeTruthy();
-    expect(screen.queryByText('Joaquín León')).toBeNull();
   });
 
-  it('falls back to fullName on the profile until a display name is set', async () => {
+  it('falls back to the handle on the profile until a display name is set', async () => {
     useAuthStore.setState(loggedIn);
 
     renderScreen(<ProfileScreen />);
 
-    expect(screen.getByText('Joaquín León')).toBeTruthy();
+    // Shows twice: once as the name (the fallback) and once as the handle
+    // row underneath it, same text until a display name is set.
+    expect(screen.getAllByText('@joaquin_dev')).toHaveLength(2);
   });
 
   it('E1-H10.CA1 - toggling the theme switch persists the preference locally, nowhere else', async () => {
@@ -919,7 +974,6 @@ describe('Preferencias', () => {
       id: 'usr-1',
       handle: '@joaquin_dev',
       email: 'jleon@udesa.edu.ar',
-      fullName: 'Joaquín León',
       isVerified: true,
     },
     accessToken: 'jwt-access-token',
@@ -1083,7 +1137,6 @@ describe('E1-H3. Cierre de Sesión', () => {
       id: 'usr-1',
       handle: '@joaquin_dev',
       email: 'jleon@udesa.edu.ar',
-      fullName: 'Joaquín León',
       isVerified: true,
     },
     accessToken: 'jwt-access-token',

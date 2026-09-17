@@ -14,7 +14,6 @@ import {
 const validRegistration = {
   handle: '@joaquin_dev',
   email: 'jleon@udesa.edu.ar',
-  fullName: 'Joaquín León',
   password: 'Password123',
 };
 
@@ -44,13 +43,13 @@ describe('E1-H1. Registro de Usuarios', () => {
   });
 
   it('E1-H1.CA3 - accepts handles between 4 and 15 characters', () => {
-    expect(registerErrorFor('handle', '@abc')).toBeNull();
-    expect(registerErrorFor('handle', '@abcdefghijklmn')).toBeNull();
+    expect(registerErrorFor('handle', '@abcd')).toBeNull();
+    expect(registerErrorFor('handle', '@abcdefghijklmno')).toBeNull();
   });
 
   it('E1-H1.CA3 - rejects handles shorter than 4 or longer than 15 characters', () => {
-    expect(registerErrorFor('handle', '@ab')).not.toBeNull();
-    expect(registerErrorFor('handle', '@abcdefghijklmno')).not.toBeNull();
+    expect(registerErrorFor('handle', '@abc')).not.toBeNull();
+    expect(registerErrorFor('handle', '@abcdefghijklmnop')).not.toBeNull();
   });
 
   it('E1-H1.CA3 - rejects handles with characters other than letters, numbers and underscores', () => {
@@ -91,16 +90,15 @@ describe('E1-H1. Registro de Usuarios', () => {
   });
 
   it('E1-H1.CA5 - rejects a registration with every required field empty', () => {
-    const result = registerSchema.safeParse({ handle: '', email: '', fullName: '', password: '' });
+    const result = registerSchema.safeParse({ handle: '', email: '', password: '' });
     expect(result.success).toBe(false);
     if (result.success) return;
-    for (const field of ['handle', 'email', 'fullName', 'password'] as const) {
+    for (const field of ['handle', 'email', 'password'] as const) {
       expect(result.error.issues.some((issue) => issue.path[0] === field)).toBe(true);
     }
   });
 
   it('E1-H1.CA5 - rejects required fields that only contain whitespace', () => {
-    expect(registerErrorFor('fullName', '   ')).not.toBeNull();
     expect(registerErrorFor('email', '   ')).not.toBeNull();
   });
 
@@ -114,17 +112,16 @@ describe('E1-H1. Registro de Usuarios', () => {
     ]);
   });
 
-  it('E1-H1.CA6 - accepts a verification code of exactly 6 digits', () => {
-    const result = verifyEmailSchema.safeParse({ code: '123456' });
-    expect(result.success).toBe(true);
-  });
+  it('E1-H1.CA6 - requires a non-blank token, trimmed', () => {
+    const blank = verifyEmailSchema.safeParse({ token: '   ' });
+    expect(blank.success).toBe(false);
+    if (blank.success) return;
+    expect(blank.error.issues[0].message).toBe('Pegá el código que te llegó por correo');
 
-  it('E1-H1.CA6 - rejects verification codes that are not 6 digits', () => {
-    expect(verifyEmailSchema.safeParse({ code: '12345' }).success).toBe(false);
-    expect(verifyEmailSchema.safeParse({ code: '1234567' }).success).toBe(false);
-    expect(verifyEmailSchema.safeParse({ code: 'abcdef' }).success).toBe(false);
-    expect(verifyEmailSchema.safeParse({ code: '12 456' }).success).toBe(false);
-    expect(verifyEmailSchema.safeParse({ code: '' }).success).toBe(false);
+    const result = verifyEmailSchema.safeParse({ token: '  a-verify-token  ' });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.token).toBe('a-verify-token');
   });
 });
 
@@ -305,7 +302,6 @@ describe('Registration wizard step validation', () => {
     const invalidValues: [RegisterField, string][] = [
       ['handle', 'ab'],
       ['email', 'jleon.udesa.edu.ar'],
-      ['fullName', 'J'],
       ['password', 'password'],
     ];
 

@@ -31,22 +31,18 @@ export default function RegisterPasswordScreen() {
 
     setIsSubmitting(true);
     try {
-      const response = await authService.register(validation.data, termsAccepted);
+      await authService.register(validation.data, termsAccepted);
       reset();
       // The account exists: the wizard is popped so the back button of the next
       // screen goes to the login and not into a form that cannot be sent again.
       if (router.canDismiss()) router.dismissAll();
 
-      if (response.requireVerification) {
-        router.push({
-          pathname: '/(auth)/verify-email',
-          params: { email: validation.data.email },
-        });
-      } else {
-        Alert.alert('Cuenta creada', 'Tu cuenta fue creada correctamente.', [
-          { text: 'Iniciar Sesión', onPress: () => router.replace('/(auth)/login') },
-        ]);
-      }
+      // users-api always creates the account unverified: there is no path
+      // where a fresh registration skips this step.
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: validation.data.email },
+      });
     } catch (error) {
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {

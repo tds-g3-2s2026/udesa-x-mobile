@@ -29,25 +29,43 @@ const session: AuthResponse = {
     id: 'usr-1',
     handle: '@joaquin_dev',
     email: 'jleon@udesa.edu.ar',
-    fullName: 'Joaquín León',
     isVerified: true,
+    displayName: null,
+    bio: null,
   },
   tokens: {
     accessToken: 'jwt-access-token',
-    refreshToken: 'jwt-refresh-token',
   },
 };
 
 const post = jest.spyOn(apiClient, 'post');
+const get = jest.spyOn(apiClient, 'get');
 
 describe('Auth service', () => {
   afterEach(() => {
     post.mockReset();
+    get.mockReset();
   });
 
   describe('E1-H2. Inicio de Sesión', () => {
-    it('E1-H2.CA1 - returns the tokens issued by the API for valid credentials', async () => {
-      post.mockResolvedValueOnce(apiSuccess(session));
+    it('E1-H2.CA1 - resolves the access token and the identity from /me, since login carries neither', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({
+          access_token: 'jwt-access-token',
+          token_type: 'bearer',
+          expires_in: 900,
+          must_change_password: false,
+        })
+      );
+      get.mockResolvedValueOnce(
+        apiSuccess({
+          id: 'usr-1',
+          email: 'jleon@udesa.edu.ar',
+          handle: '@joaquin_dev',
+          display_name: null,
+          bio: null,
+        })
+      );
 
       const result = await authService.login({
         identifier: '@joaquin_dev',
@@ -57,6 +75,9 @@ describe('Auth service', () => {
       expect(post).toHaveBeenCalledWith('/auth/login', {
         identifier: '@joaquin_dev',
         password: 'Password123',
+      });
+      expect(get).toHaveBeenCalledWith('/me', {
+        headers: { Authorization: 'Bearer jwt-access-token' },
       });
       expect(result.tokens).toEqual(session.tokens);
       expect(result.user).toEqual(session.user);
@@ -68,6 +89,8 @@ describe('Auth service', () => {
       await expect(
         authService.login({ identifier: '@joaquin_dev', password: 'WrongPass1' })
       ).rejects.toThrow('Credenciales inválidas');
+      // Wrong credentials never get far enough to ask for the identity.
+      expect(get).not.toHaveBeenCalled();
     });
 
     it('E1-H2.CA3 - falls back to the generic message when the API sends no detail', async () => {
@@ -85,6 +108,22 @@ describe('Auth service', () => {
         authService.login({ identifier: '@joaquin_dev', password: 'Password123' })
       ).rejects.toThrow('No se pudo conectar con el servidor. Revisá tu conexión.');
     });
+
+    it('E1-H2.CA1 - fails the whole login if resolving the identity afterward fails', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({
+          access_token: 'jwt-access-token',
+          token_type: 'bearer',
+          expires_in: 900,
+          must_change_password: false,
+        })
+      );
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(
+        authService.login({ identifier: '@joaquin_dev', password: 'Password123' })
+      ).rejects.toThrow('No se pudo conectar con el servidor. Revisá tu conexión.');
+    });
   });
 
   describe('E1-H1. Registro de Usuarios', () => {
@@ -93,12 +132,7 @@ describe('Auth service', () => {
 
       await expect(
         authService.register(
-          {
-            handle: '@joaquin_dev',
-            email: 'jleon@udesa.edu.ar',
-            fullName: 'Joaquín León',
-            password: 'Password123',
-          },
+          { handle: '@joaquin_dev', email: 'jleon@udesa.edu.ar', password: 'Password123' },
           true
         )
       ).rejects.toThrow('El correo ya está registrado');
@@ -106,45 +140,47 @@ describe('Auth service', () => {
 
     it('E1-H12.CA2 - sends terms_accepted in snake_case, matching the users-api contract', async () => {
       post.mockResolvedValueOnce(
-        apiSuccess({ user: session.user, message: 'Registro exitoso', requireVerification: true })
+        apiSuccess({ id: 'usr-1', email: 'jleon@udesa.edu.ar', handle: '@joaquin_dev' })
       );
 
       await authService.register(
-        {
-          handle: '@joaquin_dev',
-          email: 'jleon@udesa.edu.ar',
-          fullName: 'Joaquín León',
-          password: 'Password123',
-        },
+        { handle: '@joaquin_dev', email: 'jleon@udesa.edu.ar', password: 'Password123' },
         true
       );
 
       expect(post).toHaveBeenCalledWith('/auth/register', {
         handle: '@joaquin_dev',
         email: 'jleon@udesa.edu.ar',
-        fullName: 'Joaquín León',
         password: 'Password123',
         terms_accepted: true,
       });
     });
 
-    it('E1-H1.CA6 - propagates the expired verification code error reported by the API', async () => {
+    it('E1-H1.CA6 - propagates the expired token error reported by the API', async () => {
       post.mockRejectedValueOnce(apiFailure(400, { detail: 'El código expiró' }));
 
-      await expect(
-        authService.verifyEmail('jleon@udesa.edu.ar', { code: '123456' })
-      ).rejects.toThrow('El código expiró');
+      await expect(authService.verifyEmail({ token: 'a-token' })).rejects.toThrow(
+        'El código expiró'
+      );
     });
 
-    it('E1-H1.CA6 - requests a new verification code from the API', async () => {
-      post.mockResolvedValueOnce(apiSuccess({ sent: true }));
+    it('E1-H1.CA6 - verifies with the token pasted from the emailed link', async () => {
+      post.mockResolvedValueOnce(apiSuccess({ status: 'verified', handle: '@joaquin_dev' }));
 
-      const result = await authService.resendVerification('jleon@udesa.edu.ar');
+      const result = await authService.verifyEmail({ token: 'a-token' });
+
+      expect(post).toHaveBeenCalledWith('/auth/verify', { token: 'a-token' });
+      expect(result.handle).toBe('@joaquin_dev');
+    });
+
+    it('E1-H1.CA6 - requests a new verification link from the API', async () => {
+      post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
+
+      await authService.resendVerification('jleon@udesa.edu.ar');
 
       expect(post).toHaveBeenCalledWith('/auth/resend-verification', {
         email: 'jleon@udesa.edu.ar',
       });
-      expect(result.sent).toBe(true);
     });
   });
 

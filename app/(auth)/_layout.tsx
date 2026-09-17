@@ -6,6 +6,7 @@ export default function AuthLayout() {
 
   return (
     <Stack
+      initialRouteName="login"
       screenOptions={{
         headerShown: true,
         headerBackTitle: 'Volver',
@@ -32,7 +33,6 @@ export default function AuthLayout() {
           without any interception. The title stays fixed so only the progress
           bar changes. */}
       <Stack.Screen name="register/index" options={{ title: 'Crear Cuenta' }} />
-      <Stack.Screen name="register/email" options={{ title: 'Crear Cuenta' }} />
       <Stack.Screen name="register/handle" options={{ title: 'Crear Cuenta' }} />
       <Stack.Screen name="register/password" options={{ title: 'Crear Cuenta' }} />
 

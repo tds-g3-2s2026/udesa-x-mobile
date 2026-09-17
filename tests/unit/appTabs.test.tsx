@@ -30,7 +30,6 @@ const user: User = {
   id: 'usr-1',
   handle: '@joaquin_dev',
   email: 'jleon@udesa.edu.ar',
-  fullName: 'Joaquín León',
   isVerified: true,
 };
 
@@ -108,8 +107,9 @@ describe('T-51. Navegación por tabs', () => {
   it('T-51 - the Perfil tab shows the session data and the logout', async () => {
     await renderTab('/profile');
 
-    expect(screen.getByText(user.fullName)).toBeTruthy();
-    expect(screen.getByText(user.handle)).toBeTruthy();
+    // Twice: once as the name (falls back to the handle, no display name set)
+    // and once as the handle row underneath it.
+    expect(screen.getAllByText(user.handle)).toHaveLength(2);
     expect(screen.getByText(user.email)).toBeTruthy();
     expect(screen.getByText('Correo verificado')).toBeTruthy();
     expect(screen.getByText('Cerrar Sesión')).toBeTruthy();
