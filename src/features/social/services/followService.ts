@@ -1,4 +1,4 @@
-import { FollowRequestSummary } from '../../../types/social';
+import { FollowRequestSummary, FollowState } from '../../../types/social';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
 
@@ -9,9 +9,13 @@ export const followService = {
   // following comes from the token, so there is nothing else to send.
   // Following an account already followed is not an error server-side, so
   // this never has to check the current state first.
-  async follow(targetUserId: string): Promise<void> {
+  //
+  // The answer says what happened: 204 means it is done, and 202 means the
+  // account is protected and the ask is waiting for its owner.
+  async follow(targetUserId: string): Promise<FollowState> {
     try {
-      await postsApiClient.post(`/users/${targetUserId}/follow`);
+      const response = await postsApiClient.post(`/users/${targetUserId}/follow`);
+      return response.status === 202 ? 'pending' : 'following';
     } catch (error) {
       throw toAuthError(error, 'No se pudo seguir la cuenta. Intentalo de nuevo.');
     }

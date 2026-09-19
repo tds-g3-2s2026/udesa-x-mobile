@@ -1,15 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { ApiError } from '../../../api/apiClient';
 import { followService, getAuthErrorMessage } from '../services/followService';
 import { FollowState } from '../../../types/social';
 import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
-
-// A protected account's owner has not approved anything yet, so this is not
-// really "pending" from the server's point of view: today it is just a
-// follow the API refuses outright.
-const NEEDS_APPROVAL_CODE = 'follow-needs-approval';
 
 interface FollowButtonProps {
   targetUserId: string;
@@ -19,6 +13,12 @@ interface FollowButtonProps {
   // to know anything about where it is used.
   onStateChange?: (state: FollowState) => void;
 }
+
+const LABELS: Record<FollowState, string> = {
+  none: 'Seguir',
+  following: 'Siguiendo',
+  pending: 'Solicitado',
+};
 
 /**
  * Follow/unfollow toggle for another account. No screen mounts it yet: it has
@@ -37,43 +37,43 @@ export function FollowButton({ targetUserId, initialState, onStateChange }: Foll
     setIsSubmitting(true);
     try {
       if (state === 'none') {
-        await followService.follow(targetUserId);
-        setState('following');
-        onStateChange?.('following');
+        // The answer decides the new state: following a protected account
+        // leaves it waiting, and the button has to say so instead of
+        // claiming success.
+        const reached = await followService.follow(targetUserId);
+        setState(reached);
+        onStateChange?.(reached);
       } else {
         await followService.unfollow(targetUserId);
         setState('none');
         onStateChange?.('none');
       }
     } catch (error) {
-      if (error instanceof ApiError && error.code === NEEDS_APPROVAL_CODE) {
-        Alert.alert(
-          'Cuenta protegida',
-          'Esta cuenta es protegida y todavía no se pueden enviar solicitudes para seguirla.'
-        );
-      } else {
-        Alert.alert('Error', getAuthErrorMessage(error));
-      }
+      Alert.alert('Error', getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const isFollowing = state === 'following';
+  // Cancelling a request that is already sent is not possible yet: it arrives
+  // with the piece of E3-H2 that makes unfollowing cancel a pending request.
+  // Until then the button says what happened and waits.
+  const isPending = state === 'pending';
 
   return (
     <TouchableOpacity
-      style={[styles.button, isFollowing && styles.buttonFollowing]}
+      style={[styles.button, (isFollowing || isPending) && styles.buttonFollowing]}
       onPress={handlePress}
-      disabled={isSubmitting}
+      disabled={isSubmitting || isPending}
       accessibilityRole="button"
-      accessibilityLabel={isFollowing ? 'Dejar de seguir' : 'Seguir'}
+      accessibilityLabel={LABELS[state]}
     >
       {isSubmitting ? (
         <ActivityIndicator color={isFollowing ? colors.primary : colors.onPrimary} size="small" />
       ) : (
-        <Text style={[styles.label, isFollowing && styles.labelFollowing]}>
-          {isFollowing ? 'Siguiendo' : 'Seguir'}
+        <Text style={[styles.label, (isFollowing || isPending) && styles.labelFollowing]}>
+          {LABELS[state]}
         </Text>
       )}
     </TouchableOpacity>
