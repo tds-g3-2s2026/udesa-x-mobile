@@ -5,8 +5,8 @@ import { FollowRequestSummary } from '../../src/types/social';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
-function apiSuccess<T>(data: T): AxiosResponse<T> {
-  return { data, status: 200, statusText: 'OK', headers: {}, config: requestConfig };
+function apiSuccess<T>(data: T, status = 200): AxiosResponse<T> {
+  return { data, status, statusText: 'OK', headers: {}, config: requestConfig };
 }
 
 // Failure with an RFC 9457 Problem Details body, the error shape of the platform APIs.
@@ -38,11 +38,21 @@ describe('Follow service', () => {
 
   describe('E3-H1. Seguir a un Usuario', () => {
     it('E3-H1.CA1 - follows a user by their id, not their handle', async () => {
-      post.mockResolvedValueOnce(apiSuccess(undefined));
+      post.mockResolvedValueOnce(apiSuccess(undefined, 204));
 
-      await followService.follow('usr-2');
+      const reached = await followService.follow('usr-2');
 
       expect(post).toHaveBeenCalledWith('/users/usr-2/follow');
+      // 204: the relationship is established, nothing is waiting.
+      expect(reached).toBe('following');
+    });
+
+    it('E3-H1.CA2 - a 202 means the account is protected and the ask is waiting', async () => {
+      post.mockResolvedValueOnce(apiSuccess(undefined, 202));
+
+      const reached = await followService.follow('usr-2');
+
+      expect(reached).toBe('pending');
     });
 
     it('E3-H1.CA3 - propagates the self-follow refusal from the API', async () => {
