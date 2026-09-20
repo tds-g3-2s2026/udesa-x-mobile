@@ -29,8 +29,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from typing import Any
 
-BASE_PATH = "/api/v1"
-BASE_PATHS = (BASE_PATH, "/v1")
+BASE_PATH = "/api"
+# posts-api publishes every endpoint under /api, no version segment (a single
+# cluster Ingress routes by this path) — same convention as users-api.
+BASE_PATHS = (BASE_PATH,)
 # Different from mock-users-api.py's 8020 on purpose: this is a separate
 # service, reachable at its own address, same as the real deployment.
 DEFAULT_PORT = 8021
