@@ -95,10 +95,28 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={[styles.actionButton, styles.stackedButton]}
-        onPress={() => router.push('/follow-requests')}
+        onPress={() => router.push({ pathname: '/follow-list', params: { tab: 'followers' } })}
         accessibilityRole="button"
       >
         <Ionicons name="people-outline" size={18} color={colors.primary} />
+        <Text style={styles.actionButtonLabel}>Seguidores</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.actionButton, styles.stackedButton]}
+        onPress={() => router.push({ pathname: '/follow-list', params: { tab: 'following' } })}
+        accessibilityRole="button"
+      >
+        <Ionicons name="person-add-outline" size={18} color={colors.primary} />
+        <Text style={styles.actionButtonLabel}>Siguiendo</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.actionButton, styles.stackedButton]}
+        onPress={() => router.push('/follow-requests')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="mail-unread-outline" size={18} color={colors.primary} />
         <Text style={styles.actionButtonLabel}>Solicitudes pendientes</Text>
       </TouchableOpacity>
 
