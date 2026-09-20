@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Text } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { FollowButton } from '../../src/features/social/components/FollowButton';
 import { followService } from '../../src/features/social/services/followService';
@@ -98,5 +98,61 @@ describe('E3-H1. Seguir a un Usuario', () => {
       )
     );
     expect(screen.getByText('Seguir')).toBeTruthy();
+  });
+});
+
+describe('E3-H2. Dejar de Seguir a un Usuario', () => {
+  it('E3-H2.CA1 - unfollows immediately, with no confirmation dialog', async () => {
+    const unfollow = jest.spyOn(followService, 'unfollow').mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(<FollowButton targetUserId="usr-2" initialState="following" />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Siguiendo'));
+    });
+
+    // The story asks for it explicitly: not having a "¿estás seguro?" is what
+    // the criterion requires, so its absence is asserted and not assumed.
+    expect(alert).not.toHaveBeenCalled();
+    expect(unfollow).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Seguir')).toBeTruthy();
+  });
+
+  // A stand-in for the profile screen: it holds the count and reacts to the
+  // button, which is how a real screen will use it.
+  function ProfileWithCount({ followers }: { followers: number }) {
+    const [count, setCount] = useState(followers);
+    return (
+      <>
+        <Text>{`${count} seguidores`}</Text>
+        <FollowButton
+          targetUserId="usr-2"
+          initialState="following"
+          onStateChange={(state) =>
+            setCount((current) => (state === 'none' ? current - 1 : current + 1))
+          }
+        />
+      </>
+    );
+  }
+
+  it('E3-H2.CA2 - the counter moves with the answer, without asking for the profile again', async () => {
+    jest.spyOn(followService, 'unfollow').mockResolvedValue(undefined);
+    const requests = jest.spyOn(followService, 'getFollowRequests');
+    const follow = jest.spyOn(followService, 'follow');
+
+    render(<ProfileWithCount followers={10} />);
+    expect(screen.getByText('10 seguidores')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Siguiendo'));
+    });
+
+    expect(await screen.findByText('9 seguidores')).toBeTruthy();
+    // Nothing was read back: the screen moved its own number with what the
+    // answer said, instead of paying a second round trip for it.
+    expect(requests).not.toHaveBeenCalled();
+    expect(follow).not.toHaveBeenCalled();
   });
 });
