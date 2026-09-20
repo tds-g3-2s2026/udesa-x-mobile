@@ -1,4 +1,4 @@
-import { FollowRequestSummary, FollowState } from '../../../types/social';
+import { FollowListPage, FollowRequestSummary, FollowState } from '../../../types/social';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
 
@@ -37,6 +37,30 @@ export const followService = {
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudieron cargar las solicitudes. Intentalo de nuevo.');
+    }
+  },
+
+  // Both lists share a shape and a pagination style: a fixed page of 20 plus
+  // an opaque cursor, sent back as-is in `?cursor=` for the next page.
+  async getFollowers(userId: string, cursor: string | null = null): Promise<FollowListPage> {
+    try {
+      const response = await postsApiClient.get<FollowListPage>(`/users/${userId}/followers`, {
+        params: cursor ? { cursor } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar los seguidores. Intentalo de nuevo.');
+    }
+  },
+
+  async getFollowing(userId: string, cursor: string | null = null): Promise<FollowListPage> {
+    try {
+      const response = await postsApiClient.get<FollowListPage>(`/users/${userId}/following`, {
+        params: cursor ? { cursor } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar las cuentas seguidas. Intentalo de nuevo.');
     }
   },
 

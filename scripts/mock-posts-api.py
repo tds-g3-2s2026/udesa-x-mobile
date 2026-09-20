@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Mock implementation of the posts-api follow-requests endpoints.
+"""Mock implementation of posts-api's follow-related endpoints.
 
-Covers only what udesa-x-posts-api#13 defines: listing the follow requests
-aimed at the current user, and approving or rejecting one. It exists so the
-mobile app's pending-requests screen can be built and tested before those
-endpoints exist for real. Follow/unfollow (udesa-x-posts-api#5) is not mocked
-here yet: no mobile screen calls it.
+Covers follow-requests (udesa-x-posts-api#13: list, approve, reject),
+follow/unfollow (udesa-x-posts-api#5), and the followers/following listings
+(udesa-x-posts-api#30: paginated, cursor-based, 20 per page). It exists so
+the mobile app's social screens can be built and tested before those
+endpoints exist for real.
+
+Only @demo (the one account mock-users-api.py always has) has any social
+graph seeded. Any other id 404s as unknown, and a protected-account 403
+(follow-list-not-visible) is not modeled: there is no other-account profile
+screen yet to reach it from.
 
 Authenticates the same way the real service will: it accepts the JWT
 users-api issues. This mock does not verify a signature, it just parses the
@@ -41,6 +46,14 @@ ERROR_TYPE_BASE = "https://udesa-x.dev/errors"
 
 APPROVE_PATH = re.compile(r"^/follow-requests/([^/]+)/approve$")
 REJECT_PATH = re.compile(r"^/follow-requests/([^/]+)/reject$")
+FOLLOW_PATH = re.compile(r"^/users/([^/]+)/follow$")
+FOLLOWERS_PATH = re.compile(r"^/users/([^/]+)/followers$")
+FOLLOWING_PATH = re.compile(r"^/users/([^/]+)/following$")
+
+PAGE_SIZE = 20
+# The only id this mock recognizes as a real account: matches the "usr-1"
+# mock-users-api.py hands the first (and only) seeded account, @demo.
+DEMO_ID = "usr-1"
 
 request_id_issues = count(1)
 
@@ -48,6 +61,24 @@ request_id_issues = count(1)
 # couple of pending requests aimed at @demo so the screen has something to
 # show without needing another account to send one first.
 follow_requests: dict[str, dict[str, Any]] = {}
+
+# A pool of synthetic accounts, all of them @demo's followers, so the
+# followers list has enough rows (25) to exercise pagination past one page
+# of 20. Followed back is tracked separately in `demo_following`.
+synthetic_accounts: dict[str, dict[str, Any]] = {
+    f"usr-{n}": {
+        "id": f"usr-{n}",
+        "handle": f"@persona{n}",
+        "displayName": f"Persona {n}" if n % 3 == 0 else None,
+        "avatarUrl": None,
+        "createdAt": "2026-09-10T12:00:00Z",
+    }
+    for n in range(2, 27)
+}
+follower_ids: list[str] = list(synthetic_accounts.keys())
+# Mutable: what @demo follows back, seeded with a few so both tabs have
+# something to show. Toggled by POST/DELETE /users/{id}/follow.
+demo_following: set[str] = {"usr-2", "usr-5", "usr-9"}
 
 
 def strip_base_path(route: str) -> str | None:
@@ -103,6 +134,18 @@ class PostsHandler(BaseHTTPRequestHandler):
         if strip_base_path(route) == "/follow-requests":
             self.list_follow_requests()
             return
+
+        endpoint_path = strip_base_path(route)
+        if endpoint_path is not None:
+            followers_match = FOLLOWERS_PATH.match(endpoint_path)
+            if followers_match:
+                self.list_follow_graph(followers_match.group(1), "followers")
+                return
+            following_match = FOLLOWING_PATH.match(endpoint_path)
+            if following_match:
+                self.list_follow_graph(following_match.group(1), "following")
+                return
+
         self.send_problem(404, "Ruta no encontrada", f"{self.path} no existe en el mock.")
 
     def do_POST(self) -> None:
@@ -120,6 +163,25 @@ class PostsHandler(BaseHTTPRequestHandler):
         reject_match = REJECT_PATH.match(endpoint_path)
         if reject_match:
             self.resolve_follow_request(reject_match.group(1), "rejected")
+            return
+
+        follow_match = FOLLOW_PATH.match(endpoint_path)
+        if follow_match:
+            self.set_following(follow_match.group(1), following=True)
+            return
+
+        self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
+
+    def do_DELETE(self) -> None:
+        route = self.path.split("?")[0]
+        endpoint_path = strip_base_path(route)
+        if endpoint_path is None:
+            self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
+            return
+
+        follow_match = FOLLOW_PATH.match(endpoint_path)
+        if follow_match:
+            self.set_following(follow_match.group(1), following=False)
             return
 
         self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
@@ -165,6 +227,63 @@ class PostsHandler(BaseHTTPRequestHandler):
                 for request in pending
             ],
         )
+
+    def list_follow_graph(self, user_id: str, kind: str) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        if user_id != DEMO_ID:
+            self.send_problem(
+                404, "Cuenta inexistente", "Esa cuenta no existe.", code="user-not-found"
+            )
+            return
+
+        ids = follower_ids if kind == "followers" else sorted(demo_following)
+
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        cursor_values = [
+            value.split("=", 1)[1] for value in query.split("&") if value.startswith("cursor=")
+        ]
+        offset = int(cursor_values[0]) if cursor_values and cursor_values[0].isdigit() else 0
+
+        page_ids = ids[offset : offset + PAGE_SIZE]
+        next_offset = offset + PAGE_SIZE
+        next_cursor = str(next_offset) if next_offset < len(ids) else None
+
+        items = [
+            {
+                "id": account_id,
+                "handle": synthetic_accounts[account_id]["handle"],
+                "displayName": synthetic_accounts[account_id]["displayName"],
+                "avatarUrl": synthetic_accounts[account_id]["avatarUrl"],
+                "following": account_id in demo_following,
+                "createdAt": synthetic_accounts[account_id]["createdAt"],
+            }
+            for account_id in page_ids
+        ]
+        self.send_json(200, {"items": items, "nextCursor": next_cursor})
+
+    def set_following(self, target_id: str, *, following: bool) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        if target_id not in synthetic_accounts:
+            self.send_problem(
+                404, "Cuenta inexistente", "Esa cuenta no existe.", code="user-not-found"
+            )
+            return
+
+        if following:
+            demo_following.add(target_id)
+        else:
+            demo_following.discard(target_id)
+
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
 
     def resolve_follow_request(self, request_id: str, resolution: str) -> None:
         caller = self.resolve_caller_handle()
