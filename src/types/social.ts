@@ -9,7 +9,6 @@ export interface FollowRequestSummary {
 
 export type FollowRequestResolution = 'approved' | 'rejected';
 
-// 'pending' is not reachable yet: posts-api still rejects a follow of a
-// protected account outright with `follow-needs-approval` instead of
-// creating a request, so FollowButton has nowhere to get that state from today.
-export type FollowState = 'none' | 'following';
+// 'pending' is what following a protected account leaves behind: posts-api
+// answers 202 and the relationship waits for the owner of that account.
+export type FollowState = 'none' | 'following' | 'pending';

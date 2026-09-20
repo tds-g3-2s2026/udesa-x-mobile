@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe('E3-H1. Seguir a un Usuario', () => {
   it('E3-H1.CA1 - starts on "Seguir" and follows the target when pressed', async () => {
-    const follow = jest.spyOn(followService, 'follow').mockResolvedValue(undefined);
+    const follow = jest.spyOn(followService, 'follow').mockResolvedValue('following');
     const onStateChange = jest.fn();
 
     render(<FollowButton targetUserId="usr-2" initialState="none" onStateChange={onStateChange} />);
@@ -45,31 +45,36 @@ describe('E3-H1. Seguir a un Usuario', () => {
     expect(onStateChange).toHaveBeenCalledWith('none');
   });
 
-  it('a protected account shows a specific message and leaves the button on "Seguir"', async () => {
-    jest
-      .spyOn(followService, 'follow')
-      .mockRejectedValue(
-        new ApiError(
-          'La cuenta es protegida y todavía no se pueden enviar solicitudes',
-          'follow-needs-approval'
-        )
-      );
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  it('E3-H1.CA2 - a protected account leaves the button on "Solicitado"', async () => {
+    // posts-api answers 202: the relationship was asked for, not established.
+    const follow = jest.spyOn(followService, 'follow').mockResolvedValue('pending');
+    const onStateChange = jest.fn();
 
-    render(<FollowButton targetUserId="usr-2" initialState="none" />);
+    render(<FollowButton targetUserId="usr-2" initialState="none" onStateChange={onStateChange} />);
 
     await act(async () => {
       fireEvent.press(screen.getByText('Seguir'));
     });
 
-    await waitFor(() =>
-      expect(alert).toHaveBeenCalledWith(
-        'Cuenta protegida',
-        'Esta cuenta es protegida y todavía no se pueden enviar solicitudes para seguirla.'
-      )
-    );
-    // The follow was refused: the button must not claim it worked.
-    expect(screen.getByText('Seguir')).toBeTruthy();
+    expect(follow).toHaveBeenCalledWith('usr-2');
+    // Not "Siguiendo": nobody approved anything yet, and saying so would lie.
+    expect(await screen.findByText('Solicitado')).toBeTruthy();
+    expect(onStateChange).toHaveBeenCalledWith('pending');
+  });
+
+  it('a request already sent cannot be pressed again', async () => {
+    // Cancelling it needs unfollowing to cancel a pending request, which is
+    // the piece of E3-H2 that is not in yet. Until then the button waits.
+    const unfollow = jest.spyOn(followService, 'unfollow').mockResolvedValue(undefined);
+
+    render(<FollowButton targetUserId="usr-2" initialState="pending" />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Solicitado'));
+    });
+
+    expect(unfollow).not.toHaveBeenCalled();
+    expect(screen.getByText('Solicitado')).toBeTruthy();
   });
 
   it('a rate limit or other API failure shows its own message and leaves the state untouched', async () => {
