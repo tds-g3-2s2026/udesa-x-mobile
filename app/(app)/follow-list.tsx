@@ -152,7 +152,11 @@ export default function FollowListScreen() {
           }
           ListFooterComponent={
             isLoadingMore ? (
-              <ActivityIndicator style={styles.footerLoading} color={colors.primary} />
+              <ActivityIndicator
+                testID="follow-list-footer-loading"
+                style={styles.footerLoading}
+                color={colors.primary}
+              />
             ) : null
           }
           renderItem={({ item }) => (

@@ -203,6 +203,109 @@ describe('E3-H3. Listado de Seguidores y Seguidos', () => {
     expect(screen.getByText('@usr-2')).toBeTruthy();
   });
 
+  it('E3-H3.CA2 - the footer shows a spinner while the next page loads', async () => {
+    let resolveSecondPage: (page: { items: FollowListItem[]; nextCursor: string | null }) => void;
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValueOnce({ items: [item('usr-2')], nextCursor: '20' })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecondPage = resolve;
+          })
+      );
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('@usr-2');
+
+    act(() => {
+      fireEvent(screen.getByTestId('follow-list'), 'endReached');
+    });
+
+    expect(screen.getByTestId('follow-list-footer-loading')).toBeTruthy();
+
+    await act(async () => {
+      resolveSecondPage({ items: [item('usr-3')], nextCursor: null });
+    });
+
+    expect(await screen.findByText('@usr-3')).toBeTruthy();
+    expect(screen.queryByTestId('follow-list-footer-loading')).toBeNull();
+  });
+
+  it('switching tabs before the previous page resolves ignores that stale response', async () => {
+    let resolveFollowers: (page: { items: FollowListItem[]; nextCursor: string | null }) => void;
+    jest.spyOn(followService, 'getFollowers').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFollowers = resolve;
+        })
+    );
+    jest
+      .spyOn(followService, 'getFollowing')
+      .mockResolvedValue({ items: [item('usr-9')], nextCursor: null });
+
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Siguiendo'));
+    });
+    await screen.findByText('@usr-9');
+
+    // The followers fetch that the tab switch left behind resolves only now,
+    // after Siguiendo already has its own answer on screen.
+    await act(async () => {
+      resolveFollowers({ items: [item('usr-2')], nextCursor: null });
+    });
+
+    expect(screen.getByText('@usr-9')).toBeTruthy();
+    expect(screen.queryByText('@usr-2')).toBeNull();
+  });
+
+  it('a page rejecting after the tab already changed does not raise a stale alert', async () => {
+    let rejectFollowers: (error: unknown) => void;
+    jest.spyOn(followService, 'getFollowers').mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFollowers = reject;
+        })
+    );
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Siguiendo'));
+    });
+
+    await act(async () => {
+      rejectFollowers(new ApiError('no debería llegar a mostrarse'));
+    });
+
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('with no session, the screen fails without ever calling the service', async () => {
+    useAuthStore.setState({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isInitialized: false,
+    });
+    const getFollowers = jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+
+    // The exact message proves the screen's own guard rejected, not a
+    // request that went out with an id of "undefined" and failed downstream.
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'no session'));
+    expect(getFollowers).not.toHaveBeenCalled();
+  });
+
   it('a load failure shows an alert instead of an empty or stuck screen', async () => {
     jest
       .spyOn(followService, 'getFollowers')
