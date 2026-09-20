@@ -145,6 +145,62 @@ describe('Follow service', () => {
       });
     });
 
+    it('E3-H3.CA2 - lists followers with the cursor as an opaque query param', async () => {
+      const page = {
+        items: [
+          {
+            id: 'usr-2',
+            handle: '@joaquin_dev',
+            displayName: null,
+            avatarUrl: null,
+            following: true,
+            createdAt: '2026-09-10T12:00:00Z',
+          },
+        ],
+        nextCursor: '20',
+      };
+      get.mockResolvedValueOnce(apiSuccess(page));
+
+      const result = await followService.getFollowers('usr-1', '10');
+
+      expect(get).toHaveBeenCalledWith('/users/usr-1/followers', { params: { cursor: '10' } });
+      expect(result).toEqual(page);
+    });
+
+    it('E3-H3.CA2 - the first page of followers sends no cursor at all', async () => {
+      get.mockResolvedValueOnce(apiSuccess({ items: [], nextCursor: null }));
+
+      await followService.getFollowers('usr-1');
+
+      expect(get).toHaveBeenCalledWith('/users/usr-1/followers', { params: undefined });
+    });
+
+    it('E3-H3.CA2 - lists who the account follows, same shape as followers', async () => {
+      const page = { items: [], nextCursor: null };
+      get.mockResolvedValueOnce(apiSuccess(page));
+
+      const result = await followService.getFollowing('usr-1');
+
+      expect(get).toHaveBeenCalledWith('/users/usr-1/following', { params: undefined });
+      expect(result).toEqual(page);
+    });
+
+    it('reports a followers-list failure with the generic message', async () => {
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(followService.getFollowers('usr-1')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+
+    it('reports a following-list failure with the generic message', async () => {
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(followService.getFollowing('usr-1')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+
     it('propagates the API message when a request was already resolved', async () => {
       post.mockRejectedValueOnce(
         apiFailure(409, {

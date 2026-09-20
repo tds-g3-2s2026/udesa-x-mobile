@@ -1213,6 +1213,30 @@ describe('E1-H3. Cierre de Sesión', () => {
 
     expect(mockPush).toHaveBeenCalledWith('/preferences');
   });
+
+  it('opens the follow list on the followers tab from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Seguidores');
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/follow-list',
+      params: { tab: 'followers' },
+    });
+  });
+
+  it('opens the follow list on the following tab from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Siguiendo');
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/follow-list',
+      params: { tab: 'following' },
+    });
+  });
 });
 
 describe('Espacio para el teclado', () => {

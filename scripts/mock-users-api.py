@@ -30,10 +30,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from typing import Any
 
-BASE_PATH = "/api/v1"
-# The app can point to the mock with or without the /api prefix, so both forms
-# resolve to the same endpoint.
-BASE_PATHS = (BASE_PATH, "/v1")
+BASE_PATH = "/api"
+# users-api publishes every endpoint under /api, no version segment (a single
+# cluster Ingress routes by this path).
+BASE_PATHS = (BASE_PATH,)
 # Port 8000 is documented for users-api but is often occupied by another local
 # service. The port can be passed as the first argument.
 DEFAULT_PORT = 8020

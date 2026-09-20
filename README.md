@@ -73,19 +73,20 @@ El mock también sirve de contrato: responde con los mismos nombres de campo (sn
 los mismos códigos de error que la API real, así que un cambio ahí sin el equivalente del
 otro lado se nota probando.
 
-`udesa-x-posts-api` ya expone seguir y dejar de seguir (`udesa-x-posts-api#22`), pero
-todavía no las solicitudes de cuentas protegidas (`udesa-x-posts-api#13`), así que hay un
-segundo mock para `GET /follow-requests` y para aprobar o rechazar una solicitud, que es un
-servicio aparte con su propia URL:
+`udesa-x-posts-api` es un servicio aparte con su propia URL, así que hay un segundo mock:
+seguir y dejar de seguir, listar y resolver solicitudes de cuentas protegidas, y las listas
+de seguidores y seguidos (paginadas, cursor opaco).
 
 ```bash
 bun run mock-posts-api                   # escucha en el puerto 8021
 python3 scripts/mock-posts-api.py 9001   # o el puerto que prefieras
 ```
 
-Usa el mismo token que emite `mock-users-api.py`, así que hay que loguearse ahí primero.
-Trae 2 solicitudes pendientes ya cargadas para `@demo`. La URL se toma de
-`EXPO_PUBLIC_POSTS_API_URL`, igual que `EXPO_PUBLIC_API_URL` para users-api.
+Usa el mismo token que emite `mock-users-api.py`, así que hay que loguearse ahí primero. La
+URL se toma de `EXPO_PUBLIC_POSTS_API_URL`, igual que `EXPO_PUBLIC_API_URL` para users-api.
+Solo `@demo` tiene grafo social cargado: 2 solicitudes pendientes, 25 seguidores (para
+probar la paginación más allá de la primera página) y 3 cuentas seguidas, con los botones
+Seguir/Siguiendo reflejando y actualizando ese mismo estado en memoria.
 
 ## Checks
 
@@ -152,7 +153,7 @@ scripts/                  Checks y mocks locales de users-api y posts-api
 src/api/                  Clientes Axios de cada servicio (apiClient, postsApiClient)
 src/features/auth/        Esquemas Zod, servicio de autenticación y componentes de formulario
 src/features/shell/       Chrome compartido por las pantallas de los tabs
-src/features/social/      Servicio del grafo social (solicitudes de seguimiento)
+src/features/social/      Servicio del grafo social (seguir, solicitudes, listas paginadas)
 src/stores/               Estado global (sesión, tema y borrador del registro)
 src/theme/                Paletas claro/oscuro y el hook de lectura
 src/types/                Tipos compartidos
@@ -185,6 +186,9 @@ bun run test -- -t "E1-H1.CA3"
 | `E3-H1.CA2` | Listar, aprobar y rechazar solicitudes de seguimiento pendientes    | `tests/unit/followService.test.ts`, `tests/unit/followRequestsScreen.test.tsx`, `tests/unit/navigationGuards.test.tsx` |
 | `E3-H1.CA3` | El mensaje de la API al intentar seguirse a uno mismo llega a la UI | `tests/unit/followService.test.ts`                                                                                     |
 | `E3-H1.CA5` | El mensaje de rate limit de la API llega a la UI                    | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                 |
+| `E3-H3.CA1` | Cada fila muestra Display Name, handle y botón Seguir/Siguiendo     | `tests/unit/followListScreen.test.tsx`                                                                                 |
+| `E3-H3.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco       | `tests/unit/followService.test.ts`, `tests/unit/followListScreen.test.tsx`                                             |
+| `E3-H3.CA3` | Empty state distinto para seguidores y para seguidos                | `tests/unit/followListScreen.test.tsx`                                                                                 |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
@@ -194,11 +198,12 @@ límites, mensajes de error): lo que se prueba acá es que mobile llama a la rut
 muestra lo que la API responde, no la regla en sí.
 
 `FollowButton` (`src/features/social/components/FollowButton.tsx`) sigue y deja de seguir
-contra `posts-api` real (`udesa-x-posts-api#22`, ya mergeado), pero ninguna pantalla lo usa
-todavía: la pantalla del perfil de otro usuario es `E2-H14`, sin empezar. El estado
-`Solicitado` tampoco es alcanzable: `udesa-x-posts-api#13` (cuentas protegidas) sigue sin
-implementarse, así que seguir una cuenta protegida da un error explícito en vez de una
-solicitud.
+contra `posts-api` real (`udesa-x-posts-api#22`, ya mergeado) y contempla el estado
+`Solicitado` de una cuenta protegida. Lo monta la pantalla de seguidores/seguidos
+(`app/(app)/follow-list.tsx`, accesible desde Perfil), fila por fila; la pantalla del perfil
+de otro usuario sigue sin empezar (`E2-H14`), así que todavía no hay un segundo lugar donde
+mostrarlo. `E3-H3.CA1` pide también foto de perfil por fila: no existe hasta `E1-H8` (S6), así
+que cada fila muestra un ícono de marcador de posición en su lugar.
 
 ## Code Guidelines (Reglas del Equipo)
 
