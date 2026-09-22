@@ -161,7 +161,7 @@ export default function FollowListScreen() {
           }
           renderItem={({ item }) => (
             <View style={styles.row}>
-              {/* No profile photo until E1-H8: a placeholder icon stands in. */}
+              {/* No profile photo feature yet: a placeholder icon stands in. */}
               <View style={styles.avatar}>
                 <Ionicons name="person" size={20} color={colors.primary} />
               </View>

@@ -32,6 +32,7 @@ export default function AppLayout() {
       />
       <Stack.Screen name="follow-requests" />
       <Stack.Screen name="follow-list" />
+      <Stack.Screen name="compose" />
     </Stack>
   );
 }

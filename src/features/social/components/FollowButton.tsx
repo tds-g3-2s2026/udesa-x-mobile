@@ -56,9 +56,9 @@ export function FollowButton({ targetUserId, initialState, onStateChange }: Foll
   };
 
   const isFollowing = state === 'following';
-  // Cancelling a request that is already sent is not possible yet: it arrives
-  // with the piece of E3-H2 that makes unfollowing cancel a pending request.
-  // Until then the button says what happened and waits.
+  // Cancelling a request that is already sent is not possible yet: it needs
+  // unfollowing to cancel a pending request, which isn't built. Until then
+  // the button says what happened and waits.
   const isPending = state === 'pending';
 
   return (
