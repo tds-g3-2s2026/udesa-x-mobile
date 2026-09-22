@@ -63,8 +63,8 @@ describe('E3-H1. Seguir a un Usuario', () => {
   });
 
   it('a request already sent cannot be pressed again', async () => {
-    // Cancelling it needs unfollowing to cancel a pending request, which is
-    // the piece of E3-H2 that is not in yet. Until then the button waits.
+    // Cancelling it needs unfollowing to cancel a pending request, which
+    // isn't built yet. Until then the button waits.
     const unfollow = jest.spyOn(followService, 'unfollow').mockResolvedValue(undefined);
 
     render(<FollowButton targetUserId="usr-2" initialState="pending" />);

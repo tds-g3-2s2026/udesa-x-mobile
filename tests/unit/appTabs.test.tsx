@@ -2,7 +2,10 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useFeedStore } from '../../src/stores/feedStore';
+import { postService } from '../../src/features/posts/services/postService';
 import { User } from '../../src/types/auth';
+import { Post } from '../../src/types/post';
 
 // Same in-memory SecureStore double as the other route tests: the factory owns the
 // map because jest.mock cannot reference variables from the module scope.
@@ -55,6 +58,7 @@ beforeEach(() => {
     refreshToken: null,
     isInitialized: false,
   });
+  useFeedStore.setState({ posts: [] });
   persistSession();
 });
 
@@ -132,6 +136,45 @@ describe('T-51. Navegación por tabs', () => {
     });
 
     expect(screen.getByText(user.email)).toBeTruthy();
+    expect(screen.queryByText('Todavía no hay publicaciones')).toBeNull();
+  });
+
+  it('E2-H1 - the compose shortcut on the feed opens the post screen', async () => {
+    await renderTab('/');
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Escribir un post nuevo'));
+    });
+
+    expect(screen.getByPlaceholderText('Escribí algo para compartir')).toBeTruthy();
+  });
+
+  it('E2-H1 - publishing from the feed returns there with the new post on top', async () => {
+    const post: Post = {
+      id: 'post-1',
+      authorId: 'usr-1',
+      content: 'Arrancamos con el feed',
+      createdAt: '2026-09-22T15:00:00Z',
+      likesCount: 0,
+      retweetsCount: 0,
+      repliesCount: 0,
+    };
+    jest.spyOn(postService, 'createPost').mockResolvedValue(post);
+
+    await renderTab('/');
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Escribir un post nuevo'));
+    });
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Escribí algo para compartir'),
+      'Arrancamos con el feed'
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByText('Publicar'));
+    });
+
+    expect(screen.getByText('Arrancamos con el feed')).toBeTruthy();
     expect(screen.queryByText('Todavía no hay publicaciones')).toBeNull();
   });
 });
