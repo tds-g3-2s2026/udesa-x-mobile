@@ -30,6 +30,8 @@ import re
 import socket
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from typing import Any
@@ -55,7 +57,20 @@ PAGE_SIZE = 20
 # mock-users-api.py hands the first (and only) seeded account, @demo.
 DEMO_ID = "usr-1"
 
+# Verified against posts-api: length is measured after stripping tags, and
+# the rate limit is per account per rolling hour, not a fixed clock window.
+POST_MAX_LENGTH = 280
+POST_RATE_LIMIT = 30
+POST_RATE_WINDOW_SECONDS = 3600
+HTML_TAG = re.compile(r"<[^>]*>")
+
 request_id_issues = count(1)
+post_id_issues = count(1)
+
+# In-memory, lost on restart: {id: {...}} for the posts this mock has
+# accepted, and {handle: [timestamp, ...]} for the rolling-hour rate count.
+posts: dict[str, dict[str, Any]] = {}
+post_timestamps: dict[str, list[float]] = {}
 
 # In-memory store, lost when the process stops: {id: {...}}. Seeded with a
 # couple of pending requests aimed at @demo so the screen has something to
@@ -168,6 +183,10 @@ class PostsHandler(BaseHTTPRequestHandler):
         follow_match = FOLLOW_PATH.match(endpoint_path)
         if follow_match:
             self.set_following(follow_match.group(1), following=True)
+            return
+
+        if endpoint_path == "/posts":
+            self.create_post()
             return
 
         self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
@@ -285,6 +304,69 @@ class PostsHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
 
+    def create_post(self) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        raw_content = str(body.get("content", ""))
+        # The limit is measured on the sanitized text, not on what the client
+        # sent: a post padded with tags to dodge the count would still be
+        # rejected server-side.
+        sanitized = HTML_TAG.sub("", raw_content).strip()
+
+        if not sanitized:
+            self.send_problem(
+                422, "Post vacío", "El post no puede estar vacío.", code="post-is-blank"
+            )
+            return
+        if len(sanitized) > POST_MAX_LENGTH:
+            self.send_problem(
+                422,
+                "Post demasiado largo",
+                f"El post no puede superar los {POST_MAX_LENGTH} caracteres.",
+                code="post-too-long",
+            )
+            return
+
+        now = time.time()
+        recent = [
+            timestamp
+            for timestamp in post_timestamps.get(caller, [])
+            if now - timestamp < POST_RATE_WINDOW_SECONDS
+        ]
+        if len(recent) >= POST_RATE_LIMIT:
+            retry_after = int(POST_RATE_WINDOW_SECONDS - (now - recent[0]))
+            self.send_problem(
+                429,
+                "Demasiadas publicaciones",
+                "Alcanzaste el límite de 30 publicaciones por hora. Probá más tarde.",
+                code="too-many-posts",
+                extra_headers={"Retry-After": str(max(retry_after, 1))},
+            )
+            return
+        recent.append(now)
+        post_timestamps[caller] = recent
+
+        post_id = f"post-{next(post_id_issues)}"
+        # Only @demo is a real account in this mock: see the module docstring.
+        post = {
+            "id": post_id,
+            "authorId": DEMO_ID,
+            "content": sanitized,
+            "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "likesCount": 0,
+            "retweetsCount": 0,
+            "repliesCount": 0,
+        }
+        posts[post_id] = post
+        self.send_json(201, post)
+
     def resolve_follow_request(self, request_id: str, resolution: str) -> None:
         caller = self.resolve_caller_handle()
         if caller is None:
@@ -317,6 +399,15 @@ class PostsHandler(BaseHTTPRequestHandler):
         request["status"] = resolution
         print(f"    {caller}: solicitud de {request['requester_handle']} -> {resolution}")
         self.send_json(200, {"id": request["id"], "status": resolution})
+
+    def read_json(self) -> dict[str, Any] | None:
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            parsed = json.loads(raw or b"{}")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
 
     def send_json(
         self,
