@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Mock implementation of posts-api's follow-related endpoints.
+"""Mock implementation of posts-api's post and follow-related endpoints.
 
-Covers follow-requests (udesa-x-posts-api#13: list, approve, reject),
-follow/unfollow (udesa-x-posts-api#5), and the followers/following listings
-(udesa-x-posts-api#30: paginated, cursor-based, 20 per page). It exists so
-the mobile app's social screens can be built and tested before those
-endpoints exist for real.
+Covers follow-requests, follow/unfollow, the followers/following listings
+(paginated, cursor-based, 20 per page), creating a post, the feed (same
+pagination) and suggested accounts. It exists so the mobile app's social and
+posting screens can be built and tested before those endpoints exist for real.
 
 Only @demo (the one account mock-users-api.py always has) has any social
 graph seeded. Any other id 404s as unknown, and a protected-account 403
@@ -51,6 +50,7 @@ REJECT_PATH = re.compile(r"^/follow-requests/([^/]+)/reject$")
 FOLLOW_PATH = re.compile(r"^/users/([^/]+)/follow$")
 FOLLOWERS_PATH = re.compile(r"^/users/([^/]+)/followers$")
 FOLLOWING_PATH = re.compile(r"^/users/([^/]+)/following$")
+SUGGESTED_MAX = 10
 
 PAGE_SIZE = 20
 # The only id this mock recognizes as a real account: matches the "usr-1"
@@ -87,6 +87,8 @@ synthetic_accounts: dict[str, dict[str, Any]] = {
         "displayName": f"Persona {n}" if n % 3 == 0 else None,
         "avatarUrl": None,
         "createdAt": "2026-09-10T12:00:00Z",
+        # Arbitrary but stable, only used to sort GET /users/suggested.
+        "followersCount": (n * 7) % 200,
     }
     for n in range(2, 27)
 }
@@ -94,6 +96,29 @@ follower_ids: list[str] = list(synthetic_accounts.keys())
 # Mutable: what @demo follows back, seeded with a few so both tabs have
 # something to show. Toggled by POST/DELETE /users/{id}/follow.
 demo_following: set[str] = {"usr-2", "usr-5", "usr-9"}
+
+# GET /feed only ever shows posts from accounts the caller follows, never the
+# caller's own: seeded here from the three accounts already in
+# `demo_following`, enough rows (25) to exercise pagination past one page.
+_FEED_SAMPLES = [
+    "Arrancamos el sprint con todo productivo en AWS.",
+    "Alguien mas noto que el cluster de la catedra tarda en levantar?",
+    "Repasando C4 antes de la defensa del jueves.",
+    "Alguien tiene el link de la clase de EKS grabada?",
+    "Buen fin de semana a todos, la semana que viene entrega intermedia.",
+]
+feed_posts: list[dict[str, Any]] = [
+    {
+        "id": f"feedpost-{n}",
+        "authorId": f"usr-{[2, 5, 9][n % 3]}",
+        "content": _FEED_SAMPLES[n % len(_FEED_SAMPLES)],
+        "createdAt": f"2026-09-2{2 - (n // 10)}T{(23 - n % 12):02d}:00:00Z",
+        "likesCount": n % 5,
+        "retweetsCount": n % 3,
+        "repliesCount": n % 2,
+    }
+    for n in range(25)
+]
 
 
 def strip_base_path(route: str) -> str | None:
@@ -148,6 +173,12 @@ class PostsHandler(BaseHTTPRequestHandler):
             return
         if strip_base_path(route) == "/follow-requests":
             self.list_follow_requests()
+            return
+        if strip_base_path(route) == "/feed":
+            self.list_feed()
+            return
+        if strip_base_path(route) == "/users/suggested":
+            self.list_suggested_accounts()
             return
 
         endpoint_path = strip_base_path(route)
@@ -259,12 +290,7 @@ class PostsHandler(BaseHTTPRequestHandler):
             return
 
         ids = follower_ids if kind == "followers" else sorted(demo_following)
-
-        query = self.path.split("?", 1)[1] if "?" in self.path else ""
-        cursor_values = [
-            value.split("=", 1)[1] for value in query.split("&") if value.startswith("cursor=")
-        ]
-        offset = int(cursor_values[0]) if cursor_values and cursor_values[0].isdigit() else 0
+        offset = self.parse_cursor_offset()
 
         page_ids = ids[offset : offset + PAGE_SIZE]
         next_offset = offset + PAGE_SIZE
@@ -282,6 +308,72 @@ class PostsHandler(BaseHTTPRequestHandler):
             for account_id in page_ids
         ]
         self.send_json(200, {"items": items, "nextCursor": next_cursor})
+
+    def parse_cursor_offset(self) -> int:
+        """The cursor is opaque to the client, but this mock spends it as a
+        plain offset: simplest thing that satisfies "send it back as-is"."""
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        cursor_values = [
+            value.split("=", 1)[1] for value in query.split("&") if value.startswith("cursor=")
+        ]
+        return int(cursor_values[0]) if cursor_values and cursor_values[0].isdigit() else 0
+
+    def list_feed(self) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        # Only accounts the caller follows, never their own posts — same rule
+        # the real service applies, confirmed against its own code.
+        visible = [post for post in feed_posts if post["authorId"] in demo_following]
+        offset = self.parse_cursor_offset()
+
+        page = visible[offset : offset + PAGE_SIZE]
+        next_offset = offset + PAGE_SIZE
+        next_cursor = str(next_offset) if next_offset < len(visible) else None
+
+        items = [
+            {
+                "id": post["id"],
+                "authorId": post["authorId"],
+                "authorHandle": synthetic_accounts[post["authorId"]]["handle"],
+                "authorDisplayName": synthetic_accounts[post["authorId"]]["displayName"],
+                "authorAvatarUrl": synthetic_accounts[post["authorId"]]["avatarUrl"],
+                "content": post["content"],
+                "createdAt": post["createdAt"],
+                "likesCount": post["likesCount"],
+                "retweetsCount": post["retweetsCount"],
+                "repliesCount": post["repliesCount"],
+            }
+            for post in page
+        ]
+        self.send_json(200, {"items": items, "nextCursor": next_cursor})
+
+    def list_suggested_accounts(self) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        # Excludes the caller's own account and anyone already followed, same
+        # as the real endpoint; there is only ever one caller in this mock.
+        candidates = [
+            account
+            for account_id, account in synthetic_accounts.items()
+            if account_id not in demo_following
+        ]
+        candidates.sort(key=lambda account: account["followersCount"], reverse=True)
+
+        items = [
+            {
+                "id": account["id"],
+                "handle": account["handle"],
+                "displayName": account["displayName"],
+                "avatarUrl": account["avatarUrl"],
+                "followersCount": account["followersCount"],
+            }
+            for account in candidates[:SUGGESTED_MAX]
+        ]
+        self.send_json(200, items)
 
     def set_following(self, target_id: str, *, following: bool) -> None:
         caller = self.resolve_caller_handle()

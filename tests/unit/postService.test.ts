@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { postService } from '../../src/features/posts/services/postService';
 import { postsApiClient } from '../../src/api/postsApiClient';
-import { Post } from '../../src/types/post';
+import { FeedItem, Post, SuggestedAccount } from '../../src/types/post';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
@@ -26,10 +26,12 @@ function networkFailure(): AxiosError {
 }
 
 const post = jest.spyOn(postsApiClient, 'post');
+const get = jest.spyOn(postsApiClient, 'get');
 
 describe('Post service', () => {
   afterEach(() => {
     post.mockReset();
+    get.mockReset();
   });
 
   describe('E2-H1. Crear Post', () => {
@@ -100,6 +102,76 @@ describe('Post service', () => {
       post.mockRejectedValueOnce(networkFailure());
 
       await expect(postService.createPost('hola')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+  });
+
+  describe('E2-H2. Feed Principal', () => {
+    it('E2-H2.CA2 - lists the feed with the cursor as an opaque query param', async () => {
+      const page = {
+        items: [
+          {
+            id: 'post-1',
+            authorId: 'usr-2',
+            authorHandle: '@joaquin_dev',
+            authorDisplayName: null,
+            authorAvatarUrl: null,
+            content: 'Primer post',
+            createdAt: '2026-09-22T15:00:00Z',
+            likesCount: 0,
+            retweetsCount: 0,
+            repliesCount: 0,
+          } satisfies FeedItem,
+        ],
+        nextCursor: '20',
+      };
+      get.mockResolvedValueOnce(apiSuccess(page, 200));
+
+      const result = await postService.getFeed('10');
+
+      expect(get).toHaveBeenCalledWith('/feed', { params: { cursor: '10' } });
+      expect(result).toEqual(page);
+    });
+
+    it('E2-H2.CA2 - the first page sends no cursor at all', async () => {
+      get.mockResolvedValueOnce(apiSuccess({ items: [], nextCursor: null }, 200));
+
+      await postService.getFeed();
+
+      expect(get).toHaveBeenCalledWith('/feed', { params: undefined });
+    });
+
+    it('reports a feed failure with the generic message, not a raw axios error', async () => {
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(postService.getFeed()).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+
+    it('E2-H2.CA4 - lists suggested accounts as a plain array, not a cursor page', async () => {
+      const accounts: SuggestedAccount[] = [
+        {
+          id: 'usr-2',
+          handle: '@joaquin_dev',
+          displayName: null,
+          avatarUrl: null,
+          followersCount: 42,
+        },
+      ];
+      get.mockResolvedValueOnce(apiSuccess(accounts, 200));
+
+      const result = await postService.getSuggestedAccounts();
+
+      expect(get).toHaveBeenCalledWith('/users/suggested');
+      expect(result).toEqual(accounts);
+    });
+
+    it('reports a suggestions failure with the generic message, not a raw axios error', async () => {
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(postService.getSuggestedAccounts()).rejects.toMatchObject({
         message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
       });
     });

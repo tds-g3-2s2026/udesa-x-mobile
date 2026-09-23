@@ -2,10 +2,9 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/stores/authStore';
-import { useFeedStore } from '../../src/stores/feedStore';
 import { postService } from '../../src/features/posts/services/postService';
 import { User } from '../../src/types/auth';
-import { Post } from '../../src/types/post';
+import { FeedItem, Post } from '../../src/types/post';
 
 // Same in-memory SecureStore double as the other route tests: the factory owns the
 // map because jest.mock cannot reference variables from the module scope.
@@ -58,7 +57,11 @@ beforeEach(() => {
     refreshToken: null,
     isInitialized: false,
   });
-  useFeedStore.setState({ posts: [] });
+  // Every render of the feed tab fires a real GET /feed on focus: an empty
+  // page by default keeps the tests that aren't about feed content from
+  // reaching the network.
+  jest.spyOn(postService, 'getFeed').mockResolvedValue({ items: [], nextCursor: null });
+  jest.spyOn(postService, 'getSuggestedAccounts').mockResolvedValue([]);
   persistSession();
 });
 
@@ -77,7 +80,7 @@ describe('T-51. Navegación por tabs', () => {
   it('T-51 - the landing tab is the feed with its search shortcut', async () => {
     await renderTab('/');
 
-    expect(screen.getByText('Todavía no hay publicaciones')).toBeTruthy();
+    expect(await screen.findByText('Todavía no hay publicaciones')).toBeTruthy();
     expect(screen.getByLabelText('Buscar en UdeSA-X')).toBeTruthy();
   });
 
@@ -129,7 +132,7 @@ describe('T-51. Navegación por tabs', () => {
 
   it('T-51 - pressing the Perfil tab moves there from the feed', async () => {
     await renderTab('/');
-    expect(screen.getByText('Todavía no hay publicaciones')).toBeTruthy();
+    expect(await screen.findByText('Todavía no hay publicaciones')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByText('Perfil'));
@@ -159,9 +162,30 @@ describe('T-51. Navegación por tabs', () => {
       retweetsCount: 0,
       repliesCount: 0,
     };
+    const feedItem: FeedItem = {
+      id: 'post-1',
+      authorId: 'usr-1',
+      authorHandle: user.handle,
+      authorDisplayName: null,
+      authorAvatarUrl: null,
+      content: 'Arrancamos con el feed',
+      createdAt: '2026-09-22T15:00:00Z',
+      likesCount: 0,
+      retweetsCount: 0,
+      repliesCount: 0,
+    };
     jest.spyOn(postService, 'createPost').mockResolvedValue(post);
+    // The feed itself never sees what was just published: it only shows it
+    // because coming back re-fetches, and this second answer is what a real
+    // GET /feed would return once the post exists.
+    jest
+      .spyOn(postService, 'getFeed')
+      .mockResolvedValueOnce({ items: [], nextCursor: null })
+      .mockResolvedValueOnce({ items: [feedItem], nextCursor: null });
 
     await renderTab('/');
+    await screen.findByText('Todavía no hay publicaciones');
+
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Escribir un post nuevo'));
     });
@@ -174,7 +198,7 @@ describe('T-51. Navegación por tabs', () => {
       fireEvent.press(screen.getByText('Publicar'));
     });
 
-    expect(screen.getByText('Arrancamos con el feed')).toBeTruthy();
+    expect(await screen.findByText('Arrancamos con el feed')).toBeTruthy();
     expect(screen.queryByText('Todavía no hay publicaciones')).toBeNull();
   });
 });
