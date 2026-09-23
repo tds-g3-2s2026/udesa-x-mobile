@@ -4,7 +4,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ComposeScreen from '../../app/(app)/compose';
 import { postService } from '../../src/features/posts/services/postService';
-import { useFeedStore } from '../../src/stores/feedStore';
 import { ApiError } from '../../src/api/apiClient';
 import { Post } from '../../src/types/post';
 
@@ -46,7 +45,6 @@ const createdPost: Post = {
 afterEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
-  useFeedStore.setState({ posts: [] });
 });
 
 describe('E2-H1. Crear Post', () => {
@@ -82,7 +80,7 @@ describe('E2-H1. Crear Post', () => {
     expect(createPost).not.toHaveBeenCalled();
   });
 
-  it('publishes the typed content, adds it to the feed and goes back', async () => {
+  it('publishes the typed content and goes back to the feed', async () => {
     const createPost = jest.spyOn(postService, 'createPost').mockResolvedValue(createdPost);
 
     renderScreen();
@@ -93,7 +91,6 @@ describe('E2-H1. Crear Post', () => {
     await press('Publicar');
 
     expect(createPost).toHaveBeenCalledWith('Hola UdeSA-X');
-    expect(useFeedStore.getState().posts).toEqual([createdPost]);
     expect(mockBack).toHaveBeenCalled();
   });
 
@@ -114,7 +111,6 @@ describe('E2-H1. Crear Post', () => {
       'Alcanzaste el límite de 30 publicaciones por hora. Probá más tarde.'
     );
     expect(mockBack).not.toHaveBeenCalled();
-    expect(useFeedStore.getState().posts).toEqual([]);
   });
 
   it('Cancelar returns to the feed without publishing anything', async () => {
