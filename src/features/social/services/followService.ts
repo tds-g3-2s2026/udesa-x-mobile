@@ -1,4 +1,4 @@
-import { FollowListPage, FollowRequestSummary, FollowState } from '../../../types/social';
+import { FollowListPage, FollowRequestPage, FollowState } from '../../../types/social';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
 
@@ -30,10 +30,13 @@ export const followService = {
   },
 
   // Only the requests aimed at the caller: posts-api scopes the list to the
-  // authenticated account, there is no handle to pass.
-  async getFollowRequests(): Promise<FollowRequestSummary[]> {
+  // authenticated account, there is no handle to pass. Paged by cursor, like
+  // the followers lists.
+  async getFollowRequests(cursor: string | null = null): Promise<FollowRequestPage> {
     try {
-      const response = await postsApiClient.get<FollowRequestSummary[]>('/follow-requests');
+      const response = await postsApiClient.get<FollowRequestPage>('/follow-requests', {
+        params: cursor ? { cursor } : undefined,
+      });
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudieron cargar las solicitudes. Intentalo de nuevo.');
