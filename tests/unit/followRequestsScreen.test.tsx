@@ -162,6 +162,53 @@ describe('E3-H1. Seguir a un Usuario', () => {
     expect(screen.getByText('@joaquin_dev')).toBeTruthy();
   });
 
+  it('there is no next page to ask for once nextCursor comes back null', async () => {
+    const getPage = jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('follow-requests-list'), 'endReached');
+    });
+
+    expect(getPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('a next-page failure shows an alert and keeps the rows already on screen', async () => {
+    const getPage = jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValueOnce({
+        items: [
+          { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockRejectedValueOnce(
+        new ApiError('No se pudieron cargar las solicitudes. Intentalo de nuevo.')
+      );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('follow-requests-list'), 'endReached');
+    });
+
+    expect(getPage).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudieron cargar las solicitudes. Intentalo de nuevo.'
+      )
+    );
+    expect(screen.getByText('@joaquin_dev')).toBeTruthy();
+  });
+
   it('the back link returns to whatever screen pushed this one', async () => {
     jest
       .spyOn(followService, 'getFollowRequests')
