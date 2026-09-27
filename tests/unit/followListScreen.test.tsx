@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import FollowListScreen from '../../app/(app)/follow-list';
 import { followService } from '../../src/features/social/services/followService';
+import { blockService } from '../../src/features/social/services/blockService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { ApiError } from '../../src/api/apiClient';
 import { FollowListItem } from '../../src/types/social';
@@ -333,5 +334,79 @@ describe('E3-H3. Listado de Seguidores y Seguidos', () => {
     fireEvent.press(screen.getByText(/Volver/));
 
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+describe('E3-H4. Bloquear Usuario', () => {
+  type AlertButton = { text?: string; onPress?: () => void };
+
+  async function openBlockPrompt() {
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [item('usr-2'), item('usr-3')], nextCursor: null });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('@usr-2');
+    fireEvent.press(screen.getByLabelText('Bloquear a @usr-2'));
+
+    const buttons = (alert.mock.calls[0][2] ?? []) as AlertButton[];
+    return { alert, buttons };
+  }
+
+  it('asks for confirmation before blocking, and blocks nothing until confirmed', async () => {
+    const block = jest.spyOn(blockService, 'block').mockResolvedValue(undefined);
+
+    const { alert, buttons } = await openBlockPrompt();
+
+    expect(alert.mock.calls[0][0]).toBe('¿Bloquear a @usr-2?');
+    expect(buttons.map((button) => button.text)).toEqual(['Cancelar', 'Bloquear']);
+    expect(block).not.toHaveBeenCalled();
+  });
+
+  it('E3-H4.CA3 - confirming blocks the account and takes it off the list', async () => {
+    const block = jest.spyOn(blockService, 'block').mockResolvedValue(undefined);
+    const { buttons } = await openBlockPrompt();
+
+    await act(async () => {
+      buttons.find((button) => button.text === 'Bloquear')?.onPress?.();
+    });
+
+    expect(block).toHaveBeenCalledWith('usr-2');
+    await waitFor(() => expect(screen.queryByText('@usr-2')).toBeNull());
+    expect(screen.getByText('@usr-3')).toBeTruthy();
+  });
+
+  it('an account without a handle is named as "esta cuenta" in the prompt', async () => {
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [item('usr-9', { handle: null })], nextCursor: null });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Bloquear a esta cuenta'));
+
+    expect(alert.mock.calls[0][0]).toBe('¿Bloquear a esta cuenta?');
+  });
+
+  it('a failed block keeps the row and shows an alert', async () => {
+    jest
+      .spyOn(blockService, 'block')
+      .mockRejectedValue(new ApiError('No se pudo bloquear la cuenta. Intentalo de nuevo.'));
+    const { alert, buttons } = await openBlockPrompt();
+
+    await act(async () => {
+      buttons.find((button) => button.text === 'Bloquear')?.onPress?.();
+    });
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenLastCalledWith(
+        'Error',
+        'No se pudo bloquear la cuenta. Intentalo de nuevo.'
+      )
+    );
+    expect(screen.getByText('@usr-2')).toBeTruthy();
   });
 });

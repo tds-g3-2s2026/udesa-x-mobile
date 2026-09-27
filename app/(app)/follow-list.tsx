@@ -16,6 +16,7 @@ import {
   getAuthErrorMessage,
 } from '../../src/features/social/services/followService';
 import { FollowButton } from '../../src/features/social/components/FollowButton';
+import { blockService } from '../../src/features/social/services/blockService';
 import { FollowListItem } from '../../src/types/social';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeColors } from '../../src/theme/useThemeColors';
@@ -105,6 +106,30 @@ export default function FollowListScreen() {
     }
   };
 
+  // Asked before acting, unlike unfollowing: blocking removes the follows in
+  // both directions, and those do not come back when the block is lifted.
+  const confirmBlock = (account: FollowListItem) => {
+    const name = account.handle ?? 'esta cuenta';
+    Alert.alert(
+      `¿Bloquear a ${name}?`,
+      'No va a poder ver tus posts ni seguirte, y se eliminan los seguimientos entre ustedes. Podés desbloquearla desde Configuración.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Bloquear', style: 'destructive', onPress: () => block(account.id) },
+      ]
+    );
+  };
+
+  const block = async (id: string) => {
+    try {
+      await blockService.block(id);
+      // Gone from both tabs: the block removed the relationship either way.
+      setItems((previous) => previous.filter((item) => item.id !== id));
+    } catch (error) {
+      Alert.alert('Error', getAuthErrorMessage(error));
+    }
+  };
+
   const emptyCopy = EMPTY_COPY[activeTab];
 
   return (
@@ -175,6 +200,14 @@ export default function FollowListScreen() {
                 targetUserId={item.id}
                 initialState={item.following ? 'following' : 'none'}
               />
+              <TouchableOpacity
+                style={styles.blockButton}
+                onPress={() => confirmBlock(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Bloquear a ${item.handle ?? 'esta cuenta'}`}
+              >
+                <Ionicons name="ban-outline" size={18} color={colors.muted} />
+              </TouchableOpacity>
             </View>
           )}
         />
@@ -255,6 +288,10 @@ function createStyles(colors: Colors) {
     },
     rowText: {
       flex: 1,
+    },
+    blockButton: {
+      padding: 6,
+      marginLeft: 4,
     },
     displayName: {
       fontSize: 15,
