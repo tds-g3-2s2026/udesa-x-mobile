@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { ApiError } from '../../src/api/apiClient';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
@@ -162,6 +163,18 @@ export default function PreferencesScreen() {
           })}
         </View>
       </View>
+
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => router.push('/blocked-accounts')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Cuentas bloqueadas</Text>
+          <Text style={styles.sectionHint}>Ver a quién bloqueaste y desbloquearlo.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -224,6 +237,14 @@ function createStyles(colors: Colors) {
     },
     optionLabelSelected: {
       color: colors.onPrimary,
+    },
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
     },
   });
 }

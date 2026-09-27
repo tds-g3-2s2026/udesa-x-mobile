@@ -994,6 +994,20 @@ describe('Preferencias', () => {
     expect(screen.getByText('Inglés')).toBeTruthy();
   });
 
+  it('E3-H4.CA2 - opens the blocked accounts from the settings', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Cuentas bloqueadas');
+
+    expect(mockPush).toHaveBeenCalledWith('/blocked-accounts');
+  });
+
   it('saves a changed option right away, with no separate save button', async () => {
     jest.spyOn(authService, 'getPreferences').mockResolvedValue({
       profileVisibility: 'public',

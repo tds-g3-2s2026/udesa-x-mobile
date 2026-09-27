@@ -34,3 +34,16 @@ export interface FollowListPage {
   items: FollowListItem[];
   nextCursor: string | null;
 }
+
+// One row of the blocked-accounts screen. GET /blocks pages the same way the
+// followers lists do.
+export interface BlockedAccount {
+  id: string;
+  handle: string | null;
+  createdAt: string;
+}
+
+export interface BlockedAccountPage {
+  items: BlockedAccount[];
+  nextCursor: string | null;
+}
