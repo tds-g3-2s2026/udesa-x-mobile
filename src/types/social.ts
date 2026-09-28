@@ -53,3 +53,10 @@ export interface BlockedAccountPage {
   items: BlockedAccount[];
   nextCursor: string | null;
 }
+
+// The closed list posts-api accepts: anything else is a 422.
+export type ReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'impersonation';
+
+// Who is reported: an account directly, or a post, which counts against its
+// author and lets posts-api keep which post it was. Exactly one of the two.
+export type ReportTarget = { userId: string } | { postId: string };
