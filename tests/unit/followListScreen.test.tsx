@@ -10,10 +10,11 @@ import { ApiError } from '../../src/api/apiClient';
 import { FollowListItem } from '../../src/types/social';
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 const mockUseLocalSearchParams = jest.fn<{ tab?: string }, []>(() => ({}));
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, push: mockPush }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
@@ -408,5 +409,22 @@ describe('E3-H4. Bloquear Usuario', () => {
       )
     );
     expect(screen.getByText('@usr-2')).toBeTruthy();
+  });
+});
+
+describe('E3-H5. Denunciar Usuario', () => {
+  it('E3-H5.CA1 - the flag on a row opens the report for that account', async () => {
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [item('usr-2')], nextCursor: null });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Denunciar a @usr-2'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: { userId: 'usr-2', handle: '@usr-2' },
+    });
   });
 });

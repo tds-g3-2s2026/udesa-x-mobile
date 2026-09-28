@@ -19,6 +19,7 @@ import { FollowButton } from '../../../src/features/social/components/FollowButt
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { formatRelativeTime } from '../../../src/features/posts/relativeTime';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
+import { useAuthStore } from '../../../src/stores/authStore';
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function FeedScreen() {
   const colors = useThemeColors();
   const searchFieldStyles = useSearchFieldStyles();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const [items, setItems] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -192,6 +194,23 @@ export default function FeedScreen() {
                   ) : null}
                 </View>
                 <Text style={styles.postTime}>{formatRelativeTime(item.createdAt)}</Text>
+                {/* Hidden on your own posts: posts-api refuses reporting yourself,
+                    so the button could only ever lead to an error. */}
+                {item.authorId !== userId ? (
+                  <TouchableOpacity
+                    style={styles.reportButton}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/report',
+                        params: { postId: item.id, handle: item.authorHandle ?? '' },
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Denunciar post de ${item.authorHandle ?? 'esta cuenta'}`}
+                  >
+                    <Ionicons name="flag-outline" size={16} color={colors.muted} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
               <Text style={styles.postContent}>{item.content}</Text>
@@ -296,6 +315,9 @@ function createStyles(colors: Colors) {
     postTime: {
       fontSize: 12,
       color: colors.muted,
+    },
+    reportButton: {
+      padding: 4,
     },
     postContent: {
       fontSize: 15,

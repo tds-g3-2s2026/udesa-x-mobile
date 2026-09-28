@@ -7,6 +7,7 @@ import { postService } from '../../src/features/posts/services/postService';
 import { followService } from '../../src/features/social/services/followService';
 import { ApiError } from '../../src/api/apiClient';
 import { FeedItem, SuggestedAccount } from '../../src/types/post';
+import { useAuthStore } from '../../src/stores/authStore';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
@@ -272,5 +273,44 @@ describe('E2-H2. Feed Principal', () => {
     });
 
     expect(follow).toHaveBeenCalledWith('usr-2');
+  });
+});
+
+describe('E3-H5. Denunciar Usuario', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null });
+  });
+
+  it('E3-H5.CA1 - the flag on a post opens the report for that post', async () => {
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [item('post-1', { authorId: 'usr-2', authorHandle: '@persona2' })],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Denunciar post de @persona2'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: { postId: 'post-1', handle: '@persona2' },
+    });
+  });
+
+  it('your own posts have no flag, since reporting yourself is refused', async () => {
+    useAuthStore.setState({
+      user: { id: 'usr-1', handle: '@demo', email: 'demo@udesa.edu.ar', isVerified: true },
+    });
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [
+        item('mine', { authorId: 'usr-1', authorHandle: '@demo' }),
+        item('theirs', { authorId: 'usr-2', authorHandle: '@persona2' }),
+      ],
+      nextCursor: null,
+    });
+
+    renderScreen();
+
+    expect(await screen.findByLabelText('Denunciar post de @persona2')).toBeTruthy();
+    expect(screen.queryByLabelText('Denunciar post de @demo')).toBeNull();
   });
 });

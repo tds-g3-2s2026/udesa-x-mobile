@@ -208,6 +208,21 @@ export default function FollowListScreen() {
               >
                 <Ionicons name="ban-outline" size={18} color={colors.muted} />
               </TouchableOpacity>
+              {/* Never your own row: nobody follows themselves, so it cannot
+                  show up here and there is no need to hide it. */}
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() =>
+                  router.push({
+                    pathname: '/report',
+                    params: { userId: item.id, handle: item.handle ?? '' },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Denunciar a ${item.handle ?? 'esta cuenta'}`}
+              >
+                <Ionicons name="flag-outline" size={18} color={colors.muted} />
+              </TouchableOpacity>
             </View>
           )}
         />
@@ -292,6 +307,9 @@ function createStyles(colors: Colors) {
     blockButton: {
       padding: 6,
       marginLeft: 4,
+    },
+    rowAction: {
+      padding: 6,
     },
     displayName: {
       fontSize: 15,
