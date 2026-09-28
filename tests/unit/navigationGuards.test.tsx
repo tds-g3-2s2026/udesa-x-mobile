@@ -3,6 +3,7 @@ import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { authService } from '../../src/features/auth/services/authService';
 import { followService } from '../../src/features/social/services/followService';
+import { postService } from '../../src/features/posts/services/postService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { User } from '../../src/types/auth';
@@ -58,6 +59,10 @@ beforeEach(() => {
     isInitialized: false,
   });
   useThemeStore.setState({ theme: 'light', isInitialized: false });
+  // The feed tab fires a real GET /feed on focus; an empty page keeps these
+  // guard tests, which only care about which group mounts, off the network.
+  jest.spyOn(postService, 'getFeed').mockResolvedValue({ items: [], nextCursor: null });
+  jest.spyOn(postService, 'getSuggestedAccounts').mockResolvedValue([]);
 });
 
 // The root layout mounts one navigation group or the other with Stack.Protected.
