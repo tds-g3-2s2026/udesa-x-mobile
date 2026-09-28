@@ -1,5 +1,8 @@
 module.exports = {
   preset: 'jest-expo',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Above the findBy* wait in jest.setup.ts, or the test ends before the search does.
+  testTimeout: 20000,
   // @react-navigation ships only an ESM build with a nested {"type":"module"},
   // which Jest running in CommonJS refuses to require. It publishes its source
   // too, and transformIgnorePatterns already lets Babel compile it.
