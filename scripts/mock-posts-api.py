@@ -3,8 +3,9 @@
 
 Covers follow-requests, follow/unfollow, the followers/following listings
 (paginated, cursor-based, 20 per page), creating a post, the feed (same
-pagination) and suggested accounts. It exists so the mobile app's social and
-posting screens can be built and tested before those endpoints exist for real.
+pagination), suggested accounts, and blocking with the blocked list. It exists
+so the mobile app's social and posting screens can be built and tested before
+those endpoints exist for real.
 
 Only @demo (the one account mock-users-api.py always has) has any social
 graph seeded. Any other id 404s as unknown, and a protected-account 403
@@ -48,6 +49,7 @@ ERROR_TYPE_BASE = "https://udesa-x.dev/errors"
 APPROVE_PATH = re.compile(r"^/follow-requests/([^/]+)/approve$")
 REJECT_PATH = re.compile(r"^/follow-requests/([^/]+)/reject$")
 FOLLOW_PATH = re.compile(r"^/users/([^/]+)/follow$")
+BLOCK_PATH = re.compile(r"^/users/([^/]+)/block$")
 FOLLOWERS_PATH = re.compile(r"^/users/([^/]+)/followers$")
 FOLLOWING_PATH = re.compile(r"^/users/([^/]+)/following$")
 SUGGESTED_MAX = 10
@@ -96,6 +98,8 @@ follower_ids: list[str] = list(synthetic_accounts.keys())
 # Mutable: what @demo follows back, seeded with a few so both tabs have
 # something to show. Toggled by POST/DELETE /users/{id}/follow.
 demo_following: set[str] = {"usr-2", "usr-5", "usr-9"}
+# Who @demo blocked, most recent last. Toggled by POST/DELETE /users/{id}/block.
+demo_blocked: list[str] = []
 
 # GET /feed only ever shows posts from accounts the caller follows, never the
 # caller's own: seeded here from the three accounts already in
@@ -174,6 +178,9 @@ class PostsHandler(BaseHTTPRequestHandler):
         if strip_base_path(route) == "/follow-requests":
             self.list_follow_requests()
             return
+        if strip_base_path(route) == "/blocks":
+            self.list_blocked()
+            return
         if strip_base_path(route) == "/feed":
             self.list_feed()
             return
@@ -216,6 +223,11 @@ class PostsHandler(BaseHTTPRequestHandler):
             self.set_following(follow_match.group(1), following=True)
             return
 
+        block_match = BLOCK_PATH.match(endpoint_path)
+        if block_match:
+            self.set_blocked(block_match.group(1), blocked=True)
+            return
+
         if endpoint_path == "/posts":
             self.create_post()
             return
@@ -232,6 +244,11 @@ class PostsHandler(BaseHTTPRequestHandler):
         follow_match = FOLLOW_PATH.match(endpoint_path)
         if follow_match:
             self.set_following(follow_match.group(1), following=False)
+            return
+
+        block_match = BLOCK_PATH.match(endpoint_path)
+        if block_match:
+            self.set_blocked(block_match.group(1), blocked=False)
             return
 
         self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
@@ -398,6 +415,47 @@ class PostsHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
+
+    def set_blocked(self, target_id: str, *, blocked: bool) -> None:
+        """Mirrors posts-api: blocking removes the follows both ways, and
+        unblocking does not bring them back."""
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        if target_id not in synthetic_accounts:
+            self.send_problem(
+                404, "Cuenta inexistente", "Esa cuenta no existe.", code="user-not-found"
+            )
+            return
+
+        if blocked and target_id not in demo_blocked:
+            demo_blocked.append(target_id)
+            demo_following.discard(target_id)
+            if target_id in follower_ids:
+                follower_ids.remove(target_id)
+        elif not blocked and target_id in demo_blocked:
+            demo_blocked.remove(target_id)
+
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
+    def list_blocked(self) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        items = [
+            {
+                "id": account_id,
+                "handle": synthetic_accounts[account_id]["handle"],
+                "createdAt": synthetic_accounts[account_id]["createdAt"],
+            }
+            for account_id in reversed(demo_blocked)
+        ]
+        self.send_json(200, {"items": items, "nextCursor": None})
 
     def create_post(self) -> None:
         caller = self.resolve_caller_handle()

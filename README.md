@@ -76,8 +76,9 @@ otro lado se nota probando.
 `udesa-x-posts-api` es un servicio aparte con su propia URL, así que hay un segundo mock:
 seguir y dejar de seguir, listar y resolver solicitudes de cuentas protegidas, las listas de
 seguidores y seguidos (paginadas, cursor opaco), crear posts (280 caracteres medidos después
-de sacar tags, no vacíos, 30 por hora), el feed (misma paginación, solo cuentas seguidas) y
-las cuentas sugeridas para su empty state.
+de sacar tags, no vacíos, 30 por hora), el feed (misma paginación, solo cuentas seguidas),
+las cuentas sugeridas para su empty state, y bloquear y desbloquear cuentas con la lista
+de bloqueadas.
 
 ```bash
 bun run mock-posts-api                   # escucha en el puerto 8021
@@ -194,6 +195,8 @@ bun run test -- -t "E1-H1.CA3"
 | `E3-H3.CA1` | Cada fila muestra Display Name, handle y botón Seguir/Siguiendo                | `tests/unit/followListScreen.test.tsx`                                                                                 |
 | `E3-H3.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/followService.test.ts`, `tests/unit/followListScreen.test.tsx`                                             |
 | `E3-H3.CA3` | Empty state distinto para seguidores y para seguidos                           | `tests/unit/followListScreen.test.tsx`                                                                                 |
+| `E3-H4.CA2` | Lista de cuentas bloqueadas, desbloqueo y acceso desde Configuración           | `tests/unit/blockService.test.ts`, `tests/unit/blockedAccountsScreen.test.tsx`, `tests/unit/authScreens.test.tsx`      |
+| `E3-H4.CA3` | Bloquear desde las listas, con confirmación, saca la cuenta de la lista        | `tests/unit/followListScreen.test.tsx`                                                                                 |
 | `E2-H1.CA1` | El post no supera los 280 caracteres, ni del lado del cliente ni del servidor  | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
 | `E2-H1.CA2` | El post no puede estar vacío ni ser solo espacios                              | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
 | `E2-H1.CA5` | El mensaje de límite de 30 publicaciones por hora llega a la UI                | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
@@ -204,7 +207,8 @@ bun run test -- -t "E1-H1.CA3"
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
-`E3-H1.CA4`, `E2-H1.CA3`, `E2-H1.CA4`, `E2-H2.CA5`) se verifican en `udesa-x-users-api` o
+`E3-H1.CA4`, `E3-H4.CA1`, `E3-H4.CA4`, `E3-H4.CA5`, `E2-H1.CA3`, `E2-H1.CA4`,
+`E2-H2.CA5`) se verifican en `udesa-x-users-api` o
 `udesa-x-posts-api` según corresponda. Las demás CA de `E3-H1` de la tabla de arriba son
 reglas del servicio (a quién se puede seguir, límites, mensajes de error): lo que se prueba
 acá es que mobile llama a la ruta correcta y muestra lo que la API responde, no la regla en sí.
