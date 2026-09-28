@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { followService } from '../../src/features/social/services/followService';
 import { postsApiClient } from '../../src/api/postsApiClient';
-import { FollowRequestSummary } from '../../src/types/social';
+import { FollowRequestPage } from '../../src/types/social';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
@@ -102,15 +102,26 @@ describe('Follow service', () => {
     });
 
     it('E3-H1.CA2 - lists the follow requests aimed at the current user', async () => {
-      const requests: FollowRequestSummary[] = [
-        { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
-      ];
-      get.mockResolvedValueOnce(apiSuccess(requests));
+      const page: FollowRequestPage = {
+        items: [
+          { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
+        ],
+        nextCursor: null,
+      };
+      get.mockResolvedValueOnce(apiSuccess(page));
 
       const result = await followService.getFollowRequests();
 
-      expect(get).toHaveBeenCalledWith('/follow-requests');
-      expect(result).toEqual(requests);
+      expect(get).toHaveBeenCalledWith('/follow-requests', { params: undefined });
+      expect(result).toEqual(page);
+    });
+
+    it('asks for the next page of follow requests with the cursor it was given', async () => {
+      get.mockResolvedValueOnce(apiSuccess({ items: [], nextCursor: null }));
+
+      await followService.getFollowRequests('abc');
+
+      expect(get).toHaveBeenCalledWith('/follow-requests', { params: { cursor: 'abc' } });
     });
 
     it('reports a connection failure with the generic message, not a raw axios error', async () => {

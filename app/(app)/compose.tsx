@@ -5,7 +5,6 @@ import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
 import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 import { postService, getAuthErrorMessage } from '../../src/features/posts/services/postService';
-import { useFeedStore } from '../../src/stores/feedStore';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
 
@@ -16,7 +15,6 @@ export default function ComposeScreen() {
   const authStyles = useAuthStyles();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const addPost = useFeedStore((state) => state.addPost);
 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,10 +28,9 @@ export default function ComposeScreen() {
   const handlePublish = async () => {
     setIsSubmitting(true);
     try {
-      const post = await postService.createPost(content);
-      // No real feed endpoint to re-fetch from yet: this is the local
-      // stand-in that shows what was just published.
-      addPost(post);
+      await postService.createPost(content);
+      // Nothing to hand back to the feed: it reloads on its own the moment
+      // it regains focus, and that fresh GET /feed already has this post.
       router.back();
     } catch (error) {
       Alert.alert('Error', getAuthErrorMessage(error));

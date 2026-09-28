@@ -7,6 +7,12 @@ export interface FollowRequestSummary {
   createdAt: string;
 }
 
+// GET /follow-requests pages the same way the followers lists do.
+export interface FollowRequestPage {
+  items: FollowRequestSummary[];
+  nextCursor: string | null;
+}
+
 export type FollowRequestResolution = 'approved' | 'rejected';
 
 // 'pending' is what following a protected account leaves behind: posts-api
