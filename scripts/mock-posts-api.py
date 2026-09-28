@@ -268,14 +268,17 @@ class PostsHandler(BaseHTTPRequestHandler):
         ]
         self.send_json(
             200,
-            [
-                {
-                    "id": request["id"],
-                    "requesterHandle": request["requester_handle"],
-                    "createdAt": request["created_at"],
-                }
-                for request in pending
-            ],
+            {
+                "items": [
+                    {
+                        "id": request["id"],
+                        "requesterHandle": request["requester_handle"],
+                        "createdAt": request["created_at"],
+                    }
+                    for request in pending
+                ],
+                "nextCursor": None,
+            },
         )
 
     def list_follow_graph(self, user_id: str, kind: str) -> None:

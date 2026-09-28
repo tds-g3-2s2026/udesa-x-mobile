@@ -32,10 +32,13 @@ afterEach(() => {
 
 describe('E3-H1. Seguir a un Usuario', () => {
   it('E3-H1.CA2 - lists the pending requests once they load', async () => {
-    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue([
-      { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
-      { id: 'freq-2', requesterHandle: '@ana_garcia', createdAt: '2026-09-10T12:00:00Z' },
-    ]);
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [
+        { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
+        { id: 'freq-2', requesterHandle: '@ana_garcia', createdAt: '2026-09-10T12:00:00Z' },
+      ],
+      nextCursor: null,
+    });
 
     renderScreen();
 
@@ -44,7 +47,9 @@ describe('E3-H1. Seguir a un Usuario', () => {
   });
 
   it('shows a friendly empty state when there is nothing pending', async () => {
-    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue([]);
+    jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValue({ items: [], nextCursor: null });
 
     renderScreen();
 
@@ -68,11 +73,10 @@ describe('E3-H1. Seguir a un Usuario', () => {
   });
 
   it('E3-H1.CA2 - approving a request removes it from the list', async () => {
-    jest
-      .spyOn(followService, 'getFollowRequests')
-      .mockResolvedValue([
-        { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
-      ]);
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
     const approve = jest.spyOn(followService, 'approveFollowRequest').mockResolvedValue(undefined);
 
     renderScreen();
@@ -87,11 +91,10 @@ describe('E3-H1. Seguir a un Usuario', () => {
   });
 
   it('E3-H1.CA2 - rejecting a request removes it from the list', async () => {
-    jest
-      .spyOn(followService, 'getFollowRequests')
-      .mockResolvedValue([
-        { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
-      ]);
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
     const reject = jest.spyOn(followService, 'rejectFollowRequest').mockResolvedValue(undefined);
 
     renderScreen();
@@ -106,11 +109,10 @@ describe('E3-H1. Seguir a un Usuario', () => {
   });
 
   it('a failed resolution keeps the row and shows an alert instead of silently dropping it', async () => {
-    jest
-      .spyOn(followService, 'getFollowRequests')
-      .mockResolvedValue([
-        { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
-      ]);
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
     jest
       .spyOn(followService, 'approveFollowRequest')
       .mockRejectedValue(new ApiError('No se pudo aprobar la solicitud. Intentalo de nuevo.'));
@@ -132,8 +134,85 @@ describe('E3-H1. Seguir a un Usuario', () => {
     expect(screen.getByText('@joaquin_dev')).toBeTruthy();
   });
 
+  it('reaching the end of the list appends the next page, asked for with its cursor', async () => {
+    const getPage = jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValueOnce({
+        items: [
+          { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockResolvedValueOnce({
+        items: [
+          { id: 'freq-2', requesterHandle: '@ana_garcia', createdAt: '2026-09-09T12:00:00Z' },
+        ],
+        nextCursor: null,
+      });
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('follow-requests-list'), 'endReached');
+    });
+
+    expect(getPage).toHaveBeenLastCalledWith('cursor-1');
+    expect(await screen.findByText('@ana_garcia')).toBeTruthy();
+    expect(screen.getByText('@joaquin_dev')).toBeTruthy();
+  });
+
+  it('there is no next page to ask for once nextCursor comes back null', async () => {
+    const getPage = jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('follow-requests-list'), 'endReached');
+    });
+
+    expect(getPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('a next-page failure shows an alert and keeps the rows already on screen', async () => {
+    const getPage = jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValueOnce({
+        items: [
+          { id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockRejectedValueOnce(
+        new ApiError('No se pudieron cargar las solicitudes. Intentalo de nuevo.')
+      );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('follow-requests-list'), 'endReached');
+    });
+
+    expect(getPage).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Error',
+        'No se pudieron cargar las solicitudes. Intentalo de nuevo.'
+      )
+    );
+    expect(screen.getByText('@joaquin_dev')).toBeTruthy();
+  });
+
   it('the back link returns to whatever screen pushed this one', async () => {
-    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue([]);
+    jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValue({ items: [], nextCursor: null });
 
     renderScreen();
     await screen.findByText('No tenés solicitudes pendientes');

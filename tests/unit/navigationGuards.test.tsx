@@ -180,7 +180,9 @@ describe('E1-H10. Tema de la Aplicación', () => {
 describe('E3-H1. Seguir a un Usuario', () => {
   it('returns to the profile, not to another tab, after leaving the pending requests screen', async () => {
     persistSession();
-    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue([]);
+    jest
+      .spyOn(followService, 'getFollowRequests')
+      .mockResolvedValue({ items: [], nextCursor: null });
 
     // Same reasoning as edit-profile and change-password: follow-requests is
     // a Stack screen one level up, not a tab, so router.back() has to return

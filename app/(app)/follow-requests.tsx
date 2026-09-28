@@ -19,14 +19,17 @@ export default function FollowRequestsScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [requests, setRequests] = useState<FollowRequestSummary[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // Tracks which row has a request in flight, so only that row's buttons
   // disable: approving one request must not block acting on another.
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     try {
-      const data = await followService.getFollowRequests();
-      setRequests(data);
+      const page = await followService.getFollowRequests();
+      setRequests(page.items);
+      setNextCursor(page.nextCursor);
     } catch (error) {
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {
@@ -37,6 +40,20 @@ export default function FollowRequestsScreen() {
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
+
+  const loadMore = async () => {
+    if (isLoadingMore || nextCursor === null) return;
+    setIsLoadingMore(true);
+    try {
+      const page = await followService.getFollowRequests(nextCursor);
+      setRequests((previous) => [...previous, ...page.items]);
+      setNextCursor(page.nextCursor);
+    } catch (error) {
+      Alert.alert('Error', getAuthErrorMessage(error));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const resolve = async (id: string, action: 'approve' | 'reject') => {
     setResolvingId(id);
@@ -72,9 +89,12 @@ export default function FollowRequestsScreen() {
         </View>
       ) : (
         <FlatList
+          testID="follow-requests-list"
           data={requests}
           keyExtractor={(request) => request.id}
           contentContainerStyle={styles.list}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="people-outline" size={40} color={colors.placeholder} />
