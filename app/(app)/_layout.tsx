@@ -34,6 +34,7 @@ export default function AppLayout() {
       <Stack.Screen name="follow-list" />
       <Stack.Screen name="blocked-accounts" />
       <Stack.Screen name="compose" />
+      <Stack.Screen name="report" />
     </Stack>
   );
 }
