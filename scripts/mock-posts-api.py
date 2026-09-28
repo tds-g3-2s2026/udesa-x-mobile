@@ -3,7 +3,8 @@
 
 Covers follow-requests, follow/unfollow, the followers/following listings
 (paginated, cursor-based, 20 per page), creating a post, the feed (same
-pagination), suggested accounts, and blocking with the blocked list. It exists
+pagination), suggested accounts, blocking with the blocked list, and reporting
+an account or a post. It exists
 so the mobile app's social and posting screens can be built and tested before
 those endpoints exist for real.
 
@@ -66,13 +67,25 @@ POST_RATE_LIMIT = 30
 POST_RATE_WINDOW_SECONDS = 3600
 HTML_TAG = re.compile(r"<[^>]*>")
 
+# Verified against posts-api: the closed list of reasons, and one report per
+# reporter and reported account every 24 hours, whether it came from the
+# account or from one of its posts.
+REPORT_REASONS = {"spam", "harassment", "inappropriate_content", "impersonation"}
+REPORT_WINDOW_SECONDS = 24 * 3600
+
 request_id_issues = count(1)
 post_id_issues = count(1)
+report_id_issues = count(1)
 
 # In-memory, lost on restart: {id: {...}} for the posts this mock has
 # accepted, and {handle: [timestamp, ...]} for the rolling-hour rate count.
 posts: dict[str, dict[str, Any]] = {}
 post_timestamps: dict[str, list[float]] = {}
+
+# {(reporter handle, reported account id): timestamp of the last report}.
+# The threshold that puts an account under review lives in posts-api and
+# users-api; nothing here models it.
+report_timestamps: dict[tuple[str, str], float] = {}
 
 # In-memory store, lost when the process stops: {id: {...}}. Seeded with a
 # couple of pending requests aimed at @demo so the screen has something to
@@ -230,6 +243,10 @@ class PostsHandler(BaseHTTPRequestHandler):
 
         if endpoint_path == "/posts":
             self.create_post()
+            return
+
+        if endpoint_path == "/reports":
+            self.create_report()
             return
 
         self.send_problem(404, "Ruta no encontrada", f"{route} no existe en el mock.")
@@ -519,6 +536,78 @@ class PostsHandler(BaseHTTPRequestHandler):
         }
         posts[post_id] = post
         self.send_json(201, post)
+
+    def create_report(self) -> None:
+        caller = self.resolve_caller_handle()
+        if caller is None:
+            return
+
+        body = self.read_json()
+        if body is None:
+            self.send_problem(400, "Cuerpo inválido", "Se esperaba un objeto JSON.")
+            return
+
+        user_id, post_id = body.get("userId"), body.get("postId")
+        if body.get("reason") not in REPORT_REASONS or (user_id is None) == (post_id is None):
+            self.send_problem(
+                422,
+                "Solicitud inválida",
+                "Mandá un motivo de la lista y la cuenta o el post, uno solo.",
+                code="validation-failed",
+            )
+            return
+
+        # A post counts against its author, the same as posts-api.
+        if post_id is not None:
+            post = posts.get(post_id) or next(
+                (candidate for candidate in feed_posts if candidate["id"] == post_id), None
+            )
+            if post is None:
+                self.send_problem(
+                    404, "Post inexistente", "Ese post no existe.", code="post-not-found"
+                )
+                return
+            target_id = post["authorId"]
+        else:
+            target_id = user_id
+            if target_id != DEMO_ID and target_id not in synthetic_accounts:
+                self.send_problem(
+                    404, "Cuenta inexistente", "Esa cuenta no existe.", code="user-not-found"
+                )
+                return
+
+        if target_id == DEMO_ID:
+            self.send_problem(
+                422,
+                "No se pudo enviar la denuncia",
+                "No podés denunciarte a vos mismo",
+                code="cannot-report-yourself",
+            )
+            return
+
+        now = time.time()
+        last = report_timestamps.get((caller, target_id))
+        if last is not None and now - last < REPORT_WINDOW_SECONDS:
+            self.send_problem(
+                409,
+                "No se pudo enviar la denuncia",
+                "Ya denunciaste esta cuenta en las últimas 24 horas",
+                code="already-reported",
+                extra_headers={"Retry-After": str(int(REPORT_WINDOW_SECONDS - (now - last)))},
+            )
+            return
+        report_timestamps[(caller, target_id)] = now
+
+        self.send_json(
+            201,
+            {
+                "id": f"report-{next(report_id_issues)}",
+                "userId": target_id,
+                "postId": post_id,
+                "reason": body["reason"],
+                "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+        )
 
     def resolve_follow_request(self, request_id: str, resolution: str) -> None:
         caller = self.resolve_caller_handle()
