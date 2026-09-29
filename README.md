@@ -77,8 +77,9 @@ otro lado se nota probando.
 seguir y dejar de seguir, listar y resolver solicitudes de cuentas protegidas, las listas de
 seguidores y seguidos (paginadas, cursor opaco), crear posts (280 caracteres medidos después
 de sacar tags, no vacíos, 30 por hora), el feed (misma paginación, solo cuentas seguidas),
-las cuentas sugeridas para su empty state, y bloquear y desbloquear cuentas con la lista
-de bloqueadas.
+las cuentas sugeridas para su empty state, bloquear y desbloquear cuentas con la lista
+de bloqueadas, y denunciar una cuenta o un post (motivo de la lista cerrada, una denuncia por
+cuenta cada 24 horas, `409 already-reported` la segunda vez).
 
 ```bash
 bun run mock-posts-api                   # escucha en el puerto 8021
@@ -159,7 +160,7 @@ src/api/                  Clientes Axios de cada servicio (apiClient, postsApiCl
 src/features/auth/        Esquemas Zod, servicio de autenticación y componentes de formulario
 src/features/posts/       Servicio de posts (crear, feed, sugeridos) y formato de tiempo relativo
 src/features/shell/       Chrome compartido por las pantallas de los tabs
-src/features/social/      Servicio del grafo social (seguir, solicitudes, listas paginadas)
+src/features/social/      Servicios del grafo social (seguir, solicitudes, listas, bloqueos, denuncias)
 src/stores/               Estado global (sesión, tema y borrador del registro)
 src/theme/                Paletas claro/oscuro y el hook de lectura
 src/types/                Tipos compartidos
@@ -176,39 +177,41 @@ la suite:
 bun run test -- -t "E1-H1.CA3"
 ```
 
-| Criterio    | Qué verifica                                                                   | Archivo                                                                                                                |
-| ----------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `E1-H1.CA2` | Formato de email y error de email duplicado en pantalla                        | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
-| `E1-H1.CA3` | Handle con `@` inicial, entre 4 y 15 caracteres alfanuméricos o `_`            | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
-| `E1-H1.CA4` | Contraseña de 8 caracteres o más, con mayúscula y número                       | `tests/unit/authSchemas.test.ts`                                                                                       |
-| `E1-H1.CA5` | Campos obligatorios no vacíos en registro y login                              | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
-| `E1-H1.CA6` | Token de verificación pegado del link, y reenvío del link                      | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                  |
-| `E1-H2.CA1` | Login válido, tokens recibidos y sesión persistida en SecureStore              | `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`                    |
-| `E1-H2.CA3` | Mensaje genérico de credenciales inválidas                                     | `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                                    |
-| `E1-H3.CA2` | Borrado seguro del JWT y de los datos locales de sesión                        | `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`, `tests/unit/navigationGuards.test.tsx`              |
-| `T-51`      | Los cuatro tabs del área autenticada y el contenido de cada uno                | `tests/unit/appTabs.test.tsx`                                                                                          |
-| `T-52`      | Refresco de token, interceptores de Axios y renovación en el store             | `tests/unit/authInterceptors.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`                |
-| `E3-H1.CA1` | El botón Seguir sigue a una cuenta pública y refleja el estado                 | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                 |
-| `E3-H1.CA2` | Listar, aprobar y rechazar solicitudes de seguimiento pendientes               | `tests/unit/followService.test.ts`, `tests/unit/followRequestsScreen.test.tsx`, `tests/unit/navigationGuards.test.tsx` |
-| `E3-H1.CA3` | El mensaje de la API al intentar seguirse a uno mismo llega a la UI            | `tests/unit/followService.test.ts`                                                                                     |
-| `E3-H1.CA5` | El mensaje de rate limit de la API llega a la UI                               | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                 |
-| `E3-H3.CA1` | Cada fila muestra Display Name, handle y botón Seguir/Siguiendo                | `tests/unit/followListScreen.test.tsx`                                                                                 |
-| `E3-H3.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/followService.test.ts`, `tests/unit/followListScreen.test.tsx`                                             |
-| `E3-H3.CA3` | Empty state distinto para seguidores y para seguidos                           | `tests/unit/followListScreen.test.tsx`                                                                                 |
-| `E3-H4.CA2` | Lista de cuentas bloqueadas, desbloqueo y acceso desde Configuración           | `tests/unit/blockService.test.ts`, `tests/unit/blockedAccountsScreen.test.tsx`, `tests/unit/authScreens.test.tsx`      |
-| `E3-H4.CA3` | Bloquear desde las listas, con confirmación, saca la cuenta de la lista        | `tests/unit/followListScreen.test.tsx`                                                                                 |
-| `E2-H1.CA1` | El post no supera los 280 caracteres, ni del lado del cliente ni del servidor  | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
-| `E2-H1.CA2` | El post no puede estar vacío ni ser solo espacios                              | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
-| `E2-H1.CA5` | El mensaje de límite de 30 publicaciones por hora llega a la UI                | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                  |
-| `E2-H2.CA1` | El feed muestra los posts en el orden que la API los devuelve                  | `tests/unit/feedScreen.test.tsx`                                                                                       |
-| `E2-H2.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                     |
-| `E2-H2.CA3` | Cada fila muestra autor, handle, contenido, tiempo relativo y los 3 contadores | `tests/unit/relativeTime.test.ts`, `tests/unit/feedScreen.test.tsx`                                                    |
-| `E2-H2.CA4` | Empty state con cuentas sugeridas cuando el feed está vacío                    | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                     |
+| Criterio    | Qué verifica                                                                   | Archivo                                                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `E1-H1.CA2` | Formato de email y error de email duplicado en pantalla                        | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                            |
+| `E1-H1.CA3` | Handle con `@` inicial, entre 4 y 15 caracteres alfanuméricos o `_`            | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                                              |
+| `E1-H1.CA4` | Contraseña de 8 caracteres o más, con mayúscula y número                       | `tests/unit/authSchemas.test.ts`                                                                                                                 |
+| `E1-H1.CA5` | Campos obligatorios no vacíos en registro y login                              | `tests/unit/authSchemas.test.ts`, `tests/unit/authScreens.test.tsx`                                                                              |
+| `E1-H1.CA6` | Token de verificación pegado del link, y reenvío del link                      | `tests/unit/authSchemas.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                            |
+| `E1-H2.CA1` | Login válido, tokens recibidos y sesión persistida en SecureStore              | `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`                                              |
+| `E1-H2.CA3` | Mensaje genérico de credenciales inválidas                                     | `tests/unit/authService.test.ts`, `tests/unit/authScreens.test.tsx`                                                                              |
+| `E1-H3.CA2` | Borrado seguro del JWT y de los datos locales de sesión                        | `tests/unit/authStore.test.ts`, `tests/unit/authScreens.test.tsx`, `tests/unit/navigationGuards.test.tsx`                                        |
+| `T-51`      | Los cuatro tabs del área autenticada y el contenido de cada uno                | `tests/unit/appTabs.test.tsx`                                                                                                                    |
+| `T-52`      | Refresco de token, interceptores de Axios y renovación en el store             | `tests/unit/authInterceptors.test.ts`, `tests/unit/authService.test.ts`, `tests/unit/authStore.test.ts`                                          |
+| `E3-H1.CA1` | El botón Seguir sigue a una cuenta pública y refleja el estado                 | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                                           |
+| `E3-H1.CA2` | Listar, aprobar y rechazar solicitudes de seguimiento pendientes               | `tests/unit/followService.test.ts`, `tests/unit/followRequestsScreen.test.tsx`, `tests/unit/navigationGuards.test.tsx`                           |
+| `E3-H1.CA3` | El mensaje de la API al intentar seguirse a uno mismo llega a la UI            | `tests/unit/followService.test.ts`                                                                                                               |
+| `E3-H1.CA5` | El mensaje de rate limit de la API llega a la UI                               | `tests/unit/followService.test.ts`, `tests/unit/followButton.test.tsx`                                                                           |
+| `E3-H3.CA1` | Cada fila muestra Display Name, handle y botón Seguir/Siguiendo                | `tests/unit/followListScreen.test.tsx`                                                                                                           |
+| `E3-H3.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/followService.test.ts`, `tests/unit/followListScreen.test.tsx`                                                                       |
+| `E3-H3.CA3` | Empty state distinto para seguidores y para seguidos                           | `tests/unit/followListScreen.test.tsx`                                                                                                           |
+| `E3-H4.CA2` | Lista de cuentas bloqueadas, desbloqueo y acceso desde Configuración           | `tests/unit/blockService.test.ts`, `tests/unit/blockedAccountsScreen.test.tsx`, `tests/unit/authScreens.test.tsx`                                |
+| `E3-H4.CA3` | Bloquear desde las listas, con confirmación, saca la cuenta de la lista        | `tests/unit/followListScreen.test.tsx`                                                                                                           |
+| `E3-H5.CA1` | Denunciar una cuenta o un post con un motivo de la lista cerrada               | `tests/unit/reportService.test.ts`, `tests/unit/reportScreen.test.tsx`, `tests/unit/feedScreen.test.tsx`, `tests/unit/followListScreen.test.tsx` |
+| `E3-H5.CA3` | La segunda denuncia a la misma cuenta en 24 horas muestra un mensaje propio    | `tests/unit/reportService.test.ts`, `tests/unit/reportScreen.test.tsx`                                                                           |
+| `E2-H1.CA1` | El post no supera los 280 caracteres, ni del lado del cliente ni del servidor  | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                                            |
+| `E2-H1.CA2` | El post no puede estar vacío ni ser solo espacios                              | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                                            |
+| `E2-H1.CA5` | El mensaje de límite de 30 publicaciones por hora llega a la UI                | `tests/unit/postService.test.ts`, `tests/unit/composeScreen.test.tsx`                                                                            |
+| `E2-H2.CA1` | El feed muestra los posts en el orden que la API los devuelve                  | `tests/unit/feedScreen.test.tsx`                                                                                                                 |
+| `E2-H2.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
+| `E2-H2.CA3` | Cada fila muestra autor, handle, contenido, tiempo relativo y los 3 contadores | `tests/unit/relativeTime.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                              |
+| `E2-H2.CA4` | Empty state con cuentas sugeridas cuando el feed está vacío                    | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
-`E3-H1.CA4`, `E3-H4.CA1`, `E3-H4.CA4`, `E3-H4.CA5`, `E2-H1.CA3`, `E2-H1.CA4`,
-`E2-H2.CA5`) se verifican en `udesa-x-users-api` o
+`E3-H1.CA4`, `E3-H4.CA1`, `E3-H4.CA4`, `E3-H4.CA5`, `E3-H5.CA2`, `E3-H5.CA4`, `E2-H1.CA3`,
+`E2-H1.CA4`, `E2-H2.CA5`) se verifican en `udesa-x-users-api` o
 `udesa-x-posts-api` según corresponda. Las demás CA de `E3-H1` de la tabla de arriba son
 reglas del servicio (a quién se puede seguir, límites, mensajes de error): lo que se prueba
 acá es que mobile llama a la ruta correcta y muestra lo que la API responde, no la regla en sí.
@@ -227,6 +230,13 @@ contra `posts-api` real (`udesa-x-posts-api#22`, ya mergeado) y contempla el est
 de otro usuario sigue sin empezar (`E2-H14`), así que todavía no hay un segundo lugar donde
 mostrarlo. `E3-H3.CA1` pide también foto de perfil por fila: no existe hasta `E1-H8` (S6), así
 que cada fila muestra un ícono de marcador de posición en su lugar.
+
+`app/(app)/report.tsx` denuncia contra `POST /reports`. Se llega desde la bandera de cada post
+del feed, que denuncia el post (cuenta contra su autor y `posts-api` guarda cuál fue), y desde la
+de cada fila de seguidores y seguidos, que denuncia la cuenta. La bandera no aparece en los posts
+propios, porque `posts-api` rechaza denunciarse a uno mismo. `E3-H5.CA1` dice que la denuncia va
+al backoffice: lo que entra acá es que quede guardada en `posts-api`. La pantalla del backoffice
+para verlas es otra historia (`E5-H7`).
 
 ## Code Guidelines (Reglas del Equipo)
 
