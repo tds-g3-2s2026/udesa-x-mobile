@@ -14,7 +14,6 @@ import {
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
-  VerifyEmailInput,
 } from '../schemas/authSchemas';
 import {
   apiClient,
@@ -115,20 +114,6 @@ export const authService = {
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudo completar el registro. Intentalo de nuevo.');
-    }
-  },
-
-  // The token travels in the emailed link (/auth/verify?token=...), not as a
-  // numeric code: the screen just has the user paste it. Returns the handle
-  // the API reports so the confirmation can name the account.
-  async verifyEmail(data: VerifyEmailInput): Promise<{ handle: string }> {
-    try {
-      const response = await apiClient.post<{ status: string; handle: string }>('/auth/verify', {
-        token: data.token,
-      });
-      return { handle: response.data.handle };
-    } catch (error) {
-      throw toAuthError(error, 'El código es inválido o expiró. Pedí uno nuevo.');
     }
   },
 

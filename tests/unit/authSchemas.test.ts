@@ -7,7 +7,6 @@ import {
   registerSchema,
   resetPasswordSchema,
   validateRegisterField,
-  verifyEmailSchema,
   type RegisterField,
 } from '../../src/features/auth/schemas/authSchemas';
 
@@ -110,18 +109,6 @@ describe('E1-H1. Registro de Usuarios', () => {
       'El usuario o email es obligatorio',
       'La contraseña es obligatoria',
     ]);
-  });
-
-  it('E1-H1.CA6 - requires a non-blank token, trimmed', () => {
-    const blank = verifyEmailSchema.safeParse({ token: '   ' });
-    expect(blank.success).toBe(false);
-    if (blank.success) return;
-    expect(blank.error.issues[0].message).toBe('Pegá el código que te llegó por correo');
-
-    const result = verifyEmailSchema.safeParse({ token: '  a-verify-token  ' });
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-    expect(result.data.token).toBe('a-verify-token');
   });
 });
 

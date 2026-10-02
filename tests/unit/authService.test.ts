@@ -156,23 +156,6 @@ describe('Auth service', () => {
       });
     });
 
-    it('E1-H1.CA6 - propagates the expired token error reported by the API', async () => {
-      post.mockRejectedValueOnce(apiFailure(400, { detail: 'El código expiró' }));
-
-      await expect(authService.verifyEmail({ token: 'a-token' })).rejects.toThrow(
-        'El código expiró'
-      );
-    });
-
-    it('E1-H1.CA6 - verifies with the token pasted from the emailed link', async () => {
-      post.mockResolvedValueOnce(apiSuccess({ status: 'verified', handle: '@joaquin_dev' }));
-
-      const result = await authService.verifyEmail({ token: 'a-token' });
-
-      expect(post).toHaveBeenCalledWith('/auth/verify', { token: 'a-token' });
-      expect(result.handle).toBe('@joaquin_dev');
-    });
-
     it('E1-H1.CA6 - requests a new verification link from the API', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
 

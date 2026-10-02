@@ -161,39 +161,10 @@ describe('E1-H1. Registro de Usuarios', () => {
     );
   });
 
-  it('E1-H1.CA6 - requires a token before calling the API', async () => {
-    const verifyEmail = jest.spyOn(authService, 'verifyEmail');
-
+  it('E1-H1.CA6 - the primary action goes straight to login, no API call involved', async () => {
     renderScreen(<VerifyEmailScreen />);
-    await press('Verificar cuenta');
 
-    expect(screen.getByText('Pegá el código que te llegó por correo')).toBeTruthy();
-    expect(verifyEmail).not.toHaveBeenCalled();
-  });
-
-  it('E1-H1.CA6 - shows the expiration error returned by the API', async () => {
-    jest.spyOn(authService, 'verifyEmail').mockRejectedValue(new Error('El código expiró'));
-
-    renderScreen(<VerifyEmailScreen />);
-    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
-    await press('Verificar cuenta');
-
-    await waitFor(() => expect(screen.getByText('El código expiró')).toBeTruthy());
-  });
-
-  it('E1-H1.CA6 - pressing "Iniciar Sesión" on the success alert goes to the login', async () => {
-    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ handle: '@joaquin_dev' });
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-
-    renderScreen(<VerifyEmailScreen />);
-    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
-    await press('Verificar cuenta');
-
-    await waitFor(() => expect(alert).toHaveBeenCalled());
-    const buttons = alert.mock.calls[0][2];
-    await act(async () => {
-      buttons?.[0]?.onPress?.();
-    });
+    await press('Ya toqué el link, iniciar sesión');
 
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
   });
@@ -201,13 +172,15 @@ describe('E1-H1. Registro de Usuarios', () => {
   it('shows a local error and never calls the API when the email param is missing', async () => {
     mockUseLocalSearchParams.mockReturnValueOnce({});
     const resendVerification = jest.spyOn(authService, 'resendVerification');
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     renderScreen(<VerifyEmailScreen />);
     await press('Reenviar link');
 
-    expect(
-      screen.getByText('No se encontró el correo a verificar. Volvé al registro.')
-    ).toBeTruthy();
+    expect(alert).toHaveBeenCalledWith(
+      'Error',
+      'No se encontró el correo a verificar. Volvé al registro.'
+    );
     expect(resendVerification).not.toHaveBeenCalled();
   });
 
@@ -229,6 +202,29 @@ describe('E1-H1. Registro de Usuarios', () => {
     );
   });
 
+  it('E1-H1.CA6 - disables the resend link and says so while the request is in flight', async () => {
+    let resolveResend: () => void;
+    jest.spyOn(authService, 'resendVerification').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveResend = resolve;
+        })
+    );
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<VerifyEmailScreen />);
+    fireEvent.press(screen.getByText('Reenviar link'));
+
+    expect(await screen.findByText('Reenviando...')).toBeTruthy();
+    fireEvent.press(screen.getByText('Reenviando...'));
+    // A second tap while in flight must not fire a second request.
+    expect(authService.resendVerification).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveResend();
+    });
+  });
+
   it('E1-H1.CA6 - shows the API error when resending fails', async () => {
     jest
       .spyOn(authService, 'resendVerification')
@@ -242,23 +238,6 @@ describe('E1-H1. Registro de Usuarios', () => {
       expect(alert).toHaveBeenCalledWith(
         'Error al reenviar',
         'No se pudo reenviar el código. Intentalo en unos minutos.'
-      )
-    );
-  });
-
-  it('E1-H1.CA6 - verifies the pasted token and offers to go to the login', async () => {
-    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ handle: '@joaquin_dev' });
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-
-    renderScreen(<VerifyEmailScreen />);
-    fireEvent.changeText(screen.getByPlaceholderText('Pegá el código acá'), 'a-token');
-    await press('Verificar cuenta');
-
-    await waitFor(() =>
-      expect(alert).toHaveBeenCalledWith(
-        '¡Cuenta verificada!',
-        'Tu correo fue verificado correctamente. Ya podés iniciar sesión.',
-        expect.anything()
       )
     );
   });
@@ -386,6 +365,49 @@ describe('E1-H2. Inicio de Sesión', () => {
     await press('Iniciar Sesión');
 
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Credenciales inválidas'));
+  });
+
+  it('E1-H1.CA6 - an unverified account offers resending the link, with the email prefilled', async () => {
+    jest
+      .spyOn(authService, 'login')
+      .mockRejectedValue(new ApiError('Revisá tu casilla de correo', 'account-not-verified'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<LoginScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_PLACEHOLDER), 'jleon@udesa.edu.ar');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'Password123');
+    await press('Iniciar Sesión');
+
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    const buttons = alert.mock.calls[0][2];
+    await act(async () => {
+      buttons?.[1]?.onPress?.();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(auth)/verify-email',
+      params: { email: 'jleon@udesa.edu.ar' },
+    });
+  });
+
+  it('E1-H1.CA6 - the same offer leaves the email blank when a handle was typed instead', async () => {
+    jest
+      .spyOn(authService, 'login')
+      .mockRejectedValue(new ApiError('Revisá tu casilla de correo', 'account-not-verified'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen(<LoginScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText(IDENTIFIER_PLACEHOLDER), '@joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'Password123');
+    await press('Iniciar Sesión');
+
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    const buttons = alert.mock.calls[0][2];
+    await act(async () => {
+      buttons?.[1]?.onPress?.();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/verify-email', params: {} });
   });
 });
 
