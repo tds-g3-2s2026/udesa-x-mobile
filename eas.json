@@ -7,8 +7,20 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "bun": "1.4.0",
       "android": {
         "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "bun": "1.4.0",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api",
+        "EXPO_PUBLIC_POSTS_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api"
       }
     }
   }
