@@ -1,12 +1,19 @@
 import React, { useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { z } from 'zod';
 import { useAuthStore } from '../../src/stores/authStore';
+import { ApiError } from '../../src/api/apiClient';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
 import { loginSchema } from '../../src/features/auth/schemas/authSchemas';
 import { AuthScreen } from '../../src/features/auth/components/AuthScreen';
 import { FormInput } from '../../src/features/auth/components/FormInput';
 import { useAuthStyles } from '../../src/features/auth/components/authTheme';
+
+// Only an email, never a handle, is of any use to the verify-email screen's
+// resend: users-api looks the account up by email, and a handle typed in
+// this same field would just come back "not found" on the other side.
+const emailShape = z.string().email();
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -43,10 +50,35 @@ export default function LoginScreen() {
       // soon as the session exists.
       await setSession(response.user, response.tokens);
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'account-not-verified') {
+        offerResend(validation.data.identifier);
+        return;
+      }
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Reachable from login itself, not only from "Revisá tu correo": a 403
+  // here is the one moment login already knows the account exists and just
+  // needs its link sent again.
+  const offerResend = (identifier: string) => {
+    const trimmed = identifier.trim();
+    const email = emailShape.safeParse(trimmed).success ? trimmed : undefined;
+
+    Alert.alert(
+      'Cuenta sin verificar',
+      'Todavía no verificaste tu correo. Te podemos mandar el link de nuevo.',
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Reenviar el link',
+          onPress: () =>
+            router.push({ pathname: '/(auth)/verify-email', params: email ? { email } : {} }),
+        },
+      ]
+    );
   };
 
   return (

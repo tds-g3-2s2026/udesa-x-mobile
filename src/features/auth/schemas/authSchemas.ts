@@ -52,12 +52,6 @@ export const resetPasswordSchema = z
     path: ['passwordConfirmation'],
   });
 
-// The token is pasted from the email link, same shape as the password
-// reset's: users-api's /auth/verify takes an opaque token, not a numeric code.
-export const verifyEmailSchema = z.object({
-  token: z.string().trim().min(1, 'Pegá el código que te llegó por correo'),
-});
-
 // Keeps the leading '@' the handle format requires while the user types it.
 // Strips any symbol other than letters, numbers and underscores (like Instagram/Twitter).
 export function normalizeHandle(value: string): string {
@@ -103,7 +97,6 @@ export const editProfileSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
-export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
