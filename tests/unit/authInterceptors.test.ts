@@ -23,6 +23,17 @@ const renewed: AuthTokens = {
   refreshToken: 'refresh-token-2',
 };
 
+// What users-api answers to POST /auth/refresh: the same shape as the login.
+function sessionBody(tokens: AuthTokens) {
+  return {
+    access_token: tokens.accessToken,
+    refresh_token: tokens.refreshToken,
+    token_type: 'bearer',
+    expires_in: 900,
+    must_change_password: false,
+  };
+}
+
 function apiSuccess<T>(config: InternalAxiosRequestConfig, data: T): AxiosResponse<T> {
   return { data, status: 200, statusText: 'OK', headers: {}, config };
 }
@@ -84,7 +95,9 @@ describe('T-52. Interceptores de Axios', () => {
     const failed = new Set<string>();
     adapter.mockImplementation((config) => {
       const url = String(config.url);
-      if (url === '/auth/refresh') return Promise.resolve(apiSuccess(config, { tokens: renewed }));
+      if (url === '/auth/refresh') {
+        return Promise.resolve(apiSuccess(config, sessionBody(renewed)));
+      }
       if (!failed.has(url)) {
         failed.add(url);
         return Promise.reject(unauthorized(config));
@@ -99,7 +112,7 @@ describe('T-52. Interceptores de Axios', () => {
     // The refresh travels with the refresh token in the body, never with the
     // expired access token in the header.
     expect(requestsTo('/auth/refresh')[0].data).toBe(
-      JSON.stringify({ refreshToken: 'refresh-token-1' })
+      JSON.stringify({ refresh_token: 'refresh-token-1' })
     );
     expect(authorizationOf(1)).toBeUndefined();
     // The replay is authenticated with the token the refresh just issued.
@@ -116,7 +129,9 @@ describe('T-52. Interceptores de Axios', () => {
     const failed = new Set<string>();
     adapter.mockImplementation((config) => {
       const url = String(config.url);
-      if (url === '/auth/refresh') return Promise.resolve(apiSuccess(config, { tokens: renewed }));
+      if (url === '/auth/refresh') {
+        return Promise.resolve(apiSuccess(config, sessionBody(renewed)));
+      }
       if (!failed.has(url)) {
         failed.add(url);
         return Promise.reject(unauthorized(config));
@@ -129,6 +144,35 @@ describe('T-52. Interceptores de Axios', () => {
     // Two refreshes would spend the refresh token twice and the loser would drop
     // the session the winner had just renewed.
     expect(requestsTo('/auth/refresh')).toHaveLength(1);
+  });
+
+  it('T-52 - each refresh presents the refresh token the previous one issued', async () => {
+    const issued = ['refresh-token-2', 'refresh-token-3'];
+    const failed = new Set<string>();
+    adapter.mockImplementation((config) => {
+      const url = String(config.url);
+      if (url === '/auth/refresh') {
+        const refreshToken = issued.shift() as string;
+        const tokens = { accessToken: `access-for-${refreshToken}`, refreshToken };
+        return Promise.resolve(apiSuccess(config, sessionBody(tokens)));
+      }
+      if (!failed.has(url)) {
+        failed.add(url);
+        return Promise.reject(unauthorized(config));
+      }
+      return Promise.resolve(apiSuccess(config, { ok: true }));
+    });
+
+    await apiClient.get('/feed');
+    await apiClient.get('/notifications');
+
+    // Every refresh token works once: reusing refresh-token-1 the second time
+    // would make users-api treat it as a stolen copy and sign the account out.
+    expect(requestsTo('/auth/refresh').map((request) => request.data)).toEqual([
+      JSON.stringify({ refresh_token: 'refresh-token-1' }),
+      JSON.stringify({ refresh_token: 'refresh-token-2' }),
+    ]);
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-token-3');
   });
 
   it('T-52 - a rejected refresh clears the session and reports the original error', async () => {
@@ -205,7 +249,7 @@ describe('T-52. Interceptores de Axios', () => {
 
   it('T-52 - a 401 from posts-api refreshes through users-api and retries on posts-api', async () => {
     adapter.mockImplementation((config) =>
-      Promise.resolve(apiSuccess(config, { tokens: renewed }))
+      Promise.resolve(apiSuccess(config, sessionBody(renewed)))
     );
     postsAdapter.mockImplementationOnce((config) => Promise.reject(unauthorized(config)));
     postsAdapter.mockImplementationOnce((config) =>

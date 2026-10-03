@@ -1,7 +1,6 @@
 import {
   AuthResponse,
   AuthTokens,
-  RefreshResponse,
   RegisterResponse,
   User,
   UserPreferences,
@@ -21,8 +20,11 @@ import {
   LOGOUT_PATH,
   REFRESH_PATH,
   SESSION_EXPIRED_MESSAGE,
+  SessionResponseBody,
   toAuthError,
+  toAuthTokens,
 } from '../../../api/apiClient';
+import { useAuthStore } from '../../../stores/authStore';
 
 export { apiClient, getAuthErrorMessage };
 
@@ -68,31 +70,20 @@ function toUserPreferences(body: PreferencesResponseBody): UserPreferences {
   };
 }
 
-// Wire shape of POST /auth/login. No refresh token (users-api has none yet)
-// and no identity at all: `identifier` on the way in can be either the email
-// or the handle, so there is nothing reliable to build a `User` from without
-// asking `/me`.
-interface LoginResponseBody {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  must_change_password: boolean;
-}
-
 export const authService = {
   async login(credentials: LoginInput): Promise<AuthResponse> {
     try {
-      const response = await apiClient.post<LoginResponseBody>('/auth/login', credentials);
-      const accessToken = response.data.access_token;
+      const response = await apiClient.post<SessionResponseBody>('/auth/login', credentials);
+      const tokens = toAuthTokens(response.data);
 
       // Reaching this line already proves the account is verified: users-api
       // refuses login otherwise (403 account-not-verified).
       const profile = await apiClient.get<ProfileResponseBody>('/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });
       const user: User = { ...toUserProfile(profile.data), isVerified: true };
 
-      return { user, tokens: { accessToken } };
+      return { user, tokens };
     } catch (error) {
       throw toAuthError(error, INVALID_CREDENTIALS_MESSAGE);
     }
@@ -231,23 +222,34 @@ export const authService = {
     }
   },
 
-  // Trades the long lived refresh token for a fresh pair of tokens.
+  // Trades the long lived refresh token for a fresh pair of tokens. users-api
+  // consumes the token it receives: the response carries the next one, and
+  // presenting the old one again signs the whole account out.
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
-      const response = await apiClient.post<RefreshResponse>(REFRESH_PATH, { refreshToken });
-      return response.data.tokens;
+      const response = await apiClient.post<SessionResponseBody>(REFRESH_PATH, {
+        refresh_token: refreshToken,
+      });
+      return toAuthTokens(response.data);
     } catch (error) {
       throw toAuthError(error, SESSION_EXPIRED_MESSAGE);
     }
   },
 
-  // Revokes the session's JWT server-side before the caller wipes it from the
-  // device. Best effort on purpose: the local wipe is guaranteed regardless,
-  // so a network failure or an already expired token here must never stop
-  // the caller from clearing the device.
+  // Revokes the session server-side before the caller wipes it from the
+  // device: the access token travels in the header, and the refresh token, when
+  // the store has one, in the body so its whole family dies with it. Best
+  // effort on purpose: the local wipe is guaranteed regardless, so a network
+  // failure or an already expired token here must never stop the caller from
+  // clearing the device.
   async logout(): Promise<void> {
+    const { refreshToken } = useAuthStore.getState();
     try {
-      await apiClient.post(LOGOUT_PATH, undefined, { timeout: LOGOUT_TIMEOUT_MS });
+      await apiClient.post(
+        LOGOUT_PATH,
+        refreshToken ? { refresh_token: refreshToken } : undefined,
+        { timeout: LOGOUT_TIMEOUT_MS }
+      );
     } catch {
       // Nothing to recover from: the caller clears the local session regardless.
     }

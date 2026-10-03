@@ -53,9 +53,10 @@ EXPO_PACKAGER_PROXY_URL=http://100.x.y.z:8081 bun run start
 ## Probar sin backend
 
 Este mock está verificado contra el código real de `udesa-x-users-api` (registro, login,
-logout, verificación de email, cambio y recuperación de contraseña, perfil), así que se
-puede probar cualquier pantalla autenticada sin depender de que el servicio real esté
-levantado. No tiene dependencias, corre con la biblioteca estándar de Python:
+refresco de sesión con rotación de refresh tokens, logout, verificación de email, cambio y
+recuperación de contraseña, perfil), así que se puede probar cualquier pantalla autenticada
+sin depender de que el servicio real esté levantado. No tiene dependencias, corre con la
+biblioteca estándar de Python:
 
 ```bash
 bun run mock-api                        # escucha en el puerto 8020
@@ -136,12 +137,19 @@ navegación montar: nunca se ve un cuadro de la pantalla equivocada.
 
 El `apiClient` de Axios lleva dos interceptores. El de request agrega
 `Authorization: Bearer <accessToken>` leyendo el store en cada llamada. El de response
-atiende los 401 pidiendo un token nuevo — pero `users-api` todavía no expone
-`POST /auth/refresh` (está en su propio backlog, no es parte de este repo): sin
-`refreshToken` guardado, el intento de refrescar falla de inmediato, se borra la sesión del
-dispositivo y las guardas del layout raíz devuelven al login. El mecanismo de refresco ya
-está escrito y lo único que falta es que el otro lado exista — `AuthTokens.refreshToken` es
-opcional a propósito, para el día que lo sea.
+atiende los 401 con `POST /auth/refresh`, mandando `{ "refresh_token": "..." }`, y repite una
+sola vez la request que falló con el access token nuevo. Todas las requests que fallan al mismo
+tiempo comparten un único refresco.
+
+`users-api` entrega un refresh token en cada login y en cada refresco, y cada uno sirve una sola
+vez: la respuesta trae el siguiente (`{ access_token, refresh_token, ... }`, la misma forma que el
+login) y la app lo guarda en lugar del anterior. Mandar uno ya usado se toma por una copia robada
+y `users-api` cierra todas las sesiones de la cuenta, por eso el refresco compartido no es un
+detalle. Login y refresco convierten la respuesta con la misma función, `toAuthTokens`. Si el
+refresco falla, o no hay `refreshToken` guardado, se borra la sesión del dispositivo y las
+guardas del layout raíz devuelven al login. Al cerrar sesión la app manda el `refresh_token`
+junto con el access token, para que `users-api` revoque también la sesión larga; si esa llamada
+falla, la sesión local se borra igual.
 
 ## Estructura
 

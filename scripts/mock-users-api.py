@@ -7,9 +7,11 @@ close to it as the mock pattern allows: same routes, same wire field names
 (snake_case), same status codes, same Problem Details error codes. Where the
 two ever disagree, the real service wins — this file is the one to fix.
 
-Notably: users-api issues only a short-lived access token today. There is no
-refresh endpoint (tracked as its own issue there, not built yet), so none is
-mocked here either — the app already degrades correctly without one.
+Refresh tokens work like the real service's: login starts a family, every use
+of /auth/refresh consumes the token and returns the next one of the same
+family, and presenting a token that was already used revokes every refresh
+token and every access token of the account. Logout, password change and
+password reset also revoke them.
 
 Usage:
     python3 scripts/mock-users-api.py [port]
@@ -67,6 +69,14 @@ CHANGE_PASSWORD_LOCK_SECONDS = 900
 
 # Latest invalidated issuance number per account: {handle without @: serial}.
 sessions_revoked_up_to: dict[str, int] = {}
+
+# Issued refresh tokens: {token: {"handle" (no @), "family", "expires_at", "used",
+# "revoked"}}. A family is the chain of tokens that started at one login.
+REFRESH_TOKEN_PREFIX = "mock-refresh-token-"
+REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 3600
+refresh_tokens: dict[str, dict[str, Any]] = {}
+refresh_issues = count(1)
+refresh_families = count(1)
 
 # Times a link was requested per identifier, used for request limiting.
 reset_requests: dict[str, list[float]] = {}
@@ -129,10 +139,32 @@ def strip_base_path(route: str) -> str | None:
 
 
 def issue_access_token(handle: str) -> str:
-    """Token nuevo para una cuenta. Solo de acceso: no hay refresh todavía."""
+    """Token de acceso nuevo para una cuenta."""
     bare = handle.lstrip("@")
     serial = next(token_issues)
     return f"mock-access-token-{bare}-{serial}"
+
+
+def issue_refresh_token(handle: str, family: int) -> str:
+    """Refresh token nuevo de una familia: dura siete días y se canjea una sola vez."""
+    bare = handle.lstrip("@")
+    token = f"{REFRESH_TOKEN_PREFIX}{bare}-{next(refresh_issues)}"
+    refresh_tokens[token] = {
+        "handle": bare,
+        "family": family,
+        "expires_at": time.time() + REFRESH_TOKEN_TTL_SECONDS,
+        "used": False,
+        "revoked": False,
+    }
+    return token
+
+
+def revoke_refresh_tokens(handle: str, family: int | None = None) -> None:
+    """Revoca los refresh tokens de una cuenta, o solo los de una familia."""
+    bare = handle.lstrip("@")
+    for entry in refresh_tokens.values():
+        if entry["handle"] == bare and (family is None or entry["family"] == family):
+            entry["revoked"] = True
 
 
 def password_policy_errors(password: str) -> list[str]:
@@ -299,6 +331,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             "/auth/resend-verification": self.resend_verification,
             "/auth/forgot-password": self.forgot_password,
             "/auth/reset-password": self.reset_password,
+            "/auth/refresh": self.refresh,
         }
         endpoint = endpoints.get(endpoint_path)
         if endpoint is None:
@@ -391,18 +424,61 @@ class AuthHandler(BaseHTTPRequestHandler):
             )
             return
 
-        access_token = issue_access_token(account["user"]["handle"])
-        # No refresh_token, no user: this is the real response shape.
-        # users-api has no refresh endpoint yet (its own tracked issue), and
-        # login never echoes the identity — the app follows up with GET /me.
+        self.send_session(account, next(refresh_families))
+
+    def send_session(self, account: dict[str, Any], family: int) -> None:
+        """The session response shared by login and refresh: a new pair of tokens.
+
+        No user: this is the real response shape, login never echoes the
+        identity and the app follows up with GET /me.
+        """
+        handle = account["user"]["handle"]
         self.send_json(
             200,
             {
-                "access_token": access_token,
+                "access_token": issue_access_token(handle),
+                "refresh_token": issue_refresh_token(handle, family),
                 "token_type": "bearer",
                 "expires_in": 900,
                 "must_change_password": False,
             },
+        )
+
+    def refresh(self, body: dict[str, Any]) -> None:
+        """Trades a refresh token for a new pair, consuming it.
+
+        Unknown, revoked and expired tokens answer the same 401. A token that
+        was already used is a reuse: every refresh token and every access token
+        of the account dies, and the answer is still the same 401.
+        """
+        entry = refresh_tokens.get(str(body.get("refresh_token", "")))
+        if entry is None or entry["revoked"] or entry["expires_at"] <= time.time():
+            self.send_invalid_refresh_token()
+            return
+
+        handle = entry["handle"]
+        if entry["used"]:
+            revoke_refresh_tokens(handle)
+            # A fresh serial is above every access token issued so far.
+            sessions_revoked_up_to[handle] = next(token_issues)
+            print(f"    refresh token reutilizado: sesiones de @{handle} revocadas")
+            self.send_invalid_refresh_token()
+            return
+
+        account = find_account(handle)
+        if account is None:
+            self.send_invalid_refresh_token()
+            return
+
+        entry["used"] = True
+        self.send_session(account, entry["family"])
+
+    def send_invalid_refresh_token(self) -> None:
+        self.send_problem(
+            401,
+            "No se pudo renovar la sesión",
+            "Tu sesión venció. Iniciá sesión de nuevo",
+            code="invalid-refresh-token",
         )
 
     def forgot_password(self, body: dict[str, Any]) -> None:
@@ -505,6 +581,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         account["password"] = password
         data["used"] = True
         print(f"    contraseña cambiada para {account['user']['handle']}")
+        revoke_refresh_tokens(account["user"]["handle"])
 
         self.send_json(200, {"status": "reset", "handle": account["user"]["handle"]})
 
@@ -791,12 +868,17 @@ class AuthHandler(BaseHTTPRequestHandler):
         parts = split_access_token(token)
         if parts is not None:
             sessions_revoked_up_to[handle.lstrip("@")] = parts[1]
+        revoke_refresh_tokens(handle)
         print(f"    contraseña cambiada desde la sesión de {handle}")
 
         self.send_json(200, {"status": "changed"})
 
     def logout(self) -> None:
-        """Revokes the Authorization header token without reading a request body."""
+        """Revokes the Authorization header token, and the family of the refresh
+        token in the optional body when it belongs to the same account."""
+        # Read first even when it is not used: an unread body would stay on the
+        # keep-alive connection and be taken for the start of the next request.
+        body = self.read_json() or {}
         auth_header = self.headers.get("Authorization", "")
         token = auth_header[len("Bearer ") :].strip() if auth_header.startswith("Bearer ") else ""
         if not token:
@@ -811,8 +893,14 @@ class AuthHandler(BaseHTTPRequestHandler):
                 code="invalid-token",
             )
             return
-        # The mock does not keep a revocation list: replying 204 is sufficient,
-        # since that is all the client observes (idempotent, like the real API).
+
+        entry = refresh_tokens.get(str(body.get("refresh_token", "")))
+        parts = split_access_token(token)
+        if entry is not None and parts is not None and entry["handle"] == parts[0]:
+            revoke_refresh_tokens(entry["handle"], entry["family"])
+        # The mock does not keep an access token revocation list: replying 204 is
+        # sufficient, since that is all the client observes (idempotent, like the
+        # real API). An unknown or foreign refresh token is ignored the same way.
         self.send_response(204)
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -961,7 +1049,7 @@ def main() -> None:
     print(f"  usuario {DEMO_HANDLE} o {DEMO_EMAIL}")
     print(f"  contraseña {DEMO_PASSWORD}\n")
     print("El link de verificación de cualquier registro nuevo aparece acá cuando pasa.")
-    print("La sesión (solo access token, sin refresh) dura 15 minutos, igual que la real.\n")
+    print("El access token dura 15 minutos y el refresh token 7 días, igual que los reales.\n")
 
     try:
         server.serve_forever()

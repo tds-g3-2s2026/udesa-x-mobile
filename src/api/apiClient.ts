@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { z } from 'zod';
-import { AuthTokens, RefreshResponse } from '../types/auth';
+import { AuthTokens } from '../types/auth';
 import { useAuthStore } from '../stores/authStore';
 
 // Every service publishes its endpoints under /api: the cluster has a single
@@ -22,6 +22,26 @@ export const REFRESH_PATH = '/auth/refresh';
 // treats failure as best effort and is about to clear the local session
 // regardless of the outcome.
 export const LOGOUT_PATH = '/auth/logout';
+
+// Wire shape of what users-api answers with when it hands out a session: POST
+// /auth/login and POST /auth/refresh share it. snake_case because that is what
+// the real contract uses. Login carries no identity (`identifier` can be the
+// email or the handle, so there is nothing reliable to build a `User` from
+// without asking `/me`). `refresh_token` is null on the backoffice login, which
+// this app never calls.
+export interface SessionResponseBody {
+  access_token: string;
+  refresh_token?: string | null;
+  token_type: string;
+  expires_in: number;
+  must_change_password: boolean;
+}
+
+// The one place a session response becomes `AuthTokens`, so login and refresh
+// cannot drift apart on what they keep.
+export function toAuthTokens(body: SessionResponseBody): AuthTokens {
+  return { accessToken: body.access_token, refreshToken: body.refresh_token ?? undefined };
+}
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -119,9 +139,14 @@ function refreshSession(): Promise<AuthTokens> {
   pendingRefresh ??= (async () => {
     const { refreshToken, setTokens } = useAuthStore.getState();
     if (!refreshToken) throw new Error(SESSION_EXPIRED_MESSAGE);
-    const response = await apiClient.post<RefreshResponse>(REFRESH_PATH, { refreshToken });
-    await setTokens(response.data.tokens);
-    return response.data.tokens;
+    const response = await apiClient.post<SessionResponseBody>(REFRESH_PATH, {
+      refresh_token: refreshToken,
+    });
+    // Every refresh token works once: the response carries the next one, and
+    // keeping the old one would make the following refresh look like a reuse.
+    const tokens = toAuthTokens(response.data);
+    await setTokens(tokens);
+    return tokens;
   })().finally(() => {
     pendingRefresh = null;
   });
