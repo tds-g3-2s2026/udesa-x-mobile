@@ -1,5 +1,6 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
+import { useAuthStore } from '../../src/stores/authStore';
 import { AuthResponse } from '../../src/types/auth';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
@@ -35,6 +36,7 @@ const session: AuthResponse = {
   },
   tokens: {
     accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
   },
 };
 
@@ -45,6 +47,7 @@ describe('Auth service', () => {
   afterEach(() => {
     post.mockReset();
     get.mockReset();
+    useAuthStore.setState({ refreshToken: null });
   });
 
   describe('E1-H2. Inicio de Sesión', () => {
@@ -52,6 +55,7 @@ describe('Auth service', () => {
       post.mockResolvedValueOnce(
         apiSuccess({
           access_token: 'jwt-access-token',
+          refresh_token: 'jwt-refresh-token',
           token_type: 'bearer',
           expires_in: 900,
           must_change_password: false,
@@ -81,6 +85,35 @@ describe('Auth service', () => {
       });
       expect(result.tokens).toEqual(session.tokens);
       expect(result.user).toEqual(session.user);
+    });
+
+    it('E1-H2.CA1 - keeps no refresh token when the API sends none', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({
+          access_token: 'jwt-access-token',
+          refresh_token: null,
+          token_type: 'bearer',
+          expires_in: 900,
+          must_change_password: false,
+        })
+      );
+      get.mockResolvedValueOnce(
+        apiSuccess({
+          id: 'usr-1',
+          email: 'jleon@udesa.edu.ar',
+          handle: '@joaquin_dev',
+          display_name: null,
+          bio: null,
+        })
+      );
+
+      const result = await authService.login({
+        identifier: '@joaquin_dev',
+        password: 'Password123',
+      });
+
+      expect(result.tokens.accessToken).toBe('jwt-access-token');
+      expect(result.tokens.refreshToken).toBeUndefined();
     });
 
     it('E1-H2.CA3 - fails with the generic message returned by the API', async () => {
@@ -515,6 +548,19 @@ describe('Auth service', () => {
       expect(post).toHaveBeenCalledWith('/auth/logout', undefined, { timeout: 3000 });
     });
 
+    it('E1-H3.CA2 - sends the stored refresh token so users-api revokes its whole session', async () => {
+      useAuthStore.setState({ refreshToken: 'jwt-refresh-token' });
+      post.mockResolvedValueOnce(apiSuccess(undefined));
+
+      await authService.logout();
+
+      expect(post).toHaveBeenCalledWith(
+        '/auth/logout',
+        { refresh_token: 'jwt-refresh-token' },
+        { timeout: 3000 }
+      );
+    });
+
     it('E1-H3.CA2 - resolves without throwing when the API rejects the logout call', async () => {
       post.mockRejectedValueOnce(apiFailure(401, { detail: 'invalid-token' }));
 
@@ -531,13 +577,19 @@ describe('Auth service', () => {
   describe('T-52. Refresco de token', () => {
     it('T-52 - trades the refresh token for the new pair issued by the API', async () => {
       post.mockResolvedValueOnce(
-        apiSuccess({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
+        apiSuccess({
+          access_token: 'new-access',
+          refresh_token: 'new-refresh',
+          token_type: 'bearer',
+          expires_in: 900,
+          must_change_password: false,
+        })
       );
 
       const tokens = await authService.refreshToken('jwt-refresh-token');
 
       expect(post).toHaveBeenCalledWith('/auth/refresh', {
-        refreshToken: 'jwt-refresh-token',
+        refresh_token: 'jwt-refresh-token',
       });
       expect(tokens).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
     });

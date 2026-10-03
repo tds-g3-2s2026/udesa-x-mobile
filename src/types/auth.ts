@@ -37,22 +37,16 @@ export interface UserPreferences {
 
 export interface AuthTokens {
   accessToken: string;
-  // Absent for now: users-api issues only a short-lived access token and has
-  // no refresh endpoint yet (tracked as its own issue there). The interceptor
-  // already treats a missing refresh token as "nothing to refresh with" and
-  // signs the session out on the next 401, which is the correct behavior
-  // until that endpoint exists.
+  // users-api hands out a new one with every login and every refresh, and each
+  // works exactly once: the one stored is always the latest. Optional only
+  // because a session restored from before refresh tokens existed has none.
+  // The interceptor then signs the session out on the next 401, since there
+  // is nothing to refresh with.
   refreshToken?: string;
 }
 
 export interface AuthResponse {
   user: User;
-  tokens: AuthTokens;
-}
-
-// The refresh endpoint only issues a new pair of tokens, the user does not
-// change, so the client keeps the one it already restored.
-export interface RefreshResponse {
   tokens: AuthTokens;
 }
 

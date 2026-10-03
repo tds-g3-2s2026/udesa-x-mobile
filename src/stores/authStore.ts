@@ -30,9 +30,9 @@ function parseStoredUser(raw: string | null): User | null {
 async function persistTokens(tokens: AuthTokens): Promise<void> {
   try {
     const writes = [SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken)];
-    // users-api issues no refresh token yet (see AuthTokens): nothing to
-    // write, and nothing stale to worry about clearing since one is never
-    // written until that endpoint exists.
+    // Rotated on every refresh, so the stored one is always overwritten with
+    // the latest. A session from before refresh tokens existed has none to
+    // write.
     if (tokens.refreshToken) {
       writes.push(SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken));
     }
@@ -128,8 +128,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         SecureStore.getItemAsync(USER_KEY),
       ]);
       const user = parseStoredUser(storedUser);
-      // No refresh token to require: users-api does not issue one yet, so an
-      // access token on its own is already a complete stored session.
+      // No refresh token to require: a session stored before refresh tokens
+      // existed has only an access token, and that is still a complete session
+      // until its next 401 ends it.
       if (accessToken && user) {
         set({ user, accessToken, refreshToken, isInitialized: true });
         return;
