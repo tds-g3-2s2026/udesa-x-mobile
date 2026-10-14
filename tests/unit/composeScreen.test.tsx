@@ -1,16 +1,21 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ComposeScreen from '../../app/(app)/compose';
 import { postService } from '../../src/features/posts/services/postService';
 import { ApiError } from '../../src/api/apiClient';
-import { Post } from '../../src/types/post';
+import { Post, PostDetail } from '../../src/types/post';
 
 const mockBack = jest.fn();
+// One object for the whole file: the composer reads the original post from an
+// effect that depends on the router, so a new object per render would loop.
+const mockRouter = { back: mockBack };
+let mockParams: { parentId?: string } = {};
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => mockRouter,
+  useLocalSearchParams: () => mockParams,
 }));
 
 const initialMetrics = {
@@ -35,7 +40,22 @@ async function press(label: string): Promise<void> {
 const createdPost: Post = {
   id: 'post-1',
   authorId: 'usr-1',
+  parentId: null,
   content: 'Hola UdeSA-X',
+  createdAt: '2026-09-22T15:00:00Z',
+  likesCount: 0,
+  retweetsCount: 0,
+  repliesCount: 0,
+};
+
+const original: PostDetail = {
+  id: 'post-1',
+  authorId: 'usr-2',
+  authorHandle: '@joaquin_dev',
+  authorDisplayName: null,
+  authorAvatarUrl: null,
+  parentId: null,
+  content: 'El post original',
   createdAt: '2026-09-22T15:00:00Z',
   likesCount: 0,
   retweetsCount: 0,
@@ -45,6 +65,7 @@ const createdPost: Post = {
 afterEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
+  mockParams = {};
 });
 
 describe('E2-H1. Crear Post', () => {
@@ -125,5 +146,131 @@ describe('E2-H1. Crear Post', () => {
 
     expect(createPost).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+describe('E2-H4. Responder a un Post', () => {
+  beforeEach(() => {
+    mockParams = { parentId: 'post-1' };
+    jest.spyOn(postService, 'getPost').mockResolvedValue(original);
+  });
+
+  it('E2-H4.CA1 - shows who is being answered together with the original post', async () => {
+    renderScreen();
+
+    expect(await screen.findByText('Respondiendo a @joaquin_dev')).toBeTruthy();
+    expect(screen.getByText('El post original')).toBeTruthy();
+  });
+
+  it('E2-H4.CA1 - sends the text as a reply to that post and goes back', async () => {
+    const createReply = jest.spyOn(postService, 'createReply').mockResolvedValue({
+      ...createdPost,
+      id: 'reply-1',
+      parentId: 'post-1',
+    });
+    const createPost = jest.spyOn(postService, 'createPost');
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Buenísimo');
+    await press('Responder');
+
+    expect(createReply).toHaveBeenCalledWith('post-1', 'Buenísimo');
+    expect(createPost).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('E2-H4.CA2 - the reply has the same 280 characters limit as a post', async () => {
+    const createReply = jest.spyOn(postService, 'createReply');
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'a'.repeat(281));
+
+    expect(screen.getByText('281/280')).toBeTruthy();
+    await press('Responder');
+    expect(createReply).not.toHaveBeenCalled();
+  });
+
+  it('E2-H4.CA2 - a blank reply cannot be sent', async () => {
+    const createReply = jest.spyOn(postService, 'createReply');
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), '   ');
+    await press('Responder');
+
+    expect(createReply).not.toHaveBeenCalled();
+  });
+
+  it('cannot be sent before the original post has loaded', async () => {
+    jest.spyOn(postService, 'getPost').mockReturnValue(new Promise(() => undefined));
+    const createReply = jest.spyOn(postService, 'createReply');
+
+    renderScreen();
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Buenísimo');
+    await press('Responder');
+
+    expect(createReply).not.toHaveBeenCalled();
+  });
+
+  it('E2-H4.CA3 - a 404 says the post cannot be answered, without naming a block', async () => {
+    jest
+      .spyOn(postService, 'createReply')
+      .mockRejectedValue(new ApiError('La publicación no existe.', 'post-not-found'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Buenísimo');
+    await press('Responder');
+
+    expect(alert).toHaveBeenCalledWith('Error', 'No podés responder a esta publicación.');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('E2-H4.CA2 - any other failure shows the API message and keeps the draft', async () => {
+    jest
+      .spyOn(postService, 'createReply')
+      .mockRejectedValue(
+        new ApiError('Alcanzaste el límite de 30 publicaciones por hora. Probá más tarde.')
+      );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Buenísimo');
+    await press('Responder');
+
+    expect(alert).toHaveBeenCalledWith(
+      'Error',
+      'Alcanzaste el límite de 30 publicaciones por hora. Probá más tarde.'
+    );
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('E2-H4.CA3 - an original that cannot be read closes the composer with the same message', async () => {
+    jest
+      .spyOn(postService, 'getPost')
+      .mockRejectedValue(new ApiError('La publicación no existe.', 'post-not-found'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith('Error', 'No podés responder a esta publicación.')
+    );
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('a screen closed before the original arrives ignores the late answer', async () => {
+    let resolve: (post: PostDetail) => void = () => undefined;
+    jest.spyOn(postService, 'getPost').mockReturnValue(new Promise((done) => (resolve = done)));
+
+    const view = renderScreen();
+    view.unmount();
+    await act(async () => resolve(original));
+
+    expect(mockBack).not.toHaveBeenCalled();
   });
 });
