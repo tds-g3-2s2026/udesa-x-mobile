@@ -1,4 +1,4 @@
-import { FeedPage, Post, SuggestedAccount } from '../../../types/post';
+import { FeedPage, Post, PostDetail, SuggestedAccount } from '../../../types/post';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
 
@@ -14,6 +14,40 @@ export const postService = {
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudo publicar. Intentalo de nuevo.');
+    }
+  },
+
+  // A reply takes the same checks as a post (length, HTML, hourly limit), all
+  // server-side. A parent the caller cannot see answers the same 404 as one
+  // that does not exist, so the service keeps that error's `code` for the
+  // screen to match on and never says why.
+  async createReply(postId: string, content: string): Promise<Post> {
+    try {
+      const response = await postsApiClient.post<Post>(`/posts/${postId}/replies`, { content });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo responder. Intentalo de nuevo.');
+    }
+  },
+
+  async getPost(postId: string): Promise<PostDetail> {
+    try {
+      const response = await postsApiClient.get<PostDetail>(`/posts/${postId}`);
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo cargar la publicación. Intentalo de nuevo.');
+    }
+  },
+
+  // Oldest first, unlike the feed: a thread reads top to bottom.
+  async getReplies(postId: string, cursor: string | null = null): Promise<FeedPage> {
+    try {
+      const response = await postsApiClient.get<FeedPage>(`/posts/${postId}/replies`, {
+        params: cursor ? { cursor } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar las respuestas. Intentalo de nuevo.');
     }
   },
 

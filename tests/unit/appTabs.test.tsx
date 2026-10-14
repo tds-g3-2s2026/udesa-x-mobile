@@ -156,6 +156,7 @@ describe('T-51. Navegación por tabs', () => {
     const post: Post = {
       id: 'post-1',
       authorId: 'usr-1',
+      parentId: null,
       content: 'Arrancamos con el feed',
       createdAt: '2026-09-22T15:00:00Z',
       likesCount: 0,
