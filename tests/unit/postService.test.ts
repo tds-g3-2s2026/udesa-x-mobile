@@ -27,11 +27,15 @@ function networkFailure(): AxiosError {
 
 const post = jest.spyOn(postsApiClient, 'post');
 const get = jest.spyOn(postsApiClient, 'get');
+const put = jest.spyOn(postsApiClient, 'put');
+const del = jest.spyOn(postsApiClient, 'delete');
 
 describe('Post service', () => {
   afterEach(() => {
     post.mockReset();
     get.mockReset();
+    put.mockReset();
+    del.mockReset();
   });
 
   describe('E2-H1. Crear Post', () => {
@@ -118,6 +122,7 @@ describe('Post service', () => {
       content: 'Buenísimo',
       createdAt: '2026-09-22T15:05:00Z',
       likesCount: 0,
+      likedByMe: false,
       retweetsCount: 0,
       repliesCount: 0,
     };
@@ -210,6 +215,48 @@ describe('Post service', () => {
     });
   });
 
+  describe('E2-H6. Like a un Post', () => {
+    it('E2-H6.CA1 - likes with a PUT on the post and sends no body', async () => {
+      put.mockResolvedValueOnce(apiSuccess(undefined, 204));
+
+      await postService.likePost('post-1');
+
+      expect(put).toHaveBeenCalledWith('/posts/post-1/like');
+    });
+
+    it('E2-H6.CA1 - removes the like with a DELETE on the same path', async () => {
+      del.mockResolvedValueOnce(apiSuccess(undefined, 204));
+
+      await postService.unlikePost('post-1');
+
+      expect(del).toHaveBeenCalledWith('/posts/post-1/like');
+    });
+
+    it('propagates the API message when the post cannot be liked', async () => {
+      put.mockRejectedValueOnce(
+        apiFailure(404, {
+          type: 'https://udesa-x.dev/errors/post-not-found',
+          title: 'Publicación no encontrada',
+          detail: 'La publicación no existe.',
+        })
+      );
+
+      await expect(postService.likePost('post-1')).rejects.toMatchObject({
+        message: 'La publicación no existe.',
+        code: 'post-not-found',
+      });
+    });
+
+    it('reports a like or unlike failure with the generic message, not a raw axios error', async () => {
+      put.mockRejectedValueOnce(networkFailure());
+      del.mockRejectedValueOnce(networkFailure());
+      const offline = { message: 'No se pudo conectar con el servidor. Revisá tu conexión.' };
+
+      await expect(postService.likePost('post-1')).rejects.toMatchObject(offline);
+      await expect(postService.unlikePost('post-1')).rejects.toMatchObject(offline);
+    });
+  });
+
   describe('E2-H2. Feed Principal', () => {
     it('E2-H2.CA2 - lists the feed with the cursor as an opaque query param', async () => {
       const page = {
@@ -223,6 +270,7 @@ describe('Post service', () => {
             content: 'Primer post',
             createdAt: '2026-09-22T15:00:00Z',
             likesCount: 0,
+            likedByMe: false,
             retweetsCount: 0,
             repliesCount: 0,
           } satisfies FeedItem,

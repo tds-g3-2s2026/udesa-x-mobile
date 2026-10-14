@@ -58,6 +58,7 @@ const original: PostDetail = {
   content: 'El post original',
   createdAt: '2026-09-22T15:00:00Z',
   likesCount: 0,
+  likedByMe: false,
   retweetsCount: 0,
   repliesCount: 0,
 };

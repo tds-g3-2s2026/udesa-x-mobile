@@ -15,7 +15,8 @@ export interface Post {
 
 // A row of GET /feed: same counters as Post, plus the author fields the feed
 // needs to render a row and Post doesn't carry (posting is always the
-// caller, so there is nothing to name there).
+// caller, so there is nothing to name there), and whether the caller already
+// liked it, which only the server can know and the like button starts from.
 export interface FeedItem {
   id: string;
   authorId: string;
@@ -25,6 +26,7 @@ export interface FeedItem {
   content: string;
   createdAt: string;
   likesCount: number;
+  likedByMe: boolean;
   retweetsCount: number;
   repliesCount: number;
 }
