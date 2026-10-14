@@ -273,4 +273,17 @@ describe('E2-H4. Responder a un Post', () => {
 
     expect(mockBack).not.toHaveBeenCalled();
   });
+
+  it('a screen closed before the original fails ignores the late failure', async () => {
+    let reject: (error: Error) => void = () => undefined;
+    jest.spyOn(postService, 'getPost').mockReturnValue(new Promise((_, fail) => (reject = fail)));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    const view = renderScreen();
+    view.unmount();
+    await act(async () => reject(new ApiError('La publicación no existe.', 'post-not-found')));
+
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
 });
