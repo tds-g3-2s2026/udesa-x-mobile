@@ -17,7 +17,7 @@ import { Colors } from '../../../src/theme/colors';
 import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/components/AppScreen';
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
-import { formatRelativeTime } from '../../../src/features/posts/relativeTime';
+import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
 
@@ -179,57 +179,20 @@ export default function FeedScreen() {
             ) : null
           }
           renderItem={({ item }) => (
-            <View style={styles.postCard}>
-              <View style={styles.postHeader}>
-                {/* No profile photo feature yet: a placeholder icon stands in. */}
-                <View style={styles.avatar}>
-                  <Ionicons name="person" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.postAuthorBlock}>
-                  <Text style={styles.postAuthor}>
-                    {item.authorDisplayName || item.authorHandle}
-                  </Text>
-                  {item.authorDisplayName && item.authorHandle ? (
-                    <Text style={styles.postHandle}>{item.authorHandle}</Text>
-                  ) : null}
-                </View>
-                <Text style={styles.postTime}>{formatRelativeTime(item.createdAt)}</Text>
-                {/* Hidden on your own posts: posts-api refuses reporting yourself,
-                    so the button could only ever lead to an error. */}
-                {item.authorId !== userId ? (
-                  <TouchableOpacity
-                    style={styles.reportButton}
-                    onPress={() =>
+            <PostCard
+              item={item}
+              onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
+              onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
+              onReport={
+                item.authorId !== userId
+                  ? () =>
                       router.push({
                         pathname: '/report',
                         params: { postId: item.id, handle: item.authorHandle ?? '' },
                       })
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Denunciar post de ${item.authorHandle ?? 'esta cuenta'}`}
-                  >
-                    <Ionicons name="flag-outline" size={16} color={colors.muted} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <Text style={styles.postContent}>{item.content}</Text>
-
-              <View style={styles.postCounters}>
-                <View style={styles.postCounter}>
-                  <Ionicons name="heart-outline" size={16} color={colors.muted} />
-                  <Text style={styles.postCounterLabel}>{item.likesCount}</Text>
-                </View>
-                <View style={styles.postCounter}>
-                  <Ionicons name="repeat-outline" size={16} color={colors.muted} />
-                  <Text style={styles.postCounterLabel}>{item.retweetsCount}</Text>
-                </View>
-                <View style={styles.postCounter}>
-                  <Ionicons name="chatbubble-outline" size={16} color={colors.muted} />
-                  <Text style={styles.postCounterLabel}>{item.repliesCount}</Text>
-                </View>
-              </View>
-            </View>
+                  : undefined
+              }
+            />
           )}
         />
       )}
@@ -285,58 +248,6 @@ function createStyles(colors: Colors) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primarySoft,
-    },
-    postCard: {
-      padding: 16,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.divider,
-      backgroundColor: colors.field,
-      marginBottom: 10,
-    },
-    postHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 8,
-    },
-    postAuthorBlock: {
-      flex: 1,
-    },
-    postAuthor: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    postHandle: {
-      fontSize: 12,
-      color: colors.muted,
-    },
-    postTime: {
-      fontSize: 12,
-      color: colors.muted,
-    },
-    reportButton: {
-      padding: 4,
-    },
-    postContent: {
-      fontSize: 15,
-      color: colors.text,
-      lineHeight: 21,
-      marginBottom: 10,
-    },
-    postCounters: {
-      flexDirection: 'row',
-      gap: 20,
-    },
-    postCounter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    postCounterLabel: {
-      fontSize: 13,
-      color: colors.muted,
     },
     footerLoading: {
       paddingVertical: 16,

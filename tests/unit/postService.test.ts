@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { postService } from '../../src/features/posts/services/postService';
 import { postsApiClient } from '../../src/api/postsApiClient';
-import { FeedItem, Post, SuggestedAccount } from '../../src/types/post';
+import { FeedItem, Post, PostDetail, SuggestedAccount } from '../../src/types/post';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
@@ -39,6 +39,7 @@ describe('Post service', () => {
       const created: Post = {
         id: 'post-1',
         authorId: 'usr-1',
+        parentId: null,
         content: 'Hola UdeSA-X',
         createdAt: '2026-09-22T15:00:00Z',
         likesCount: 0,
@@ -104,6 +105,108 @@ describe('Post service', () => {
       await expect(postService.createPost('hola')).rejects.toMatchObject({
         message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
       });
+    });
+  });
+
+  describe('E2-H4. Responder a un Post', () => {
+    const reply: FeedItem = {
+      id: 'reply-1',
+      authorId: 'usr-2',
+      authorHandle: '@joaquin_dev',
+      authorDisplayName: null,
+      authorAvatarUrl: null,
+      content: 'Buenísimo',
+      createdAt: '2026-09-22T15:05:00Z',
+      likesCount: 0,
+      retweetsCount: 0,
+      repliesCount: 0,
+    };
+
+    it('E2-H4.CA1 - posts the reply under the original and returns it with its parentId', async () => {
+      const created: Post = {
+        id: 'reply-1',
+        authorId: 'usr-1',
+        parentId: 'post-1',
+        content: 'Buenísimo',
+        createdAt: '2026-09-22T15:05:00Z',
+        likesCount: 0,
+        retweetsCount: 0,
+        repliesCount: 0,
+      };
+      post.mockResolvedValueOnce(apiSuccess(created));
+
+      const result = await postService.createReply('post-1', 'Buenísimo');
+
+      expect(post).toHaveBeenCalledWith('/posts/post-1/replies', { content: 'Buenísimo' });
+      expect(result).toEqual(created);
+    });
+
+    it('E2-H4.CA1 - reads the original post with the id of the one it answers', async () => {
+      const detail: PostDetail = { ...reply, id: 'post-2', parentId: 'post-1' };
+      get.mockResolvedValueOnce(apiSuccess(detail, 200));
+
+      const result = await postService.getPost('post-2');
+
+      expect(get).toHaveBeenCalledWith('/posts/post-2');
+      expect(result).toEqual(detail);
+    });
+
+    it('E2-H4.CA2 - propagates the API message when the reply is too long', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/post-too-long',
+          title: 'Post demasiado largo',
+          detail: 'El post no puede superar los 280 caracteres.',
+        })
+      );
+
+      await expect(postService.createReply('post-1', 'a'.repeat(281))).rejects.toMatchObject({
+        message: 'El post no puede superar los 280 caracteres.',
+        code: 'post-too-long',
+      });
+    });
+
+    it('E2-H4.CA3 - keeps the code of the 404 so the screen can match on it', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(404, {
+          type: 'https://udesa-x.dev/errors/post-not-found',
+          title: 'Publicación no encontrada',
+          detail: 'La publicación no existe.',
+        })
+      );
+
+      await expect(postService.createReply('post-1', 'hola')).rejects.toMatchObject({
+        code: 'post-not-found',
+      });
+    });
+
+    it('E2-H4.CA4 - lists the replies with the cursor as an opaque query param', async () => {
+      const page = { items: [reply], nextCursor: '20' };
+      get.mockResolvedValueOnce(apiSuccess(page, 200));
+
+      const result = await postService.getReplies('post-1', '10');
+
+      expect(get).toHaveBeenCalledWith('/posts/post-1/replies', { params: { cursor: '10' } });
+      expect(result).toEqual(page);
+    });
+
+    it('E2-H4.CA4 - the first page of replies sends no cursor at all', async () => {
+      get.mockResolvedValueOnce(apiSuccess({ items: [], nextCursor: null }, 200));
+
+      await postService.getReplies('post-1');
+
+      expect(get).toHaveBeenCalledWith('/posts/post-1/replies', { params: undefined });
+    });
+
+    it('reports a reply, post or replies failure with the generic message, not a raw axios error', async () => {
+      post.mockRejectedValueOnce(networkFailure());
+      get.mockRejectedValueOnce(networkFailure());
+      get.mockRejectedValueOnce(networkFailure());
+      const offline = { message: 'No se pudo conectar con el servidor. Revisá tu conexión.' };
+
+      await expect(postService.createReply('post-1', 'hola')).rejects.toMatchObject(offline);
+      await expect(postService.getPost('post-1')).rejects.toMatchObject(offline);
+      await expect(postService.getReplies('post-1')).rejects.toMatchObject(offline);
     });
   });
 

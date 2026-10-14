@@ -35,6 +35,18 @@ export default function AppLayout() {
       <Stack.Screen name="blocked-accounts" />
       <Stack.Screen name="compose" />
       <Stack.Screen name="report" />
+      <Stack.Screen
+        name="post/[id]"
+        options={{
+          headerShown: true,
+          title: 'Publicación',
+          headerBackTitle: 'Volver',
+          headerTintColor: colors.primary,
+          headerStyle: { backgroundColor: colors.surface },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontWeight: '600', color: colors.text },
+        }}
+      />
     </Stack>
   );
 }

@@ -1,9 +1,11 @@
-// Shape of POST /posts' 201 response. Counts start at zero and content
-// already comes back sanitized: both are backend guarantees, nothing
-// mobile has to enforce on its own.
+// Shape of the 201 response of POST /posts and POST /posts/{id}/replies.
+// Counts start at zero and content already comes back sanitized: both are
+// backend guarantees, nothing mobile has to enforce on its own. `parentId` is
+// null for a top-level post and the id of the original for a reply.
 export interface Post {
   id: string;
   authorId: string;
+  parentId: string | null;
   content: string;
   createdAt: string;
   likesCount: number;
@@ -27,8 +29,15 @@ export interface FeedItem {
   repliesCount: number;
 }
 
-// GET /feed's shape: a fixed page of 20 plus an opaque cursor for the next
-// one, null once there is no more — same convention as the follow lists.
+// GET /posts/{id}: a feed row plus the post it answers, null when it is not a
+// reply. The replies listed under it are plain feed rows.
+export interface PostDetail extends FeedItem {
+  parentId: string | null;
+}
+
+// GET /feed's shape, and GET /posts/{id}/replies' too: a fixed page of 20 plus
+// an opaque cursor for the next one, null once there is no more — same
+// convention as the follow lists.
 export interface FeedPage {
   items: FeedItem[];
   nextCursor: string | null;

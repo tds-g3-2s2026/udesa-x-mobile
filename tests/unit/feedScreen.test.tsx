@@ -314,3 +314,32 @@ describe('E3-H5. Denunciar Usuario', () => {
     expect(screen.queryByLabelText('Denunciar post de @demo')).toBeNull();
   });
 });
+
+describe('E2-H4. Responder a un Post', () => {
+  it('E2-H4.CA1 - Responder on a row opens the composer with that post id', async () => {
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [item('post-1', { authorHandle: '@persona2' })],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Responder a @persona2'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/compose',
+      params: { parentId: 'post-1' },
+    });
+  });
+
+  it('tapping a row opens the post with its thread of replies', async () => {
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [item('post-1', { authorHandle: '@persona2' })],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Abrir la publicación de @persona2'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-1' } });
+  });
+});
