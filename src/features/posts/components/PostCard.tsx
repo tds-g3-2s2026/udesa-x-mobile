@@ -5,6 +5,7 @@ import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
+import { LikeButton } from './LikeButton';
 
 interface PostCardProps {
   item: FeedItem;
@@ -49,10 +50,7 @@ export function PostCard({ item, onReport, onReply, onOpen }: PostCardProps) {
       <Text style={styles.content}>{item.content}</Text>
 
       <View style={styles.counters}>
-        <View style={styles.counter}>
-          <Ionicons name="heart-outline" size={16} color={colors.muted} />
-          <Text style={styles.counterLabel}>{item.likesCount}</Text>
-        </View>
+        <LikeButton postId={item.id} liked={item.likedByMe} count={item.likesCount} />
         <View style={styles.counter}>
           <Ionicons name="repeat-outline" size={16} color={colors.muted} />
           <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
