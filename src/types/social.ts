@@ -54,6 +54,24 @@ export interface BlockedAccountPage {
   nextCursor: string | null;
 }
 
+// GET /users/{id}: the header of another account's profile. `displayName`,
+// `bio` and `createdAt` live in users-api and arrive null when posts-api
+// could not reach it. `avatarUrl` stays null until profile photos exist.
+// `isPrivate` says the account is protected, not whether the caller may read
+// it: together with `isFollowedByMe` the screen knows both.
+export interface UserProfile {
+  id: string;
+  handle: string | null;
+  displayName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  createdAt: string | null;
+  followersCount: number;
+  followingCount: number;
+  isPrivate: boolean;
+  isFollowedByMe: boolean;
+}
+
 // The closed list posts-api accepts: anything else is a 422.
 export type ReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'impersonation';
 
