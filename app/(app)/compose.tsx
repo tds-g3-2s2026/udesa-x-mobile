@@ -33,6 +33,7 @@ export default function ComposeScreen() {
 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [parentDeleted, setParentDeleted] = useState(false);
   const [parent, setParent] = useState<PostDetail | null>(null);
 
   // Read from posts-api instead of handed over by the screen that opened this
@@ -43,7 +44,10 @@ export default function ComposeScreen() {
     postService
       .getPost(parentId)
       .then((post) => {
-        if (isCurrent) setParent(post);
+        if (isCurrent) {
+          setParent(post);
+          setParentDeleted(post.deleted);
+        }
       })
       .catch((error) => {
         if (!isCurrent) return;
@@ -62,6 +66,7 @@ export default function ComposeScreen() {
   const isTooLong = content.length > MAX_LENGTH;
 
   const handlePublish = async () => {
+    if (isSubmitting || parentDeleted) return;
     setIsSubmitting(true);
     try {
       if (parentId) await postService.createReply(parentId, content);
@@ -70,7 +75,8 @@ export default function ComposeScreen() {
       // the moment it regains focus, and that fresh GET already has this post.
       router.back();
     } catch (error) {
-      Alert.alert('Error', isReply ? replyErrorMessage(error) : getAuthErrorMessage(error));
+      if (error instanceof ApiError && error.code === 'post-deleted') setParentDeleted(true);
+      else Alert.alert('Error', isReply ? replyErrorMessage(error) : getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,14 +88,15 @@ export default function ComposeScreen() {
       submitLabel={isReply ? 'Responder' : 'Publicar'}
       onSubmit={handlePublish}
       isSubmitting={isSubmitting}
-      disabled={isBlank || isTooLong || (isReply && parent === null)}
+      disabled={isBlank || isTooLong || parentDeleted || (isReply && parent === null)}
       footer={
         <Text style={authStyles.footerLink} onPress={() => router.back()}>
           Cancelar
         </Text>
       }
     >
-      {parent ? (
+      {parentDeleted ? <Text>Esta publicación fue eliminada.</Text> : null}
+      {parent && !parentDeleted ? (
         <View style={styles.quote}>
           <Text style={styles.quoteLabel}>Respondiendo a {parent.authorHandle}</Text>
           <Text style={styles.quoteContent}>{parent.content}</Text>

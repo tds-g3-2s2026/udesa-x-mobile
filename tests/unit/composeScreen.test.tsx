@@ -54,6 +54,7 @@ const original: PostDetail = {
   authorHandle: '@joaquin_dev',
   authorDisplayName: null,
   authorAvatarUrl: null,
+  deleted: false,
   parentId: null,
   content: 'El post original',
   createdAt: '2026-09-22T15:00:00Z',
@@ -291,4 +292,34 @@ describe('E2-H4. Responder a un Post', () => {
     expect(alert).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
   });
+});
+
+test('E2-H3.CA4 - a deleted parent disables replying without discarding the draft', async () => {
+  mockParams = { parentId: 'post-1' };
+  jest
+    .spyOn(postService, 'getPost')
+    .mockResolvedValue({ ...original, deleted: true, content: null });
+  const submit = jest.spyOn(postService, 'createReply');
+  renderScreen();
+  expect(await screen.findByText('Esta publicación fue eliminada.')).toBeTruthy();
+  fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Mi borrador');
+  await press('Responder');
+  expect(submit).not.toHaveBeenCalled();
+  expect(screen.getByDisplayValue('Mi borrador')).toBeTruthy();
+});
+
+test('E2-H3.CA4 - deletion while composing keeps the draft and prevents a second submission', async () => {
+  mockParams = { parentId: 'post-1' };
+  jest.spyOn(postService, 'getPost').mockResolvedValue(original);
+  const submit = jest
+    .spyOn(postService, 'createReply')
+    .mockRejectedValue(new ApiError('Esta publicación fue eliminada.', 'post-deleted'));
+  renderScreen();
+  await screen.findByText('El post original');
+  fireEvent.changeText(screen.getByPlaceholderText('Escribí tu respuesta'), 'Mi borrador');
+  await press('Responder');
+  expect(await screen.findByText('Esta publicación fue eliminada.')).toBeTruthy();
+  expect(screen.getByDisplayValue('Mi borrador')).toBeTruthy();
+  await press('Responder');
+  expect(submit).toHaveBeenCalledTimes(1);
 });

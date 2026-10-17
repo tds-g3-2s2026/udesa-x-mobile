@@ -23,7 +23,8 @@ export interface FeedItem {
   authorHandle: string | null;
   authorDisplayName: string | null;
   authorAvatarUrl: string | null;
-  content: string;
+  content: string | null;
+  deleted: boolean;
   createdAt: string;
   likesCount: number;
   likedByMe: boolean;

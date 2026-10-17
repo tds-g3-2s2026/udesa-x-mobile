@@ -32,7 +32,7 @@ export function usePostInteractions() {
       const key = `${kind}:${item.id}`;
       const active = kind === 'like' ? 'likedByMe' : 'retweetedByMe';
       const count = kind === 'like' ? 'likesCount' : 'retweetsCount';
-      if (locks.current.has(key)) return;
+      if (item.deleted || locks.current.has(key)) return;
       locks.current.add(key);
       revision.current += 1;
       setPending(new Set(locks.current));
@@ -85,7 +85,8 @@ export function usePostInteractions() {
 
   return useMemo(
     () => ({
-      forPost: (item: FeedItem): FeedItem => ({ ...item, ...overrides[item.id] }),
+      forPost: (item: FeedItem): FeedItem =>
+        item.deleted ? item : { ...item, ...overrides[item.id] },
       isRetweetPending: (id: string) => pending.has(`retweet:${id}`),
       isLikePending: (id: string) => pending.has(`like:${id}`),
       toggleRetweet: (item: FeedItem) => toggle(item, 'retweet'),
