@@ -173,6 +173,10 @@ describe('T-51. Navegación por tabs', () => {
       createdAt: '2026-09-22T15:00:00Z',
       likesCount: 0,
       likedByMe: false,
+      retweetedByMe: false,
+      retweetedBy: null,
+      entryId: 'post:post-1',
+      activityAt: '2026-09-22T15:00:00Z',
       retweetsCount: 0,
       repliesCount: 0,
     };
