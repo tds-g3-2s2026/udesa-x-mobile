@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
+import { useAuthStore } from '../../../stores/authStore';
+import { CurrentProfileContext } from '../currentProfile';
 import { LikeButton } from './LikeButton';
 
 interface PostCardProps {
@@ -20,20 +23,36 @@ interface PostCardProps {
 export function PostCard({ item, onReport, onReply, onOpen }: PostCardProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
+  const userId = useAuthStore((state) => state.user?.id);
+  const currentProfileId = useContext(CurrentProfileContext);
+  // Your own posts link nowhere, your profile is a tab of its own. Neither does
+  // a card shown on its author's profile, which is the screen already open.
+  const canOpenAuthor = item.authorId !== userId && item.authorId !== currentProfileId;
 
   const card = (
     <>
       <View style={styles.header}>
-        {/* No profile photo feature yet: a placeholder icon stands in. */}
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.authorBlock}>
-          <Text style={styles.author}>{item.authorDisplayName || item.authorHandle}</Text>
-          {item.authorDisplayName && item.authorHandle ? (
-            <Text style={styles.handle}>{item.authorHandle}</Text>
-          ) : null}
-        </View>
+        <TouchableOpacity
+          style={styles.authorLink}
+          onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.authorId } })}
+          disabled={!canOpenAuthor}
+          accessibilityRole={canOpenAuthor ? 'link' : undefined}
+          accessibilityLabel={
+            canOpenAuthor ? `Ver el perfil de ${item.authorHandle ?? 'esta cuenta'}` : undefined
+          }
+        >
+          {/* No profile photo feature yet: a placeholder icon stands in. */}
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.authorBlock}>
+            <Text style={styles.author}>{item.authorDisplayName || item.authorHandle}</Text>
+            {item.authorDisplayName && item.authorHandle ? (
+              <Text style={styles.handle}>{item.authorHandle}</Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
         <Text style={styles.time}>{formatRelativeTime(item.createdAt)}</Text>
         {onReport ? (
           <TouchableOpacity
@@ -112,6 +131,12 @@ function createStyles(colors: Colors) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primarySoft,
+    },
+    authorLink: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
     authorBlock: {
       flex: 1,
