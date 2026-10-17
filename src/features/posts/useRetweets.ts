@@ -27,7 +27,7 @@ export function useRetweets() {
 
   const toggle = useCallback(
     async (item: FeedItem) => {
-      if (locks.current.has(item.id)) return;
+      if (item.deleted || locks.current.has(item.id)) return;
       locks.current.add(item.id);
       revision.current += 1;
       setPending(new Set(locks.current));
@@ -75,7 +75,8 @@ export function useRetweets() {
 
   return useMemo(
     () => ({
-      forPost: (item: FeedItem): FeedItem => ({ ...item, ...overrides[item.id] }),
+      forPost: (item: FeedItem): FeedItem =>
+        item.deleted ? item : { ...item, ...overrides[item.id] },
       isPending: (id: string) => pending.has(id),
       toggle,
       beginRead,

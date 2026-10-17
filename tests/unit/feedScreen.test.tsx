@@ -43,6 +43,7 @@ function item(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     authorHandle: `@${id}`,
     authorDisplayName: null,
     authorAvatarUrl: null,
+    deleted: false,
     content: `contenido de ${id}`,
     createdAt: '2026-09-22T15:00:00Z',
     likesCount: 0,
@@ -347,4 +348,26 @@ describe('E2-H4. Responder a un Post', () => {
 
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-1' } });
   });
+});
+
+test('E2-H3.CA3 - deleting removes all duplicate entries even if refresh returns stale content', async () => {
+  const own = item('post-1');
+  useAuthStore.setState({
+    user: { id: own.authorId } as NonNullable<ReturnType<typeof useAuthStore.getState>['user']>,
+  });
+  jest.spyOn(postService, 'getFeed').mockResolvedValue({
+    items: [own, { ...own, entryId: 'retweet:fan:post-1', retweetedBy: '@fan' }],
+    nextCursor: null,
+  });
+  jest.spyOn(postService, 'deletePost').mockResolvedValue(undefined);
+  renderScreen();
+  expect(await screen.findAllByText(own.content as string)).toHaveLength(2);
+  fireEvent.press(screen.getAllByLabelText('Eliminar publicación')[0], {
+    stopPropagation: jest.fn(),
+  });
+  await act(async () =>
+    fireEvent.press(screen.getByText('Eliminar'), { stopPropagation: jest.fn() })
+  );
+  await waitFor(() => expect(screen.queryAllByText(own.content as string)).toHaveLength(0));
+  expect(postService.getFeed).toHaveBeenCalledTimes(2);
 });
