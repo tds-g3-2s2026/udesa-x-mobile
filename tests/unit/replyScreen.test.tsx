@@ -27,6 +27,7 @@ function reply(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     authorHandle: `@${id}`,
     authorDisplayName: null,
     authorAvatarUrl: null,
+    deleted: false,
     content: `contenido de ${id}`,
     createdAt: '2026-09-22T15:00:00Z',
     likesCount: 0,
@@ -212,4 +213,29 @@ describe('E2-H4. Responder a un Post', () => {
       'No se pudo cargar la publicación. Intentalo de nuevo.'
     );
   });
+});
+
+test('E2-H3.CA4 - own deletion keeps the thread marker if the following refresh fails', async () => {
+  const own = original();
+  useAuthStore.setState({
+    user: { id: own.authorId } as NonNullable<ReturnType<typeof useAuthStore.getState>['user']>,
+  });
+  jest
+    .spyOn(postService, 'getPost')
+    .mockResolvedValueOnce(own)
+    .mockRejectedValue(new Error('offline'));
+  jest
+    .spyOn(postService, 'getReplies')
+    .mockResolvedValue({ items: [reply('child')], nextCursor: null });
+  jest.spyOn(postService, 'deletePost').mockResolvedValue(undefined);
+  jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  render(<PostDetailScreen />);
+  await screen.findByText(own.content as string);
+  fireEvent.press(screen.getByLabelText('Eliminar publicación'), { stopPropagation: jest.fn() });
+  await act(async () =>
+    fireEvent.press(screen.getByText('Eliminar'), { stopPropagation: jest.fn() })
+  );
+  expect(await screen.findByText('[Post eliminado]')).toBeTruthy();
+  expect(screen.getByText('contenido de child')).toBeTruthy();
+  expect(screen.queryByText(own.content as string)).toBeNull();
 });

@@ -18,6 +18,7 @@ import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/co
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
+import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
 import { useRetweets } from '../../../src/features/posts/useRetweets';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -80,6 +81,8 @@ export default function FeedScreen() {
     }, [loadFeed])
   );
 
+  const deletion = usePostDeletion(() => loadFeed(true));
+
   const loadMore = async () => {
     if (isLoadingMore || nextCursor === null) return;
     setIsLoadingMore(true);
@@ -134,7 +137,7 @@ export default function FeedScreen() {
       ) : (
         <FlatList
           testID="feed-list"
-          data={items}
+          data={items.map(deletion.forPost).filter((item) => !item.deleted)}
           keyExtractor={(item) => item.entryId}
           contentContainerStyle={styles.list}
           ListHeaderComponent={header}
@@ -188,8 +191,12 @@ export default function FeedScreen() {
           }
           renderItem={({ item }) => (
             <PostCard
-              item={retweets.forPost(item)}
-              onRetweet={() => retweets.toggle(item)}
+              item={deletion.forPost(retweets.forPost(item))}
+              onDelete={
+                item.authorId === userId ? () => deletion.remove(deletion.forPost(item)) : undefined
+              }
+              deletePending={deletion.isPending(item.id)}
+              onRetweet={() => retweets.toggle(deletion.forPost(item))}
               retweetPending={retweets.isPending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}

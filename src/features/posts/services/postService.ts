@@ -5,6 +5,14 @@ import { toAuthError } from '../../../api/apiClient';
 export { getAuthErrorMessage } from '../../../api/apiClient';
 
 export const postService = {
+  async deletePost(postId: string): Promise<void> {
+    try {
+      await postsApiClient.delete(`/posts/${postId}`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo eliminar la publicación. Intentalo de nuevo.');
+    }
+  },
+
   async retweet(postId: string): Promise<void> {
     try {
       await postsApiClient.post(`/posts/${postId}/retweet`);

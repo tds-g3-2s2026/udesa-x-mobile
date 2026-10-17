@@ -5,11 +5,14 @@ import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
+import { DeletePostButton } from './DeletePostButton';
 import { LikeButton } from './LikeButton';
 import { RetweetButton } from './RetweetButton';
 
 interface PostCardProps {
   item: FeedItem;
+  onDelete?: () => void;
+  deletePending?: boolean;
   onRetweet?: () => void;
   retweetPending?: boolean;
   // Reporting yourself is refused by posts-api, so a screen passes this only
@@ -27,6 +30,8 @@ export function PostCard({
   onOpen,
   onRetweet,
   retweetPending = false,
+  onDelete,
+  deletePending = false,
 }: PostCardProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -48,7 +53,10 @@ export function PostCard({
           ) : null}
         </View>
         <Text style={styles.time}>{formatRelativeTime(item.createdAt)}</Text>
-        {onReport ? (
+        {onDelete && !item.deleted ? (
+          <DeletePostButton onConfirm={onDelete} disabled={deletePending || retweetPending} />
+        ) : null}
+        {onReport && !item.deleted && !deletePending ? (
           <TouchableOpacity
             style={styles.reportButton}
             onPress={onReport}
@@ -60,40 +68,42 @@ export function PostCard({
         ) : null}
       </View>
 
-      <Text style={styles.content}>{item.content}</Text>
+      <Text style={styles.content}>{item.deleted ? '[Post eliminado]' : item.content}</Text>
 
-      <View style={styles.counters}>
-        <LikeButton postId={item.id} liked={item.likedByMe} count={item.likesCount} />
-        {onRetweet ? (
-          <RetweetButton
-            retweeted={item.retweetedByMe}
-            count={item.retweetsCount}
-            pending={retweetPending}
-            onPress={onRetweet}
-          />
-        ) : (
-          <View style={styles.counter}>
-            <Ionicons name="repeat-outline" size={16} color={colors.muted} />
-            <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
-          </View>
-        )}
-        {onReply ? (
-          <TouchableOpacity
-            style={styles.counter}
-            onPress={onReply}
-            accessibilityRole="button"
-            accessibilityLabel={`Responder a ${item.authorHandle ?? 'esta cuenta'}`}
-          >
-            <Ionicons name="chatbubble-outline" size={16} color={colors.primary} />
-            <Text style={styles.counterLabel}>{item.repliesCount}</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.counter}>
-            <Ionicons name="chatbubble-outline" size={16} color={colors.muted} />
-            <Text style={styles.counterLabel}>{item.repliesCount}</Text>
-          </View>
-        )}
-      </View>
+      {!item.deleted && !deletePending ? (
+        <View style={styles.counters}>
+          <LikeButton postId={item.id} liked={item.likedByMe} count={item.likesCount} />
+          {onRetweet ? (
+            <RetweetButton
+              retweeted={item.retweetedByMe}
+              count={item.retweetsCount}
+              pending={retweetPending}
+              onPress={onRetweet}
+            />
+          ) : (
+            <View style={styles.counter}>
+              <Ionicons name="repeat-outline" size={16} color={colors.muted} />
+              <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
+            </View>
+          )}
+          {onReply ? (
+            <TouchableOpacity
+              style={styles.counter}
+              onPress={onReply}
+              accessibilityRole="button"
+              accessibilityLabel={`Responder a ${item.authorHandle ?? 'esta cuenta'}`}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color={colors.primary} />
+              <Text style={styles.counterLabel}>{item.repliesCount}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.counter}>
+              <Ionicons name="chatbubble-outline" size={16} color={colors.muted} />
+              <Text style={styles.counterLabel}>{item.repliesCount}</Text>
+            </View>
+          )}
+        </View>
+      ) : null}
     </>
   );
 
