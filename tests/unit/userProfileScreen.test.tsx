@@ -65,6 +65,10 @@ function post(id: string, content: string): FeedItem {
     createdAt: '2026-10-17T12:00:00Z',
     likesCount: 0,
     likedByMe: false,
+    retweetedByMe: false,
+    retweetedBy: null,
+    entryId: `post:${id}`,
+    activityAt: '2026-10-17T12:00:00Z',
     retweetsCount: 0,
     repliesCount: 0,
   };

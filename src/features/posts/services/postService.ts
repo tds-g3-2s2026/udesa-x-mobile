@@ -5,6 +5,22 @@ import { toAuthError } from '../../../api/apiClient';
 export { getAuthErrorMessage } from '../../../api/apiClient';
 
 export const postService = {
+  async retweet(postId: string): Promise<void> {
+    try {
+      await postsApiClient.post(`/posts/${postId}/retweet`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo retweetear. Intentalo de nuevo.');
+    }
+  },
+
+  async undoRetweet(postId: string): Promise<void> {
+    try {
+      await postsApiClient.delete(`/posts/${postId}/retweet`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo deshacer el retweet. Intentalo de nuevo.');
+    }
+  },
+
   // Length, blankness and the hourly rate all live server-side: posts-api
   // enforces them and answers a Problem Details 422 or 429 with a message
   // already fit to show, so there is nothing to translate here.

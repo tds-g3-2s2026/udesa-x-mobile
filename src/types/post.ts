@@ -27,6 +27,10 @@ export interface FeedItem {
   createdAt: string;
   likesCount: number;
   likedByMe: boolean;
+  retweetedByMe: boolean;
+  retweetedBy: string | null;
+  entryId: string;
+  activityAt: string;
   retweetsCount: number;
   repliesCount: number;
 }
