@@ -6,6 +6,7 @@ import { Colors } from '../../../src/theme/colors';
 import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
+import { useRetweets } from '../../../src/features/posts/useRetweets';
 import { FeedItem, PostDetail } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
 
@@ -16,6 +17,9 @@ export default function PostDetailScreen() {
   const userId = useAuthStore((state) => state.user?.id);
   const { id } = useLocalSearchParams<{ id: string }>();
 
+  const retweets = useRetweets();
+  const { beginRead, acceptRead } = retweets;
+
   const [post, setPost] = useState<PostDetail | null>(null);
   const [replies, setReplies] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -25,21 +29,24 @@ export default function PostDetailScreen() {
   // Reloads on every focus, so coming back from answering lands here with the
   // new reply already in the list and the reply counter up to date.
   const load = useCallback(async () => {
+    const version = beginRead();
     try {
       const [detail, page] = await Promise.all([
         postService.getPost(id),
         postService.getReplies(id, null),
       ]);
+      if (!acceptRead(version, [detail, ...page.items])) return;
       setPost(detail);
       setReplies(page.items);
       setNextCursor(page.nextCursor);
     } catch (error) {
+      if (!acceptRead(version, [])) return;
       setPost(null);
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, beginRead, acceptRead]);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +58,9 @@ export default function PostDetailScreen() {
     if (isLoadingMore || nextCursor === null) return;
     setIsLoadingMore(true);
     try {
+      const version = beginRead();
       const page = await postService.getReplies(id, nextCursor);
+      if (!acceptRead(version, page.items)) return;
       setReplies((previous) => [...previous, ...page.items]);
       setNextCursor(page.nextCursor);
     } catch (error) {
@@ -104,7 +113,13 @@ export default function PostDetailScreen() {
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View>
-            <PostCard item={post} onReply={() => reply(post.id)} onReport={report(post)} />
+            <PostCard
+              item={retweets.forPost(post)}
+              onRetweet={() => retweets.toggle(post)}
+              retweetPending={retweets.isPending(post.id)}
+              onReply={() => reply(post.id)}
+              onReport={report(post)}
+            />
             <Text style={styles.repliesTitle}>Respuestas</Text>
           </View>
         }
@@ -120,7 +135,9 @@ export default function PostDetailScreen() {
         }
         renderItem={({ item }) => (
           <PostCard
-            item={item}
+            item={retweets.forPost(item)}
+            onRetweet={() => retweets.toggle(item)}
+            retweetPending={retweets.isPending(item.id)}
             onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
             onReply={() => reply(item.id)}
             onReport={report(item)}
