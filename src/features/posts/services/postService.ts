@@ -51,6 +51,25 @@ export const postService = {
     }
   },
 
+  // Both are idempotent server-side: liking twice or unliking a post that was
+  // never liked still answers 204 and moves nothing, so a retry after a doubt
+  // about whether the first call arrived is always safe.
+  async likePost(postId: string): Promise<void> {
+    try {
+      await postsApiClient.put(`/posts/${postId}/like`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo dar me gusta. Intentalo de nuevo.');
+    }
+  },
+
+  async unlikePost(postId: string): Promise<void> {
+    try {
+      await postsApiClient.delete(`/posts/${postId}/like`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo quitar el me gusta. Intentalo de nuevo.');
+    }
+  },
+
   // Only posts from accounts the caller follows, most recent first: the
   // ordering and the filtering are both the backend's job, not something
   // this reorders or refetches to double-check.

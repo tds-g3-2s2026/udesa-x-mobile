@@ -46,6 +46,7 @@ function item(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     content: `contenido de ${id}`,
     createdAt: '2026-09-22T15:00:00Z',
     likesCount: 0,
+    likedByMe: false,
     retweetsCount: 0,
     repliesCount: 0,
     ...overrides,

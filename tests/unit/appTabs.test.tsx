@@ -172,6 +172,7 @@ describe('T-51. Navegación por tabs', () => {
       content: 'Arrancamos con el feed',
       createdAt: '2026-09-22T15:00:00Z',
       likesCount: 0,
+      likedByMe: false,
       retweetsCount: 0,
       repliesCount: 0,
     };
