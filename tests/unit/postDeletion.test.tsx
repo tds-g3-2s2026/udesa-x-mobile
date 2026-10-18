@@ -128,3 +128,54 @@ test('E2-H3.CA2 - shared delete button confirms, cancels and does not navigate',
   expect(remove).toHaveBeenCalledTimes(1);
   expect(open).not.toHaveBeenCalled();
 });
+
+test('E2-H3.CA2 - closing the native modal cancels deletion', async () => {
+  const { Modal } = jest.requireActual('react-native');
+  const remove = jest.fn();
+  const view = render(<PostCard item={item} onDelete={remove} />);
+  await act(async () => undefined);
+  fireEvent.press(screen.getByLabelText('Eliminar publicación'), { stopPropagation: jest.fn() });
+  act(() => view.UNSAFE_getByType(Modal).props.onRequestClose());
+  expect(screen.queryByText('¿Eliminar publicación?')).toBeNull();
+  expect(remove).not.toHaveBeenCalled();
+});
+
+test('deletePost translates network failures for the screen', async () => {
+  const { AxiosError } = jest.requireActual('axios');
+  jest
+    .spyOn(postsApiClient, 'delete')
+    .mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'));
+  await expect(postService.deletePost(item.id)).rejects.toMatchObject({
+    message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+  });
+});
+
+test.each([true, false])(
+  'unmounted deletion finishes without refreshing or alerting (success: %s)',
+  async (success) => {
+    let finish!: () => void;
+    let fail!: (error: Error) => void;
+    jest.spyOn(postService, 'deletePost').mockReturnValue(
+      new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      })
+    );
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const refresh = jest.fn();
+    const { result, unmount } = renderHook(() => usePostDeletion(refresh));
+    let task!: Promise<void>;
+    act(() => {
+      task = result.current.remove(item);
+    });
+    unmount();
+    await act(async () => {
+      if (success) finish();
+      else fail(new Error('offline'));
+      await task;
+    });
+    expect(refresh).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  }
+);

@@ -264,3 +264,22 @@ test('E2-H3.CA4 - own deletion keeps the thread marker if the following refresh 
   expect(screen.getByText('contenido de child')).toBeTruthy();
   expect(screen.queryByText(own.content as string)).toBeNull();
 });
+
+test('E2-H3.CA4 - deleting an owned reply preserves its thread marker', async () => {
+  const own = reply('reply-1');
+  useAuthStore.setState({
+    user: { id: own.authorId } as NonNullable<ReturnType<typeof useAuthStore.getState>['user']>,
+  });
+  jest.spyOn(postService, 'getPost').mockResolvedValue(original());
+  jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [own], nextCursor: null });
+  const remove = jest.spyOn(postService, 'deletePost').mockResolvedValue(undefined);
+  render(<PostDetailScreen />);
+  await screen.findByText(own.content as string);
+  fireEvent.press(screen.getByLabelText('Eliminar publicación'), { stopPropagation: jest.fn() });
+  await act(async () =>
+    fireEvent.press(screen.getByText('Eliminar'), { stopPropagation: jest.fn() })
+  );
+  expect(remove).toHaveBeenCalledWith(own.id);
+  expect(screen.getByText('[Post eliminado]')).toBeTruthy();
+  expect(screen.getByText('contenido de post-1')).toBeTruthy();
+});
