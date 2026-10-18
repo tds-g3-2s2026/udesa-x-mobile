@@ -18,6 +18,7 @@ import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/co
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
+import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
 
@@ -28,6 +29,9 @@ export default function FeedScreen() {
   const searchFieldStyles = useSearchFieldStyles();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const userId = useAuthStore((state) => state.user?.id);
+
+  const interactions = usePostInteractions();
+  const { beginRead, acceptRead } = interactions;
 
   const [items, setItems] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -49,7 +53,9 @@ export default function FeedScreen() {
       if (isRefresh) setIsRefreshing(true);
       else setIsLoading(true);
       try {
+        const version = beginRead();
         const page = await postService.getFeed(null);
+        if (!acceptRead(version, page.items)) return;
         setItems(page.items);
         setNextCursor(page.nextCursor);
         // Nothing to follow yet is exactly when the suggestions matter: no
@@ -62,7 +68,7 @@ export default function FeedScreen() {
         else setIsLoading(false);
       }
     },
-    [loadSuggestions]
+    [loadSuggestions, beginRead, acceptRead]
   );
 
   // Reloads every time this tab regains focus, publishing included: coming
@@ -78,7 +84,9 @@ export default function FeedScreen() {
     if (isLoadingMore || nextCursor === null) return;
     setIsLoadingMore(true);
     try {
+      const version = beginRead();
       const page = await postService.getFeed(nextCursor);
+      if (!acceptRead(version, page.items)) return;
       setItems((previous) => [...previous, ...page.items]);
       setNextCursor(page.nextCursor);
     } catch (error) {
@@ -127,7 +135,7 @@ export default function FeedScreen() {
         <FlatList
           testID="feed-list"
           data={items}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.entryId}
           contentContainerStyle={styles.list}
           ListHeaderComponent={header}
           onEndReached={loadMore}
@@ -180,7 +188,11 @@ export default function FeedScreen() {
           }
           renderItem={({ item }) => (
             <PostCard
-              item={item}
+              item={interactions.forPost(item)}
+              onRetweet={() => interactions.toggleRetweet(item)}
+              retweetPending={interactions.isRetweetPending(item.id)}
+              onLike={() => interactions.toggleLike(item)}
+              likePending={interactions.isLikePending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
               onReport={

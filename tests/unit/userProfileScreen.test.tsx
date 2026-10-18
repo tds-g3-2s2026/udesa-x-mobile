@@ -1,8 +1,9 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import UserProfileScreen from '../../app/(app)/user/[id]';
+import { postService } from '../../src/features/posts/services/postService';
 import { profileService } from '../../src/features/social/services/profileService';
 import { followService } from '../../src/features/social/services/followService';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -65,6 +66,10 @@ function post(id: string, content: string): FeedItem {
     createdAt: '2026-10-17T12:00:00Z',
     likesCount: 0,
     likedByMe: false,
+    retweetedByMe: false,
+    retweetedBy: null,
+    entryId: `post:${id}`,
+    activityAt: '2026-10-17T12:00:00Z',
     retweetsCount: 0,
     repliesCount: 0,
   };
@@ -276,4 +281,24 @@ describe('E2-H14. Visualización de Perfil de Usuario', () => {
 
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Sin conexión.'));
   });
+});
+
+test('E2-H6.CA1 - profile posts preserve liking and undo after sharing card state', async () => {
+  jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
+  jest
+    .spyOn(profileService, 'getPosts')
+    .mockResolvedValue({ items: [post('post-1', 'Hola')], nextCursor: null });
+  jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+  const like = jest.spyOn(postService, 'likePost').mockResolvedValue(undefined);
+  const unlike = jest.spyOn(postService, 'unlikePost').mockResolvedValue(undefined);
+  renderScreen();
+  await screen.findByText('Hola');
+  await act(async () =>
+    fireEvent.press(screen.getByLabelText('Dar me gusta'), { stopPropagation: jest.fn() })
+  );
+  expect(like).toHaveBeenCalledWith('post-1');
+  await act(async () =>
+    fireEvent.press(screen.getByLabelText('Quitar me gusta'), { stopPropagation: jest.fn() })
+  );
+  expect(unlike).toHaveBeenCalledWith('post-1');
 });

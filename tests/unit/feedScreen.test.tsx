@@ -47,6 +47,10 @@ function item(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     createdAt: '2026-09-22T15:00:00Z',
     likesCount: 0,
     likedByMe: false,
+    retweetedByMe: false,
+    retweetedBy: null,
+    entryId: `post:${id}`,
+    activityAt: '2026-09-22T15:00:00Z',
     retweetsCount: 0,
     repliesCount: 0,
     ...overrides,
@@ -344,3 +348,64 @@ describe('E2-H4. Responder a un Post', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-1' } });
   });
 });
+
+test.each(['like', 'retweet'] as const)(
+  'duplicate feed entries share %s state and undo',
+  async (kind) => {
+    const post = item('post-1');
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [post, { ...post, entryId: 'retweet:fan:post-1', retweetedBy: '@fan' }],
+      nextCursor: null,
+    });
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const add = jest
+      .spyOn(postService, kind === 'like' ? 'likePost' : 'retweet')
+      .mockResolvedValue(undefined);
+    const undo = jest
+      .spyOn(postService, kind === 'like' ? 'unlikePost' : 'undoRetweet')
+      .mockResolvedValue(undefined);
+    const label = kind === 'like' ? 'Dar me gusta' : 'Retweetear';
+    const undoLabel = kind === 'like' ? 'Quitar me gusta' : 'Deshacer retweet';
+    renderScreen();
+    await screen.findAllByText(post.content as string);
+    await act(async () =>
+      fireEvent.press(screen.getAllByLabelText(label)[0], { stopPropagation: jest.fn() })
+    );
+    expect(screen.getAllByLabelText(undoLabel)).toHaveLength(2);
+    await act(async () =>
+      fireEvent.press(screen.getAllByLabelText(undoLabel)[1], { stopPropagation: jest.fn() })
+    );
+    expect(screen.getAllByLabelText(label)).toHaveLength(2);
+    expect(add).toHaveBeenCalledWith(post.id);
+    expect(undo).toHaveBeenCalledWith(post.id);
+  }
+);
+
+test.each(['refresh', 'page'] as const)(
+  'a stale %s cannot overwrite a newer reaction',
+  async (kind) => {
+    let finish!: (page: { items: FeedItem[]; nextCursor: string | null }) => void;
+    const pendingPage = new Promise<{ items: FeedItem[]; nextCursor: string | null }>((resolve) => {
+      finish = resolve;
+    });
+    jest
+      .spyOn(postService, 'getFeed')
+      .mockResolvedValueOnce({ items: [item('post-1')], nextCursor: 'next' })
+      .mockReturnValueOnce(pendingPage);
+    jest.spyOn(postService, 'retweet').mockResolvedValue(undefined);
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+    act(() => {
+      const list = screen.getByTestId('feed-list');
+      if (kind === 'refresh') void list.props.refreshControl.props.onRefresh();
+      else fireEvent(list, 'endReached');
+    });
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText('Retweetear'), { stopPropagation: jest.fn() })
+    );
+    await act(async () => finish({ items: [item('stale')], nextCursor: null }));
+    expect(screen.queryByText('contenido de stale')).toBeNull();
+    expect(screen.getByLabelText('Deshacer retweet')).toBeTruthy();
+  }
+);

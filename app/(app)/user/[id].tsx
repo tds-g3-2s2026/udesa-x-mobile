@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '../../../src/api/apiClient';
 import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
+import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { CurrentProfileContext } from '../../../src/features/posts/currentProfile';
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import {
@@ -53,6 +54,7 @@ export default function UserProfileScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useAuthStore((state) => state.user?.id);
+  const interactions = usePostInteractions();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -219,7 +221,9 @@ export default function UserProfileScreen() {
             }
             renderItem={({ item }) => (
               <PostCard
-                item={item}
+                item={interactions.forPost(item)}
+                onLike={() => interactions.toggleLike(item)}
+                likePending={interactions.isLikePending(item.id)}
                 onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
                 onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
                 onReport={

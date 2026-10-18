@@ -9,9 +9,14 @@ import { formatRelativeTime } from '../relativeTime';
 import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
 import { LikeButton } from './LikeButton';
+import { RetweetButton } from './RetweetButton';
 
 interface PostCardProps {
   item: FeedItem;
+  onLike?: () => void;
+  likePending?: boolean;
+  onRetweet?: () => void;
+  retweetPending?: boolean;
   // Reporting yourself is refused by posts-api, so a screen passes this only
   // for someone else's post: the button could only ever lead to an error.
   onReport?: () => void;
@@ -20,7 +25,16 @@ interface PostCardProps {
   onOpen?: () => void;
 }
 
-export function PostCard({ item, onReport, onReply, onOpen }: PostCardProps) {
+export function PostCard({
+  item,
+  onLike,
+  likePending = false,
+  onReport,
+  onReply,
+  onOpen,
+  onRetweet,
+  retweetPending = false,
+}: PostCardProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -32,6 +46,9 @@ export function PostCard({ item, onReport, onReply, onOpen }: PostCardProps) {
 
   const card = (
     <>
+      {item.retweetedBy ? (
+        <Text style={styles.counterLabel}>Retweeteado por {item.retweetedBy}</Text>
+      ) : null}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.authorLink}
@@ -69,11 +86,32 @@ export function PostCard({ item, onReport, onReply, onOpen }: PostCardProps) {
       <Text style={styles.content}>{item.content}</Text>
 
       <View style={styles.counters}>
-        <LikeButton postId={item.id} liked={item.likedByMe} count={item.likesCount} />
-        <View style={styles.counter}>
-          <Ionicons name="repeat-outline" size={16} color={colors.muted} />
-          <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
-        </View>
+        {onLike ? (
+          <LikeButton
+            liked={item.likedByMe}
+            count={item.likesCount}
+            onPress={onLike}
+            pending={likePending}
+          />
+        ) : (
+          <View style={styles.counter}>
+            <Ionicons name="heart-outline" size={16} color={colors.muted} />
+            <Text style={styles.counterLabel}>{item.likesCount}</Text>
+          </View>
+        )}
+        {onRetweet ? (
+          <RetweetButton
+            retweeted={item.retweetedByMe}
+            count={item.retweetsCount}
+            pending={retweetPending}
+            onPress={onRetweet}
+          />
+        ) : (
+          <View style={styles.counter}>
+            <Ionicons name="repeat-outline" size={16} color={colors.muted} />
+            <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
+          </View>
+        )}
         {onReply ? (
           <TouchableOpacity
             style={styles.counter}

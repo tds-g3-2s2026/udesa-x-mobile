@@ -31,6 +31,10 @@ function reply(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     createdAt: '2026-09-22T15:00:00Z',
     likesCount: 0,
     likedByMe: false,
+    retweetedByMe: false,
+    retweetedBy: null,
+    entryId: `post:${id}`,
+    activityAt: '2026-09-22T15:00:00Z',
     retweetsCount: 0,
     repliesCount: 0,
     ...overrides,
@@ -208,4 +212,29 @@ describe('E2-H4. Responder a un Post', () => {
       'No se pudo cargar la publicación. Intentalo de nuevo.'
     );
   });
+});
+
+test.each([
+  ['post-1', 0],
+  ['reply-1', 1],
+] as const)('detail reactions target %s', async (id, index) => {
+  jest
+    .spyOn(postService, 'getPost')
+    .mockResolvedValueOnce(original())
+    .mockRejectedValue(new Error('offline'));
+  jest
+    .spyOn(postService, 'getReplies')
+    .mockResolvedValue({ items: [reply('reply-1')], nextCursor: null });
+  const share = jest.spyOn(postService, 'retweet').mockResolvedValue(undefined);
+  const like = jest.spyOn(postService, 'likePost').mockResolvedValue(undefined);
+  render(<PostDetailScreen />);
+  await screen.findByText('contenido de reply-1');
+  await act(async () =>
+    fireEvent.press(screen.getAllByLabelText('Retweetear')[index], { stopPropagation: jest.fn() })
+  );
+  await act(async () =>
+    fireEvent.press(screen.getAllByLabelText('Dar me gusta')[index], { stopPropagation: jest.fn() })
+  );
+  expect(share).toHaveBeenCalledWith(id);
+  expect(like).toHaveBeenCalledWith(id);
 });
