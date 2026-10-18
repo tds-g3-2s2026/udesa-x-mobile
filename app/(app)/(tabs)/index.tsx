@@ -18,7 +18,7 @@ import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/co
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
-import { useRetweets } from '../../../src/features/posts/useRetweets';
+import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
 
@@ -30,8 +30,8 @@ export default function FeedScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const userId = useAuthStore((state) => state.user?.id);
 
-  const retweets = useRetweets();
-  const { beginRead, acceptRead } = retweets;
+  const interactions = usePostInteractions();
+  const { beginRead, acceptRead } = interactions;
 
   const [items, setItems] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -188,9 +188,11 @@ export default function FeedScreen() {
           }
           renderItem={({ item }) => (
             <PostCard
-              item={retweets.forPost(item)}
-              onRetweet={() => retweets.toggle(item)}
-              retweetPending={retweets.isPending(item.id)}
+              item={interactions.forPost(item)}
+              onRetweet={() => interactions.toggleRetweet(item)}
+              retweetPending={interactions.isRetweetPending(item.id)}
+              onLike={() => interactions.toggleLike(item)}
+              likePending={interactions.isLikePending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
               onReport={

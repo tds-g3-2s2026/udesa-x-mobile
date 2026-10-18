@@ -1,20 +1,61 @@
+import { useEffect } from 'react';
+import { usePostInteractions } from '../../src/features/posts/usePostInteractions';
+import { FeedItem } from '../../src/types/post';
 import { Alert } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { LikeButton } from '../../src/features/posts/components/LikeButton';
 import { postService } from '../../src/features/posts/services/postService';
 import { ApiError } from '../../src/api/apiClient';
 
+const original: FeedItem = {
+  id: 'post-1',
+  authorId: 'author',
+  authorHandle: '@author',
+  authorDisplayName: null,
+  authorAvatarUrl: null,
+  content: 'post',
+  createdAt: '2026-10-17T12:00:00Z',
+  activityAt: '2026-10-17T12:00:00Z',
+  entryId: 'post:post-1',
+  likedByMe: false,
+  likesCount: 0,
+  retweetedByMe: false,
+  retweetsCount: 0,
+  retweetedBy: null,
+  repliesCount: 0,
+};
+
+function LikeHarness({ liked, count }: { liked: boolean; count: number }) {
+  const interactions = usePostInteractions();
+  const { beginRead, acceptRead } = interactions;
+  const item = { ...original, likedByMe: liked, likesCount: count };
+  useEffect(() => {
+    acceptRead(beginRead(), [{ ...original, likedByMe: liked, likesCount: count }]);
+  }, [liked, count, beginRead, acceptRead]);
+  const current = interactions.forPost(item);
+  return (
+    <LikeButton
+      liked={current.likedByMe}
+      count={current.likesCount}
+      pending={interactions.isLikePending(item.id)}
+      onPress={() => interactions.toggleLike(item)}
+    />
+  );
+}
+
+beforeEach(() => jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline')));
+
 // The empty act lets the icon font settle after the first render, which would
 // otherwise warn about an update nobody awaited.
 async function renderButton(liked: boolean, count: number) {
-  const view = render(<LikeButton postId="post-1" liked={liked} count={count} />);
+  const view = render(<LikeHarness liked={liked} count={count} />);
   await act(async () => undefined);
   return view;
 }
 
 async function tap(label: string): Promise<void> {
   await act(async () => {
-    fireEvent.press(screen.getByLabelText(label));
+    fireEvent.press(screen.getByLabelText(label), { stopPropagation: jest.fn() });
   });
 }
 
@@ -125,7 +166,7 @@ describe('E2-H6. Like a un Post', () => {
     const view = await renderButton(false, 2);
 
     await act(async () => {
-      view.rerender(<LikeButton postId="post-1" liked count={7} />);
+      view.rerender(<LikeHarness liked count={7} />);
     });
 
     expect(screen.getByLabelText('Quitar me gusta')).toBeTruthy();

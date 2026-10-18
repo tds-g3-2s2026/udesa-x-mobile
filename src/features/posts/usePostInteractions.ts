@@ -3,12 +3,14 @@ import { Alert } from 'react-native';
 import { FeedItem } from '../../types/post';
 import { getAuthErrorMessage, postService } from './services/postService';
 
-type RetweetState = Pick<FeedItem, 'retweetedByMe' | 'retweetsCount'>;
+type ReactionState = Partial<
+  Pick<FeedItem, 'retweetedByMe' | 'retweetsCount' | 'likedByMe' | 'likesCount'>
+>;
 
-export function useRetweets() {
-  const [overrides, setOverrides] = useState<Record<string, RetweetState>>({});
+export function usePostInteractions() {
+  const [overrides, setOverrides] = useState<Record<string, ReactionState>>({});
   const [pending, setPending] = useState<Set<string>>(new Set());
-  const current = useRef<Record<string, RetweetState>>({});
+  const current = useRef<Record<string, ReactionState>>({});
   const locks = useRef(new Set<string>());
   const revision = useRef(0);
   const mounted = useRef(true);
@@ -20,28 +22,34 @@ export function useRetweets() {
     };
   }, []);
 
-  const update = useCallback((id: string, state: RetweetState) => {
-    current.current = { ...current.current, [id]: state };
+  const update = useCallback((id: string, state: ReactionState) => {
+    current.current = { ...current.current, [id]: { ...current.current[id], ...state } };
     if (mounted.current) setOverrides(current.current);
   }, []);
 
   const toggle = useCallback(
-    async (item: FeedItem) => {
-      if (locks.current.has(item.id)) return;
-      locks.current.add(item.id);
+    async (item: FeedItem, kind: 'like' | 'retweet') => {
+      const key = `${kind}:${item.id}`;
+      const active = kind === 'like' ? 'likedByMe' : 'retweetedByMe';
+      const count = kind === 'like' ? 'likesCount' : 'retweetsCount';
+      if (locks.current.has(key)) return;
+      locks.current.add(key);
       revision.current += 1;
       setPending(new Set(locks.current));
-      const before: RetweetState = current.current[item.id] ?? {
-        retweetedByMe: item.retweetedByMe,
-        retweetsCount: item.retweetsCount,
-      };
+      const state = { ...item, ...current.current[item.id] };
+      const before: ReactionState = { [active]: state[active], [count]: state[count] };
       update(item.id, {
-        retweetedByMe: !before.retweetedByMe,
-        retweetsCount: Math.max(0, before.retweetsCount + (before.retweetedByMe ? -1 : 1)),
+        [active]: !state[active],
+        [count]: Math.max(0, state[count] + (state[active] ? -1 : 1)),
       });
       try {
-        if (before.retweetedByMe) await postService.undoRetweet(item.id);
-        else await postService.retweet(item.id);
+        if (kind === 'like') {
+          if (state[active]) await postService.unlikePost(item.id);
+          else await postService.likePost(item.id);
+        } else {
+          if (state[active]) await postService.undoRetweet(item.id);
+          else await postService.retweet(item.id);
+        }
       } catch (error) {
         update(item.id, before);
         if (mounted.current) Alert.alert('Error', getAuthErrorMessage(error));
@@ -49,11 +57,11 @@ export function useRetweets() {
       // A failed response can still mean the server committed the mutation.
       try {
         const fresh = await postService.getPost(item.id);
-        update(item.id, { retweetedByMe: fresh.retweetedByMe, retweetsCount: fresh.retweetsCount });
+        update(item.id, { [active]: fresh[active], [count]: fresh[count] });
       } catch {
         // Keep the optimistic result or rollback until a successful screen refresh.
       } finally {
-        locks.current.delete(item.id);
+        locks.current.delete(key);
         revision.current += 1;
         if (mounted.current) setPending(new Set(locks.current));
       }
@@ -66,7 +74,9 @@ export function useRetweets() {
     if (!mounted.current || version !== revision.current) return false;
     const next = { ...current.current };
     for (const item of items) {
-      if (!locks.current.has(item.id)) delete next[item.id];
+      if (!locks.current.has(`like:${item.id}`) && !locks.current.has(`retweet:${item.id}`)) {
+        delete next[item.id];
+      }
     }
     current.current = next;
     setOverrides(next);
@@ -76,8 +86,10 @@ export function useRetweets() {
   return useMemo(
     () => ({
       forPost: (item: FeedItem): FeedItem => ({ ...item, ...overrides[item.id] }),
-      isPending: (id: string) => pending.has(id),
-      toggle,
+      isRetweetPending: (id: string) => pending.has(`retweet:${id}`),
+      isLikePending: (id: string) => pending.has(`like:${id}`),
+      toggleRetweet: (item: FeedItem) => toggle(item, 'retweet'),
+      toggleLike: (item: FeedItem) => toggle(item, 'like'),
       beginRead,
       acceptRead,
     }),

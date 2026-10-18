@@ -6,7 +6,7 @@ import { Colors } from '../../../src/theme/colors';
 import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
-import { useRetweets } from '../../../src/features/posts/useRetweets';
+import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, PostDetail } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
 
@@ -17,8 +17,8 @@ export default function PostDetailScreen() {
   const userId = useAuthStore((state) => state.user?.id);
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const retweets = useRetweets();
-  const { beginRead, acceptRead } = retweets;
+  const interactions = usePostInteractions();
+  const { beginRead, acceptRead } = interactions;
 
   const [post, setPost] = useState<PostDetail | null>(null);
   const [replies, setReplies] = useState<FeedItem[]>([]);
@@ -114,9 +114,11 @@ export default function PostDetailScreen() {
         ListHeaderComponent={
           <View>
             <PostCard
-              item={retweets.forPost(post)}
-              onRetweet={() => retweets.toggle(post)}
-              retweetPending={retweets.isPending(post.id)}
+              item={interactions.forPost(post)}
+              onRetweet={() => interactions.toggleRetweet(post)}
+              retweetPending={interactions.isRetweetPending(post.id)}
+              onLike={() => interactions.toggleLike(post)}
+              likePending={interactions.isLikePending(post.id)}
               onReply={() => reply(post.id)}
               onReport={report(post)}
             />
@@ -135,9 +137,11 @@ export default function PostDetailScreen() {
         }
         renderItem={({ item }) => (
           <PostCard
-            item={retweets.forPost(item)}
-            onRetweet={() => retweets.toggle(item)}
-            retweetPending={retweets.isPending(item.id)}
+            item={interactions.forPost(item)}
+            onRetweet={() => interactions.toggleRetweet(item)}
+            retweetPending={interactions.isRetweetPending(item.id)}
+            onLike={() => interactions.toggleLike(item)}
+            likePending={interactions.isLikePending(item.id)}
             onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
             onReply={() => reply(item.id)}
             onReport={report(item)}

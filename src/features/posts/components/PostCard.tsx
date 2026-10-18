@@ -13,6 +13,8 @@ import { RetweetButton } from './RetweetButton';
 
 interface PostCardProps {
   item: FeedItem;
+  onLike?: () => void;
+  likePending?: boolean;
   onRetweet?: () => void;
   retweetPending?: boolean;
   // Reporting yourself is refused by posts-api, so a screen passes this only
@@ -25,6 +27,8 @@ interface PostCardProps {
 
 export function PostCard({
   item,
+  onLike,
+  likePending = false,
   onReport,
   onReply,
   onOpen,
@@ -82,7 +86,19 @@ export function PostCard({
       <Text style={styles.content}>{item.content}</Text>
 
       <View style={styles.counters}>
-        <LikeButton postId={item.id} liked={item.likedByMe} count={item.likesCount} />
+        {onLike ? (
+          <LikeButton
+            liked={item.likedByMe}
+            count={item.likesCount}
+            onPress={onLike}
+            pending={likePending}
+          />
+        ) : (
+          <View style={styles.counter}>
+            <Ionicons name="heart-outline" size={16} color={colors.muted} />
+            <Text style={styles.counterLabel}>{item.likesCount}</Text>
+          </View>
+        )}
         {onRetweet ? (
           <RetweetButton
             retweeted={item.retweetedByMe}
