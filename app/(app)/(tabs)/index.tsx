@@ -18,6 +18,7 @@ import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/co
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
+import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
 import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -80,6 +81,8 @@ export default function FeedScreen() {
     }, [loadFeed])
   );
 
+  const deletion = usePostDeletion(() => loadFeed(true));
+
   const loadMore = async () => {
     if (isLoadingMore || nextCursor === null) return;
     setIsLoadingMore(true);
@@ -134,7 +137,7 @@ export default function FeedScreen() {
       ) : (
         <FlatList
           testID="feed-list"
-          data={items}
+          data={items.map(deletion.forPost).filter((item) => !item.deleted)}
           keyExtractor={(item) => item.entryId}
           contentContainerStyle={styles.list}
           ListHeaderComponent={header}
@@ -188,10 +191,14 @@ export default function FeedScreen() {
           }
           renderItem={({ item }) => (
             <PostCard
-              item={interactions.forPost(item)}
-              onRetweet={() => interactions.toggleRetweet(item)}
+              item={deletion.forPost(interactions.forPost(item))}
+              onDelete={
+                item.authorId === userId ? () => deletion.remove(deletion.forPost(item)) : undefined
+              }
+              deletePending={deletion.isPending(item.id)}
+              onRetweet={() => interactions.toggleRetweet(deletion.forPost(item))}
               retweetPending={interactions.isRetweetPending(item.id)}
-              onLike={() => interactions.toggleLike(item)}
+              onLike={() => interactions.toggleLike(deletion.forPost(item))}
               likePending={interactions.isLikePending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}

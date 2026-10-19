@@ -62,6 +62,7 @@ function post(id: string, content: string): FeedItem {
     authorHandle: '@ana',
     authorDisplayName: 'Ana Pérez',
     authorAvatarUrl: null,
+    deleted: false,
     content,
     createdAt: '2026-10-17T12:00:00Z',
     likesCount: 0,

@@ -6,6 +6,7 @@ import { Colors } from '../../../src/theme/colors';
 import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
+import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
 import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, PostDetail } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -41,7 +42,7 @@ export default function PostDetailScreen() {
       setNextCursor(page.nextCursor);
     } catch (error) {
       if (!acceptRead(version, [])) return;
-      setPost(null);
+      setPost((previous) => (previous?.deleted ? previous : null));
       Alert.alert('Error', getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
@@ -53,6 +54,12 @@ export default function PostDetailScreen() {
       load();
     }, [load])
   );
+
+  const deletion = usePostDeletion(() => {
+    setPost((previous) => (previous ? deletion.forPost(previous) : null));
+    setReplies((previous) => previous.map(deletion.forPost));
+    return load();
+  });
 
   const loadMore = async () => {
     if (isLoadingMore || nextCursor === null) return;
@@ -106,7 +113,7 @@ export default function PostDetailScreen() {
     <View style={styles.screen}>
       <FlatList
         testID="replies-list"
-        data={replies}
+        data={replies.map(deletion.forPost)}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onEndReached={loadMore}
@@ -114,10 +121,14 @@ export default function PostDetailScreen() {
         ListHeaderComponent={
           <View>
             <PostCard
-              item={interactions.forPost(post)}
-              onRetweet={() => interactions.toggleRetweet(post)}
+              item={deletion.forPost(interactions.forPost(post))}
+              onDelete={
+                post.authorId === userId ? () => deletion.remove(deletion.forPost(post)) : undefined
+              }
+              deletePending={deletion.isPending(post.id)}
+              onRetweet={() => interactions.toggleRetweet(deletion.forPost(post))}
               retweetPending={interactions.isRetweetPending(post.id)}
-              onLike={() => interactions.toggleLike(post)}
+              onLike={() => interactions.toggleLike(deletion.forPost(post))}
               likePending={interactions.isLikePending(post.id)}
               onReply={() => reply(post.id)}
               onReport={report(post)}
@@ -137,10 +148,14 @@ export default function PostDetailScreen() {
         }
         renderItem={({ item }) => (
           <PostCard
-            item={interactions.forPost(item)}
-            onRetweet={() => interactions.toggleRetweet(item)}
+            item={deletion.forPost(interactions.forPost(item))}
+            onDelete={
+              item.authorId === userId ? () => deletion.remove(deletion.forPost(item)) : undefined
+            }
+            deletePending={deletion.isPending(item.id)}
+            onRetweet={() => interactions.toggleRetweet(deletion.forPost(item))}
             retweetPending={interactions.isRetweetPending(item.id)}
-            onLike={() => interactions.toggleLike(item)}
+            onLike={() => interactions.toggleLike(deletion.forPost(item))}
             likePending={interactions.isLikePending(item.id)}
             onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
             onReply={() => reply(item.id)}

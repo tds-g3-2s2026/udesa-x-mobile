@@ -169,6 +169,7 @@ describe('T-51. Navegación por tabs', () => {
       authorHandle: user.handle,
       authorDisplayName: null,
       authorAvatarUrl: null,
+      deleted: false,
       content: 'Arrancamos con el feed',
       createdAt: '2026-09-22T15:00:00Z',
       likesCount: 0,
