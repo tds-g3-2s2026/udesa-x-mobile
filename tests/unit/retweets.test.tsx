@@ -18,6 +18,7 @@ const item: FeedItem = {
   createdAt: '2026-10-17T12:00:00Z',
   entryId: 'post:original',
   activityAt: '2026-10-17T12:00:00Z',
+  images: [],
   likesCount: 7,
   likedByMe: false,
   retweetsCount: 2,

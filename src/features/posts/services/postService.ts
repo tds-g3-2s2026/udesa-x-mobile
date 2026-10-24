@@ -1,6 +1,9 @@
 import { FeedPage, Post, PostDetail, SuggestedAccount } from '../../../types/post';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
+import { PickedImage } from '../postImages';
+
+const UPLOAD_TIMEOUT_MS = 60000;
 
 export { getAuthErrorMessage } from '../../../api/apiClient';
 
@@ -32,9 +35,31 @@ export const postService = {
   // Length, blankness and the hourly rate all live server-side: posts-api
   // enforces them and answers a Problem Details 422 or 429 with a message
   // already fit to show, so there is nothing to translate here.
-  async createPost(content: string): Promise<Post> {
+  // With images the same endpoint takes multipart instead of JSON: one `images`
+  // part per file, and the order they are appended in is the order they show.
+  // The default 10 s timeout is for small JSON bodies; up to four 1 MB files
+  // over a mobile connection need longer.
+  async createPost(content: string, images: PickedImage[] = []): Promise<Post> {
     try {
-      const response = await postsApiClient.post<Post>('/posts', { content });
+      if (images.length === 0) {
+        const response = await postsApiClient.post<Post>('/posts', { content });
+        return response.data;
+      }
+      const form = new FormData();
+      form.append('content', content);
+      for (const image of images) {
+        // React Native's FormData reads a file from `{ uri, name, type }`,
+        // which the DOM typings do not know about.
+        form.append('images', {
+          uri: image.uri,
+          name: image.name,
+          type: image.mimeType,
+        } as unknown as Blob);
+      }
+      const response = await postsApiClient.post<Post>('/posts', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: UPLOAD_TIMEOUT_MS,
+      });
       return response.data;
     } catch (error) {
       throw toAuthError(error, 'No se pudo publicar. Intentalo de nuevo.');

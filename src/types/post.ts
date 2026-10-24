@@ -1,3 +1,12 @@
+// One attached image as posts-api answers it. The URL is signed and expires,
+// so it is never worth keeping: every reload hands out a fresh one, and `id` is
+// what stays the same between them.
+export interface PostImage {
+  id: string;
+  url: string;
+  position: number;
+}
+
 // Shape of the 201 response of POST /posts and POST /posts/{id}/replies.
 // Counts start at zero and content already comes back sanitized: both are
 // backend guarantees, nothing mobile has to enforce on its own. `parentId` is
@@ -7,6 +16,7 @@ export interface Post {
   authorId: string;
   parentId: string | null;
   content: string;
+  images: PostImage[];
   createdAt: string;
   likesCount: number;
   retweetsCount: number;
@@ -24,6 +34,7 @@ export interface FeedItem {
   authorDisplayName: string | null;
   authorAvatarUrl: string | null;
   content: string | null;
+  images: PostImage[];
   deleted: boolean;
   createdAt: string;
   likesCount: number;

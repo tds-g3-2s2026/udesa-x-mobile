@@ -46,6 +46,7 @@ describe('Post service', () => {
         parentId: null,
         content: 'Hola UdeSA-X',
         createdAt: '2026-09-22T15:00:00Z',
+        images: [],
         likesCount: 0,
         retweetsCount: 0,
         repliesCount: 0,
@@ -122,6 +123,7 @@ describe('Post service', () => {
       deleted: false,
       content: 'Buenísimo',
       createdAt: '2026-09-22T15:05:00Z',
+      images: [],
       likesCount: 0,
       likedByMe: false,
       retweetedByMe: false,
@@ -139,6 +141,7 @@ describe('Post service', () => {
         parentId: 'post-1',
         content: 'Buenísimo',
         createdAt: '2026-09-22T15:05:00Z',
+        images: [],
         likesCount: 0,
         retweetsCount: 0,
         repliesCount: 0,
@@ -262,6 +265,90 @@ describe('Post service', () => {
     });
   });
 
+  describe('E2-H7. Post con Imagen', () => {
+    const created: Post = {
+      id: 'post-1',
+      authorId: 'usr-1',
+      parentId: null,
+      content: '',
+      images: [{ id: 'img-1', url: 'https://bucket.s3.amazonaws.com/posts/1.png', position: 0 }],
+      createdAt: '2026-09-22T15:00:00Z',
+      likesCount: 0,
+      retweetsCount: 0,
+      repliesCount: 0,
+    };
+
+    // Jest's FormData is not React Native's, so what would be sent is read from
+    // the calls to `append`, which is also where the order of the parts is set.
+    let appendSpy: jest.SpyInstance | undefined;
+    afterEach(() => appendSpy?.mockRestore());
+
+    function recordAppends() {
+      const appended: [string, unknown][] = [];
+      appendSpy = jest.spyOn(FormData.prototype, 'append').mockImplementation((name, value) => {
+        appended.push([name, value]);
+      });
+      return appended;
+    }
+
+    it('E2-H7.CA1 - sends the text and each image as multipart, in the order they were attached', async () => {
+      const appended = recordAppends();
+      post.mockResolvedValueOnce(apiSuccess(created));
+
+      const result = await postService.createPost('Con fotos', [
+        { uri: 'file:///1.jpg', name: '1.jpg', mimeType: 'image/jpeg' },
+        { uri: 'file:///2.png', name: '2.png', mimeType: 'image/png' },
+      ]);
+
+      const [path, , config] = post.mock.calls[0];
+      expect(path).toBe('/posts');
+      expect(config).toMatchObject({ headers: { 'Content-Type': 'multipart/form-data' } });
+      expect(appended).toEqual([
+        ['content', 'Con fotos'],
+        ['images', { uri: 'file:///1.jpg', name: '1.jpg', type: 'image/jpeg' }],
+        ['images', { uri: 'file:///2.png', name: '2.png', type: 'image/png' }],
+      ]);
+      expect(result).toEqual(created);
+    });
+
+    it('gives an upload more time than the default for small JSON bodies', async () => {
+      post.mockResolvedValueOnce(apiSuccess(created));
+
+      await postService.createPost('', [
+        { uri: 'file:///1.jpg', name: '1.jpg', mimeType: 'image/jpeg' },
+      ]);
+
+      expect(post.mock.calls[0][2]?.timeout).toBeGreaterThan(10000);
+    });
+
+    it('a post without images still goes out as the same JSON as before', async () => {
+      post.mockResolvedValueOnce(apiSuccess(created));
+
+      await postService.createPost('Sin fotos', []);
+
+      expect(post).toHaveBeenCalledWith('/posts', { content: 'Sin fotos' });
+    });
+
+    it('E2-H7.CA2 - propagates the API message when an image is too large', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/image-too-large',
+          title: 'Imagen demasiado pesada',
+          detail: 'Cada imagen puede pesar hasta 1 MB.',
+        })
+      );
+
+      await expect(
+        postService.createPost('x', [
+          { uri: 'file:///1.jpg', name: '1.jpg', mimeType: 'image/jpeg' },
+        ])
+      ).rejects.toMatchObject({
+        message: 'Cada imagen puede pesar hasta 1 MB.',
+        code: 'image-too-large',
+      });
+    });
+  });
+
   describe('E2-H2. Feed Principal', () => {
     it('E2-H2.CA2 - lists the feed with the cursor as an opaque query param', async () => {
       const page = {
@@ -274,6 +361,7 @@ describe('Post service', () => {
             authorAvatarUrl: null,
             deleted: false,
             content: 'Primer post',
+            images: [],
             createdAt: '2026-09-22T15:00:00Z',
             likesCount: 0,
             likedByMe: false,
