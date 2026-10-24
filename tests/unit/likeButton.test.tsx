@@ -13,6 +13,7 @@ const original: FeedItem = {
   authorHandle: '@author',
   authorDisplayName: null,
   authorAvatarUrl: null,
+  authorDeleted: false,
   deleted: false,
   content: 'post',
   createdAt: '2026-10-17T12:00:00Z',

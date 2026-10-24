@@ -85,6 +85,15 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity
+        style={styles.dangerButton}
+        onPress={() => router.push('/delete-account')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.danger} />
+        <Text style={styles.dangerLabel}>Eliminar cuenta</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.actionButton, styles.stackedButton]}
         onPress={() => router.push('/preferences')}
         accessibilityRole="button"
@@ -139,12 +148,12 @@ export default function ProfileScreen() {
       </View>
 
       <TouchableOpacity
-        style={styles.logoutButton}
+        style={styles.dangerButton}
         onPress={handleLogout}
         accessibilityRole="button"
       >
         <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-        <Text style={styles.logoutLabel}>Cerrar Sesión</Text>
+        <Text style={styles.dangerLabel}>Cerrar Sesión</Text>
       </TouchableOpacity>
     </AppScreen>
   );
@@ -261,20 +270,22 @@ function createStyles(colors: Colors) {
       color: colors.text,
       textAlign: 'center',
     },
-    logoutButton: {
+    // Shared by "Eliminar cuenta" and "Cerrar Sesión": the red buttons that end
+    // the session or the account.
+    dangerButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
       height: 48,
-      // Tighter than the gap to the card above: the two buttons read as one block.
+      // Tighter than the gap to the card above: stacked buttons read as one block.
       marginTop: 12,
       borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.danger,
       backgroundColor: colors.dangerSoft,
     },
-    logoutLabel: {
+    dangerLabel: {
       fontSize: 15,
       fontWeight: '700',
       color: colors.danger,

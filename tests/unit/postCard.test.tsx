@@ -25,6 +25,7 @@ function post(overrides: Partial<FeedItem> = {}): FeedItem {
     authorHandle: '@ana',
     authorDisplayName: 'Ana Pérez',
     authorAvatarUrl: null,
+    authorDeleted: false,
     deleted: false,
     content: 'Hola',
     createdAt: '2026-10-17T12:00:00Z',
@@ -80,6 +81,51 @@ describe('E2-H7. Post con Imagen', () => {
 
     await screen.findByText('[Post eliminado]');
     expect(screen.queryByTestId('post-image-grid')).toBeNull();
+  });
+});
+
+describe('E1-H4. Eliminación de Cuenta', () => {
+  const deletedAuthor = {
+    authorHandle: null,
+    authorDisplayName: null,
+    authorDeleted: true,
+    content: 'Una respuesta de antes',
+  };
+
+  it('E1-H4.CA5 - a reply from a deleted account shows [Usuario eliminado] and keeps its text', async () => {
+    render(<PostCard item={post(deletedAuthor)} />);
+
+    expect(await screen.findByText('[Usuario eliminado]')).toBeTruthy();
+    expect(screen.getByText('Una respuesta de antes')).toBeTruthy();
+  });
+
+  it('E1-H4.CA5 - the deleted author does not open a profile that no longer exists', async () => {
+    render(<PostCard item={post(deletedAuthor)} />);
+
+    fireEvent.press(await screen.findByText('[Usuario eliminado]'));
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/Ver el perfil de/)).toBeNull();
+  });
+
+  it('E1-H4.CA5 - does not show a stale name next to the deleted author marker', async () => {
+    render(
+      <PostCard item={post({ ...deletedAuthor, authorHandle: '@ana', authorDisplayName: 'Ana' })} />
+    );
+
+    await screen.findByText('[Usuario eliminado]');
+
+    expect(screen.queryByText('@ana')).toBeNull();
+    expect(screen.queryByText('Ana')).toBeNull();
+  });
+
+  it('an author that is not deleted still shows the name and opens the profile', async () => {
+    render(<PostCard item={post()} />);
+
+    fireEvent.press(await screen.findByLabelText('Ver el perfil de @ana'));
+
+    expect(screen.queryByText('[Usuario eliminado]')).toBeNull();
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/user/[id]', params: { id: 'usr-2' } });
   });
 });
 

@@ -14,6 +14,7 @@ import {
   PickedImage,
   RejectedReason,
 } from '../../src/features/posts/postImages';
+import { DELETED_AUTHOR_LABEL } from '../../src/features/posts/components/PostCard';
 import { PostDetail } from '../../src/types/post';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
@@ -145,7 +146,9 @@ export default function ComposeScreen() {
       {parentDeleted ? <Text>Esta publicación fue eliminada.</Text> : null}
       {parent && !parentDeleted ? (
         <View style={styles.quote}>
-          <Text style={styles.quoteLabel}>Respondiendo a {parent.authorHandle}</Text>
+          <Text style={styles.quoteLabel}>
+            Respondiendo a {parent.authorDeleted ? DELETED_AUTHOR_LABEL : parent.authorHandle}
+          </Text>
           <Text style={styles.quoteContent}>{parent.content}</Text>
         </View>
       ) : null}
