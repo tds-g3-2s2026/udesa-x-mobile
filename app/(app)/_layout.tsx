@@ -14,6 +14,7 @@ export default function AppLayout() {
     <Stack initialRouteName="(tabs)" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="change-password" />
+      <Stack.Screen name="delete-account" />
       <Stack.Screen name="edit-profile" />
       {/* The only screen here with no single action to submit: it draws no
           header of its own, so it uses the native one instead of AuthScreen's
