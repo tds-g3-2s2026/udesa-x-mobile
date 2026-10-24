@@ -65,6 +65,7 @@ function post(id: string, content: string): FeedItem {
     deleted: false,
     content,
     createdAt: '2026-10-17T12:00:00Z',
+    images: [],
     likesCount: 0,
     likedByMe: false,
     retweetedByMe: false,

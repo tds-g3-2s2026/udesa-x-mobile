@@ -10,6 +10,7 @@ Aplicación mobile principal para usuarios de la red social UdeSA-X (Épicas E1 
 - Navegación: Expo Router (file-based routing en `app/`), con tabs en el área autenticada
 - Estado y almacenamiento seguro: Zustand y expo-secure-store
 - Validaciones: Zod. Acceso HTTP: Axios
+- Imágenes: expo-image-picker (selector) y @nandorojo/galeria (visor), ambas nativas
 - Tests: Jest con el preset `jest-expo` y React Native Testing Library
 
 ## Checks y comandos

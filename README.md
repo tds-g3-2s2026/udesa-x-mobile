@@ -11,6 +11,7 @@ Aplicación mobile principal orientada a los usuarios finales de la red social U
 - Zod para validaciones de formularios y Axios para el acceso a la API
 - `expo-splash-screen` para sostener el splash nativo hasta que se lee la sesión
 - `@expo/vector-icons` para los íconos de la barra de tabs
+- `expo-image-picker` para elegir imágenes de la galería y `@nandorojo/galeria` como visor a pantalla completa (ADR-018 de la plataforma). Ambas son nativas: no funcionan en Expo Go, hace falta la APK de desarrollo o de `preview`
 - Jest con el preset `jest-expo` para los tests unitarios
 
 ## Requisitos
