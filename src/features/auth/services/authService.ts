@@ -166,6 +166,20 @@ export const authService = {
     }
   },
 
+  // Deletes the account of the open session after checking its password. Like
+  // changePassword, answering 2xx means every session of the account is revoked
+  // server-side, this call's included, so the caller drops the local session and
+  // must not call logout. The password travels in the body of the DELETE, which
+  // axios only sends when it is given as `data` in the config: passed as a second
+  // argument it would be taken for the config and the request would go out empty.
+  async deleteAccount(currentPassword: string): Promise<void> {
+    try {
+      await apiClient.delete('/me', { data: { current_password: currentPassword } });
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo eliminar la cuenta. Intentalo de nuevo.');
+    }
+  },
+
   // Current profile, to prefill the edit form. Requires a token, same as
   // changePassword.
   async getProfile(): Promise<UserProfile> {

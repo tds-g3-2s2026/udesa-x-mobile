@@ -1,4 +1,4 @@
-import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { AuthResponse } from '../../src/types/auth';
@@ -470,6 +470,63 @@ describe('Auth service', () => {
         authService.updatePreferences({ profileVisibility: 'protected' })
       ).rejects.toMatchObject({ code: 'session-revoked' });
       patch.mockRestore();
+    });
+  });
+
+  describe('E1-H4. Eliminación de Cuenta', () => {
+    const remove = jest.spyOn(apiClient, 'delete');
+
+    afterEach(() => {
+      remove.mockReset();
+    });
+
+    it('E1-H4.CA3 - sends the password in the body of DELETE /me, in snake_case', async () => {
+      remove.mockResolvedValueOnce(apiSuccess({ status: 'deleted' }));
+
+      await authService.deleteAccount('Secreta123');
+
+      // axios only sends a body on DELETE when it travels as `data` of the config.
+      expect(remove).toHaveBeenCalledWith('/me', { data: { current_password: 'Secreta123' } });
+    });
+
+    it('E1-H4.CA3 - the DELETE leaves axios with the password as a JSON body', async () => {
+      // The spy above only sees the arguments. This runs the same call through
+      // a real axios instance to check what would actually be put on the wire.
+      let sent: InternalAxiosRequestConfig | undefined;
+      const client = axios.create({
+        adapter: async (config) => {
+          sent = config;
+          return apiSuccess({ status: 'deleted' });
+        },
+      });
+
+      await client.delete('/me', { data: { current_password: 'Secreta123' } });
+
+      expect(sent?.method).toBe('delete');
+      expect(sent?.data).toBe('{"current_password":"Secreta123"}');
+      expect(sent?.headers.get('Content-Type')).toBe('application/json');
+    });
+
+    it('E1-H4.CA3 - returns an incorrect password as a field error, not a session error', async () => {
+      remove.mockRejectedValueOnce(
+        apiFailure(400, {
+          type: 'https://udesa-x.dev/errors/invalid-current-password',
+          detail: 'La contraseña actual no es correcta',
+        })
+      );
+
+      await expect(authService.deleteAccount('Equivocada1')).rejects.toMatchObject({
+        code: 'invalid-current-password',
+        message: 'La contraseña actual no es correcta',
+      });
+    });
+
+    it('E1-H4.CA3 - reports a connection failure with its own message', async () => {
+      remove.mockRejectedValueOnce(networkFailure());
+
+      await expect(authService.deleteAccount('Secreta123')).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
     });
   });
 
