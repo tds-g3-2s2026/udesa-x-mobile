@@ -1232,6 +1232,15 @@ describe('E1-H3. Cierre de Sesión', () => {
     expect(mockPush).toHaveBeenCalledWith('/change-password');
   });
 
+  it('E1-H4.CA3 - opens the account deletion screen from the profile', async () => {
+    useAuthStore.setState(loggedInSession);
+    renderScreen(<ProfileScreen />);
+
+    await press('Eliminar cuenta');
+
+    expect(mockPush).toHaveBeenCalledWith('/delete-account');
+  });
+
   it('opens the edit profile screen from the profile', async () => {
     useAuthStore.setState(loggedInSession);
     renderScreen(<ProfileScreen />);

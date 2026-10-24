@@ -43,6 +43,7 @@ function item(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     authorHandle: `@${id}`,
     authorDisplayName: null,
     authorAvatarUrl: null,
+    authorDeleted: false,
     deleted: false,
     content: `contenido de ${id}`,
     createdAt: '2026-09-22T15:00:00Z',

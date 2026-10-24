@@ -13,6 +13,8 @@ import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
 import { RetweetButton } from './RetweetButton';
 
+export const DELETED_AUTHOR_LABEL = '[Usuario eliminado]';
+
 interface PostCardProps {
   item: FeedItem;
   onDelete?: () => void;
@@ -48,7 +50,9 @@ export function PostCard({
   const currentProfileId = useContext(CurrentProfileContext);
   // Your own posts link nowhere, your profile is a tab of its own. Neither does
   // a card shown on its author's profile, which is the screen already open.
-  const canOpenAuthor = item.authorId !== userId && item.authorId !== currentProfileId;
+  // A deleted account has no profile left: opening it would only land on a 404.
+  const canOpenAuthor =
+    !item.authorDeleted && item.authorId !== userId && item.authorId !== currentProfileId;
 
   const card = (
     <>
@@ -70,8 +74,12 @@ export function PostCard({
             <Ionicons name="person" size={20} color={colors.primary} />
           </View>
           <View style={styles.authorBlock}>
-            <Text style={styles.author}>{item.authorDisplayName || item.authorHandle}</Text>
-            {item.authorDisplayName && item.authorHandle ? (
+            <Text style={styles.author}>
+              {item.authorDeleted
+                ? DELETED_AUTHOR_LABEL
+                : item.authorDisplayName || item.authorHandle}
+            </Text>
+            {!item.authorDeleted && item.authorDisplayName && item.authorHandle ? (
               <Text style={styles.handle}>{item.authorHandle}</Text>
             ) : null}
           </View>

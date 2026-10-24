@@ -60,6 +60,7 @@ const original: PostDetail = {
   authorHandle: '@joaquin_dev',
   authorDisplayName: null,
   authorAvatarUrl: null,
+  authorDeleted: false,
   deleted: false,
   parentId: null,
   content: 'El post original',
@@ -174,6 +175,20 @@ describe('E2-H4. Responder a un Post', () => {
     renderScreen();
 
     expect(await screen.findByText('Respondiendo a @joaquin_dev')).toBeTruthy();
+    expect(screen.getByText('El post original')).toBeTruthy();
+  });
+
+  it('E1-H4.CA5 - answering a reply from a deleted account names it as a deleted user', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue({
+      ...original,
+      authorHandle: null,
+      authorDisplayName: null,
+      authorDeleted: true,
+    });
+
+    renderScreen();
+
+    expect(await screen.findByText('Respondiendo a [Usuario eliminado]')).toBeTruthy();
     expect(screen.getByText('El post original')).toBeTruthy();
   });
 
