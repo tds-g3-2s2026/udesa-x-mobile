@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import ComposeScreen from '../../app/(app)/compose';
 import { postService } from '../../src/features/posts/services/postService';
 import { ApiError } from '../../src/api/apiClient';
@@ -17,6 +18,10 @@ jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
   useLocalSearchParams: () => mockParams,
 }));
+
+// The gallery is a native screen: what the user picks is whatever the test says.
+jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
+const launchPicker = ImagePicker.launchImageLibraryAsync as jest.Mock;
 
 const initialMetrics = {
   insets: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -43,6 +48,7 @@ const createdPost: Post = {
   parentId: null,
   content: 'Hola UdeSA-X',
   createdAt: '2026-09-22T15:00:00Z',
+  images: [],
   likesCount: 0,
   retweetsCount: 0,
   repliesCount: 0,
@@ -58,6 +64,7 @@ const original: PostDetail = {
   parentId: null,
   content: 'El post original',
   createdAt: '2026-09-22T15:00:00Z',
+  images: [],
   likesCount: 0,
   likedByMe: false,
   retweetedByMe: false,
@@ -75,10 +82,12 @@ afterEach(() => {
 });
 
 describe('E2-H1. Crear Post', () => {
-  it('shows the character counter starting at 0/280', () => {
+  it('shows the character counter starting at 0/280', async () => {
     renderScreen();
 
-    expect(screen.getByText('0/280')).toBeTruthy();
+    // Waits on a find: the image icon loads its font after the first render,
+    // and a test that ends before that leaves the update outside act().
+    expect(await screen.findByText('0/280')).toBeTruthy();
   });
 
   it('E2-H1.CA2 - Publicar is blocked while the field is blank or only spaces', async () => {
@@ -117,7 +126,7 @@ describe('E2-H1. Crear Post', () => {
     );
     await press('Publicar');
 
-    expect(createPost).toHaveBeenCalledWith('Hola UdeSA-X');
+    expect(createPost).toHaveBeenCalledWith('Hola UdeSA-X', []);
     expect(mockBack).toHaveBeenCalled();
   });
 
@@ -322,4 +331,187 @@ test('E2-H3.CA4 - deletion while composing keeps the draft and prevents a second
   expect(screen.getByDisplayValue('Mi borrador')).toBeTruthy();
   await press('Responder');
   expect(submit).toHaveBeenCalledTimes(1);
+});
+
+function picked(...assets: Record<string, unknown>[]) {
+  launchPicker.mockResolvedValueOnce({ canceled: false, assets });
+}
+
+function jpg(name: string, extra: Record<string, unknown> = {}) {
+  return {
+    uri: `file:///cache/${name}`,
+    fileName: name,
+    mimeType: 'image/jpeg',
+    fileSize: 200_000,
+    ...extra,
+  };
+}
+
+async function attach(...assets: Record<string, unknown>[]) {
+  picked(...assets);
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Agregar imágenes'));
+  });
+}
+
+describe('E2-H7. Post con Imagen', () => {
+  it('E2-H7.CA1 - opens the gallery for up to four images at once, untouched', async () => {
+    renderScreen();
+
+    await attach(jpg('uno.jpg'));
+
+    expect(launchPicker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: 4,
+        quality: 1,
+      })
+    );
+  });
+
+  it('E2-H7.CA1 - lists what was picked with a remove button each', async () => {
+    renderScreen();
+
+    await attach(jpg('uno.jpg'), jpg('dos.jpg'));
+
+    expect(screen.getByText('Imágenes 2/4')).toBeTruthy();
+    expect(screen.getByLabelText('Quitar imagen 1')).toBeTruthy();
+    expect(screen.getByLabelText('Quitar imagen 2')).toBeTruthy();
+  });
+
+  it('E2-H7.CA1 - removing one leaves the others and frees its place', async () => {
+    renderScreen();
+    await attach(jpg('uno.jpg'), jpg('dos.jpg'));
+
+    fireEvent.press(screen.getByLabelText('Quitar imagen 1'));
+
+    expect(screen.getByText('Imágenes 1/4')).toBeTruthy();
+    expect(screen.queryByLabelText('Quitar imagen 2')).toBeNull();
+    await attach(jpg('tres.jpg'));
+    expect(launchPicker).toHaveBeenLastCalledWith(expect.objectContaining({ selectionLimit: 3 }));
+  });
+
+  it('E2-H7.CA1 - with four attached the gallery cannot be opened again', async () => {
+    renderScreen();
+    await attach(jpg('1.jpg'), jpg('2.jpg'), jpg('3.jpg'), jpg('4.jpg'));
+    launchPicker.mockClear();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Agregar imágenes'));
+    });
+
+    expect(screen.getByText('Imágenes 4/4')).toBeTruthy();
+    expect(launchPicker).not.toHaveBeenCalled();
+  });
+
+  it('E2-H7.CA2 - an image over 1 MB is warned about by name and never attached', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    renderScreen();
+
+    await attach(jpg('grande.jpg', { fileSize: 1_048_577 }), jpg('chica.jpg'));
+
+    expect(alert).toHaveBeenCalledWith(
+      'Algunas imágenes no se agregaron',
+      'grande.jpg pesa más de 1 MB.'
+    );
+    expect(screen.getByText('Imágenes 1/4')).toBeTruthy();
+  });
+
+  it('E2-H7.CA1 - a format other than JPG or PNG is warned about and never attached', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    renderScreen();
+
+    await attach(jpg('animacion.gif', { mimeType: 'image/gif' }));
+
+    expect(alert).toHaveBeenCalledWith(
+      'Algunas imágenes no se agregaron',
+      'animacion.gif no es JPG ni PNG.'
+    );
+    expect(screen.getByText('Imágenes 0/4')).toBeTruthy();
+  });
+
+  it('closing the gallery without choosing changes nothing', async () => {
+    launchPicker.mockResolvedValueOnce({ canceled: true, assets: null });
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Agregar imágenes'));
+    });
+
+    expect(screen.getByText('Imágenes 0/4')).toBeTruthy();
+  });
+
+  it('a gallery that fails to open shows an alert instead of a dead button', async () => {
+    launchPicker.mockRejectedValueOnce(new Error('boom'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Agregar imágenes'));
+    });
+
+    expect(alert).toHaveBeenCalledWith('Error', 'No se pudo abrir la galería. Intentalo de nuevo.');
+  });
+
+  it('a post with only images can be published, with the images in the order they were picked', async () => {
+    const createPost = jest.spyOn(postService, 'createPost').mockResolvedValue(createdPost);
+    renderScreen();
+    await attach(jpg('uno.jpg'), jpg('dos.jpg'));
+
+    await press('Publicar');
+
+    expect(createPost).toHaveBeenCalledWith('', [
+      { uri: 'file:///cache/uno.jpg', name: 'uno.jpg', mimeType: 'image/jpeg' },
+      { uri: 'file:///cache/dos.jpg', name: 'dos.jpg', mimeType: 'image/jpeg' },
+    ]);
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('publishes the text together with the images', async () => {
+    const createPost = jest.spyOn(postService, 'createPost').mockResolvedValue(createdPost);
+    renderScreen();
+    await attach(jpg('uno.jpg'));
+    fireEvent.changeText(screen.getByPlaceholderText('Escribí algo para compartir'), 'Con foto');
+
+    await press('Publicar');
+
+    expect(createPost).toHaveBeenCalledWith('Con foto', [
+      { uri: 'file:///cache/uno.jpg', name: 'uno.jpg', mimeType: 'image/jpeg' },
+    ]);
+  });
+
+  it('still refuses a blank post when there are no images either', async () => {
+    const createPost = jest.spyOn(postService, 'createPost');
+    renderScreen();
+
+    await press('Publicar');
+
+    expect(createPost).not.toHaveBeenCalled();
+  });
+
+  it('E2-H7.CA2 - a server refusal keeps the draft and its images on screen', async () => {
+    jest
+      .spyOn(postService, 'createPost')
+      .mockRejectedValue(new ApiError('Cada imagen puede pesar hasta 1 MB.', 'image-too-large'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    renderScreen();
+    await attach(jpg('uno.jpg'));
+
+    await press('Publicar');
+
+    expect(alert).toHaveBeenCalledWith('Error', 'Cada imagen puede pesar hasta 1 MB.');
+    expect(screen.getByText('Imágenes 1/4')).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('a reply has no image button, since replies are text only', async () => {
+    mockParams = { parentId: 'post-1' };
+    jest.spyOn(postService, 'getPost').mockResolvedValue(original);
+
+    renderScreen();
+    await screen.findByText('Respondiendo a @joaquin_dev');
+
+    expect(screen.queryByLabelText('Agregar imágenes')).toBeNull();
+  });
 });
