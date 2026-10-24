@@ -10,6 +10,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
 import { DeletePostButton } from './DeletePostButton';
 import { LikeButton } from './LikeButton';
+import { PostImageGrid } from './PostImageGrid';
 import { RetweetButton } from './RetweetButton';
 
 interface PostCardProps {
@@ -92,6 +93,8 @@ export function PostCard({
       </View>
 
       <Text style={styles.content}>{item.deleted ? '[Post eliminado]' : item.content}</Text>
+
+      {!item.deleted ? <PostImageGrid images={item.images} /> : null}
 
       {!item.deleted && !deletePending ? (
         <View style={styles.counters}>

@@ -28,6 +28,7 @@ function post(overrides: Partial<FeedItem> = {}): FeedItem {
     deleted: false,
     content: 'Hola',
     createdAt: '2026-10-17T12:00:00Z',
+    images: [],
     likesCount: 0,
     likedByMe: false,
     retweetedByMe: false,
@@ -51,6 +52,34 @@ afterEach(() => {
     accessToken: null,
     refreshToken: null,
     isInitialized: false,
+  });
+});
+
+describe('E2-H7. Post con Imagen', () => {
+  const attached = [
+    { id: 'img-0', url: 'https://bucket.s3.amazonaws.com/posts/0.jpg', position: 0 },
+    { id: 'img-1', url: 'https://bucket.s3.amazonaws.com/posts/1.png', position: 1 },
+  ];
+
+  it('E2-H7.CA4 - a post with images shows them under its text', async () => {
+    render(<PostCard item={post({ images: attached })} />);
+
+    expect(await screen.findByTestId('post-image-grid')).toBeTruthy();
+    expect(screen.getByLabelText('Imagen 2 de 2')).toBeTruthy();
+  });
+
+  it('a post without images shows no grid', async () => {
+    render(<PostCard item={post()} />);
+
+    await screen.findByText('Hola');
+    expect(screen.queryByTestId('post-image-grid')).toBeNull();
+  });
+
+  it('a deleted post shows no images even if some came with it', async () => {
+    render(<PostCard item={post({ deleted: true, content: null, images: attached })} />);
+
+    await screen.findByText('[Post eliminado]');
+    expect(screen.queryByTestId('post-image-grid')).toBeNull();
   });
 });
 
