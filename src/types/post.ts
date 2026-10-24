@@ -33,6 +33,11 @@ export interface FeedItem {
   authorHandle: string | null;
   authorDisplayName: string | null;
   authorAvatarUrl: string | null;
+  // True when the author's account was deleted. Its replies stay in the thread
+  // with their text, and handle, display name and avatar come back null, so
+  // those nulls cannot tell this case apart from a profile not synced yet.
+  // `authorId` is still there but opening it answers 404.
+  authorDeleted: boolean;
   content: string | null;
   images: PostImage[];
   deleted: boolean;
