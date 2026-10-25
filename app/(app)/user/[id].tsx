@@ -190,7 +190,8 @@ export default function UserProfileScreen() {
           <FlatList
             testID="profile-posts"
             data={postsHidden ? [] : items}
-            keyExtractor={(item) => item.id}
+            // The same post can come twice, written and retweeted by this account.
+            keyExtractor={(item) => item.entryId}
             contentContainerStyle={styles.list}
             ListHeaderComponent={header}
             onEndReached={loadMore}
