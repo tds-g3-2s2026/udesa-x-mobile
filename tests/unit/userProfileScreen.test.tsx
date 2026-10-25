@@ -130,6 +130,20 @@ describe('E2-H14. Visualización de Perfil de Usuario', () => {
     expect(screen.getByText('Primero')).toBeTruthy();
   });
 
+  it('E2-H14.CA2 - shows a post and its retweet by the same account as two rows', async () => {
+    const written = post('post-1', 'Mío');
+    const retweeted = { ...written, entryId: 'retweet:usr-2:post-1', retweetedBy: '@ana' };
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
+    jest
+      .spyOn(profileService, 'getPosts')
+      .mockResolvedValue({ items: [retweeted, written], nextCursor: null });
+
+    renderScreen();
+
+    expect(await screen.findAllByText('Mío')).toHaveLength(2);
+    expect(screen.getByText('Retweeteado por @ana')).toBeTruthy();
+  });
+
   it('E2-H14.CA4 - asks for the next page of twenty at the end of the list', async () => {
     jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
     const getPosts = jest
