@@ -10,11 +10,11 @@ it('E2-H10.CA5 removes a blocked author from both result types and invalidates s
     pages: [{ items: [{ id: 'blocked' }, { id: 'visible' }], nextCursor: 'next' }],
     pageParams: [null],
   });
-  await updateSearchAfterBlock('blocked', true);
+  await updateSearchAfterBlock('viewer', 'blocked', true);
   expect(searchQueryClient.getQueryData(key)).toMatchObject({
     pages: [{ items: [{ id: 'visible' }], nextCursor: 'next' }],
   });
   expect(searchQueryClient.getQueryState(key)?.isInvalidated).toBe(true);
-  await updateSearchAfterBlock('blocked', false);
+  await updateSearchAfterBlock('viewer', 'blocked', false);
   searchQueryClient.clear();
 });

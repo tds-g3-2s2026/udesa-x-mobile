@@ -4,11 +4,15 @@ import { SearchPage } from './types';
 
 export const searchQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-export async function updateSearchAfterBlock(userId: string, blocked: boolean): Promise<void> {
-  const viewerId = useAuthStore.getState().user?.id;
-  if (!viewerId) return;
+export async function updateSearchAfterBlock(
+  viewerId: string | undefined,
+  userId: string,
+  blocked: boolean
+): Promise<void> {
+  if (!viewerId || useAuthStore.getState().user?.id !== viewerId) return;
   const filter = { queryKey: ['search', viewerId] };
   await searchQueryClient.cancelQueries(filter);
+  if (useAuthStore.getState().user?.id !== viewerId) return;
   if (blocked) {
     searchQueryClient.setQueriesData<InfiniteData<SearchPage>>(filter, (data) =>
       data
