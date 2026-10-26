@@ -80,6 +80,22 @@ it('E2-H10.CA1 validates three normalized characters including at mode', async (
   );
 });
 
+it('E2-H10.CA1 preserves handle-only search as a distinct query from regular account search', async () => {
+  renderSearch();
+  fireEvent.press(screen.getByRole('tab', { name: 'Usuarios' }));
+  type('@ana');
+  await waitFor(() =>
+    expect(search).toHaveBeenCalledWith('users', '@ana', null, expect.any(AbortSignal))
+  );
+
+  type('ana');
+
+  await waitFor(() =>
+    expect(search).toHaveBeenLastCalledWith('users', 'ana', null, expect.any(AbortSignal))
+  );
+  expect(search).toHaveBeenCalledTimes(2);
+});
+
 it('E2-H10.CA2 switches a single field between posts and users', async () => {
   renderSearch();
   type('udesa');
