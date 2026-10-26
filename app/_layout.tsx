@@ -8,6 +8,7 @@ import { useAuthStore } from '../src/stores/authStore';
 import { useThemeStore } from '../src/stores/themeStore';
 import { useThemeColors } from '../src/theme/useThemeColors';
 import { Colors } from '../src/theme/colors';
+import { SearchQueryProvider } from '../src/features/search/SearchQueryProvider';
 
 // The native splash stays up until the stored session and theme were read,
 // so the first screen the user sees is already the right one, in the right
@@ -41,26 +42,28 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      {isInitialized ? (
-        // Declarative guards: only the group the session allows is mounted, so
-        // the protected area never renders for a frame before a redirect.
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={user !== null}>
-            <Stack.Screen name="(app)" />
-          </Stack.Protected>
+      <SearchQueryProvider>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        {isInitialized ? (
+          // Declarative guards: only the group the session allows is mounted, so
+          // the protected area never renders for a frame before a redirect.
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={user !== null}>
+              <Stack.Screen name="(app)" />
+            </Stack.Protected>
 
-          <Stack.Protected guard={user === null}>
-            <Stack.Screen name="(auth)" />
-          </Stack.Protected>
-        </Stack>
-      ) : (
-        // Reading the stored session is a couple of SecureStore calls: this only
-        // shows while that resolves, and replaces the flash of the wrong screen.
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      )}
+            <Stack.Protected guard={user === null}>
+              <Stack.Screen name="(auth)" />
+            </Stack.Protected>
+          </Stack>
+        ) : (
+          // Reading the stored session is a couple of SecureStore calls: this only
+          // shows while that resolves, and replaces the flash of the wrong screen.
+          <View style={styles.loading}>
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+        )}
+      </SearchQueryProvider>
     </SafeAreaProvider>
   );
 }

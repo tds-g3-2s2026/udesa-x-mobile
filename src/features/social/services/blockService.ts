@@ -1,3 +1,4 @@
+import { updateSearchAfterBlock } from '../../search/queryClient';
 import { BlockedAccountPage } from '../../../types/social';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
@@ -9,6 +10,7 @@ export const blockService = {
   async block(targetUserId: string): Promise<void> {
     try {
       await postsApiClient.post(`/users/${targetUserId}/block`);
+      await updateSearchAfterBlock(targetUserId, true);
     } catch (error) {
       throw toAuthError(error, 'No se pudo bloquear la cuenta. Intentalo de nuevo.');
     }
@@ -17,6 +19,7 @@ export const blockService = {
   async unblock(targetUserId: string): Promise<void> {
     try {
       await postsApiClient.delete(`/users/${targetUserId}/block`);
+      await updateSearchAfterBlock(targetUserId, false);
     } catch (error) {
       throw toAuthError(error, 'No se pudo desbloquear la cuenta. Intentalo de nuevo.');
     }
