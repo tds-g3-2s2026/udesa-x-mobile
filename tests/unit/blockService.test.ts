@@ -1,6 +1,8 @@
 import { AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { blockService } from '../../src/features/social/services/blockService';
 import { postsApiClient } from '../../src/api/postsApiClient';
+import { searchQueryClient } from '../../src/features/search/queryClient';
+import { useAuthStore } from '../../src/stores/authStore';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
@@ -32,6 +34,7 @@ describe('Block service', () => {
     get.mockReset();
     post.mockReset();
     del.mockReset();
+    searchQueryClient.clear();
   });
 
   describe('E3-H4. Bloquear Usuario', () => {
@@ -41,6 +44,31 @@ describe('Block service', () => {
       await blockService.block('usr-2');
 
       expect(post).toHaveBeenCalledWith('/users/usr-2/block');
+    });
+
+    it('does not update another account search cache when a pending block finishes after sign-in changes', async () => {
+      useAuthStore.setState({
+        user: { id: 'viewer-a', handle: '@a', email: 'a@example.com', isVerified: true },
+      });
+      const key = ['search', 'viewer-b', 'users', 'target'];
+      const data = { pages: [{ items: [{ id: 'usr-2' }], nextCursor: null }], pageParams: [null] };
+      searchQueryClient.setQueryData(key, data);
+      let finish!: (response: AxiosResponse<void>) => void;
+      post.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+
+      const pendingBlock = blockService.block('usr-2');
+      useAuthStore.setState({ user: null });
+      searchQueryClient.clear();
+      useAuthStore.setState({
+        user: { id: 'viewer-b', handle: '@b', email: 'b@example.com', isVerified: true },
+      });
+      searchQueryClient.setQueryData(key, data);
+      finish(apiSuccess(undefined, 204));
+      await pendingBlock;
+
+      expect(searchQueryClient.getQueryData(key)).toEqual(data);
+      expect(searchQueryClient.getQueryState(key)?.isInvalidated).toBe(false);
+      useAuthStore.setState({ user: null });
     });
 
     it('shows the server message when blocking is refused', async () => {

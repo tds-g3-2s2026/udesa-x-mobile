@@ -1,22 +1,28 @@
+import { updateSearchAfterBlock } from '../../search/queryClient';
 import { BlockedAccountPage } from '../../../types/social';
 import { postsApiClient } from '../../../api/postsApiClient';
 import { toAuthError } from '../../../api/apiClient';
+import { useAuthStore } from '../../../stores/authStore';
 
 export const blockService = {
   // Blocking an account already blocked is not an error server-side, so this
   // never has to check the current state first. The server also removes the
   // follows in both directions: nothing else has to be called here.
   async block(targetUserId: string): Promise<void> {
+    const viewerId = useAuthStore.getState().user?.id;
     try {
       await postsApiClient.post(`/users/${targetUserId}/block`);
+      await updateSearchAfterBlock(viewerId, targetUserId, true);
     } catch (error) {
       throw toAuthError(error, 'No se pudo bloquear la cuenta. Intentalo de nuevo.');
     }
   },
 
   async unblock(targetUserId: string): Promise<void> {
+    const viewerId = useAuthStore.getState().user?.id;
     try {
       await postsApiClient.delete(`/users/${targetUserId}/block`);
+      await updateSearchAfterBlock(viewerId, targetUserId, false);
     } catch (error) {
       throw toAuthError(error, 'No se pudo desbloquear la cuenta. Intentalo de nuevo.');
     }

@@ -4,6 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/stores/authStore';
 import { postService } from '../../src/features/posts/services/postService';
 import { User } from '../../src/types/auth';
+import * as searchService from '../../src/features/search/searchService';
+import { searchQueryClient } from '../../src/features/search/queryClient';
 import { FeedItem, Post } from '../../src/types/post';
 
 // Same in-memory SecureStore double as the other route tests: the factory owns the
@@ -49,6 +51,9 @@ async function renderTab(url: string): Promise<void> {
 }
 
 beforeEach(() => {
+  searchQueryClient.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } });
+  searchQueryClient.clear();
+  jest.spyOn(searchService, 'search').mockResolvedValue({ items: [], nextCursor: null });
   secureStoreValues.clear();
   jest.clearAllMocks();
   useAuthStore.setState({
@@ -94,7 +99,7 @@ describe('T-51. Navegación por tabs', () => {
     expect(screen.getByPlaceholderText('Buscar personas y publicaciones')).toBeTruthy();
   });
 
-  it('T-51 - the Buscar tab reports that results are not wired yet', async () => {
+  it('E2-H10.CA2 - the Buscar tab searches through the selected mode', async () => {
     await renderTab('/search');
 
     const field = screen.getByPlaceholderText('Buscar personas y publicaciones');
@@ -102,7 +107,13 @@ describe('T-51. Navegación por tabs', () => {
 
     fireEvent.changeText(field, 'joaquin');
 
-    expect(screen.getByText('Sin resultados')).toBeTruthy();
+    expect(await screen.findByText('Sin coincidencias')).toBeTruthy();
+    expect(searchService.search).toHaveBeenCalledWith(
+      'posts',
+      'joaquin',
+      null,
+      expect.any(AbortSignal)
+    );
   });
 
   it('T-51 - the Notificaciones tab shows its empty state', async () => {
