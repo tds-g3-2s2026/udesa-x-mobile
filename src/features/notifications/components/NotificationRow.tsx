@@ -6,6 +6,7 @@ import { Colors } from '../../../theme/colors';
 import { formatRelativeTime } from '../../posts/relativeTime';
 import { describeNotification } from '../notificationContent';
 import { AppNotification } from '../types';
+import { SwipeToDelete } from './SwipeToDelete';
 
 interface NotificationRowProps {
   item: AppNotification;
@@ -25,31 +26,33 @@ export function NotificationRow({ item, onOpen, onDelete }: NotificationRowProps
   const { text, icon } = describeNotification(item);
 
   return (
-    <View style={[styles.row, unread && styles.unreadRow]} testID={`notification-${item.id}`}>
-      <Pressable
-        style={styles.body}
-        onPress={onOpen}
-        disabled={!onOpen}
-        accessibilityRole={onOpen ? 'button' : undefined}
-        accessibilityLabel={unread ? `No leída. ${text}` : text}
-      >
-        <View style={[styles.dot, unread && styles.unreadDot]} testID="notification-dot" />
-        <Ionicons name={icon} size={20} color={colors.primary} />
-        <View style={styles.texts}>
-          <Text style={[styles.text, unread && styles.unreadText]}>{text}</Text>
-          <Text style={styles.time}>{formatRelativeTime(item.createdAt)}</Text>
-        </View>
-      </Pressable>
-      <Pressable
-        style={styles.delete}
-        onPress={onDelete}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Borrar notificación"
-      >
-        <Ionicons name="trash-outline" size={18} color={colors.muted} />
-      </Pressable>
-    </View>
+    <SwipeToDelete onDelete={onDelete} testID={`swipe-${item.id}`}>
+      <View style={[styles.row, unread && styles.unreadRow]} testID={`notification-${item.id}`}>
+        <Pressable
+          style={styles.body}
+          onPress={onOpen}
+          disabled={!onOpen}
+          accessibilityRole={onOpen ? 'button' : undefined}
+          accessibilityLabel={unread ? `No leída. ${text}` : text}
+        >
+          <View style={[styles.dot, unread && styles.unreadDot]} testID="notification-dot" />
+          <Ionicons name={icon} size={20} color={colors.primary} />
+          <View style={styles.texts}>
+            <Text style={[styles.text, unread && styles.unreadText]}>{text}</Text>
+            <Text style={styles.time}>{formatRelativeTime(item.createdAt)}</Text>
+          </View>
+        </Pressable>
+        <Pressable
+          style={styles.delete}
+          onPress={onDelete}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Borrar notificación"
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.muted} />
+        </Pressable>
+      </View>
+    </SwipeToDelete>
   );
 }
 

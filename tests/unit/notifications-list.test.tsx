@@ -61,6 +61,64 @@ function renderScreen() {
   );
 }
 
+// The test renderer has no real touch system, so a drag is fed to the row's
+// PanResponder the way React Native would: the responder handlers are called
+// directly with a touch history holding where the finger is now, where it was
+// on the previous event and when. fireEvent cannot do it: it only delivers
+// responder events to a view that claims the touch when it starts, and the row
+// only claims it once the finger moves. A single finger that started at x = 300.
+function touches(x: number, previousX: number, time: number, dy = 0) {
+  return {
+    numberActiveTouches: 1,
+    indexOfSingleActiveTouch: 0,
+    mostRecentTimeStamp: time,
+    touchBank: [
+      {
+        touchActive: true,
+        startPageX: 300,
+        startPageY: 40,
+        startTimeStamp: 0,
+        currentPageX: x,
+        currentPageY: 40 + dy,
+        currentTimeStamp: time,
+        previousPageX: previousX,
+        previousPageY: 40,
+        previousTimeStamp: time - 10,
+      },
+    ],
+  };
+}
+
+// Puts a finger down and moves it dx and dy points, then asks the row whether
+// the drag is its to handle. The calls follow React Native's order: touching
+// down resets the gesture, and the capture phase updates it before the
+// bubbling phase reads it.
+function claimsDrag(row: ReturnType<typeof screen.getByTestId>, dx: number, dy: number) {
+  row.props.onStartShouldSetResponderCapture({
+    nativeEvent: { touches: [{}] },
+    touchHistory: touches(300, 300, 10),
+  });
+  const move = { touchHistory: touches(300 + dx, 300, 20, dy) };
+  row.props.onMoveShouldSetResponderCapture(move);
+  return row.props.onMoveShouldSetResponder(move);
+}
+
+// Puts the finger down at x = 300 and moves it dx points over `duration` ms.
+// Then the finger is lifted, or the system cancels the gesture.
+function swipe(
+  row: ReturnType<typeof screen.getByTestId>,
+  dx: number,
+  { duration = 200, cancelled = false } = {}
+) {
+  act(() => {
+    row.props.onResponderGrant({ touchHistory: touches(300, 300, 10) });
+    row.props.onResponderMove({ touchHistory: touches(300 + dx, 300, 10 + duration) });
+    const end = { touchHistory: touches(300 + dx, 300 + dx, 20 + duration) };
+    if (cancelled) row.props.onResponderTerminate(end);
+    else row.props.onResponderRelease(end);
+  });
+}
+
 async function press(label: string) {
   await act(async () => {
     fireEvent.press(screen.getByRole('button', { name: label }));
@@ -167,12 +225,16 @@ describe('E4-H3. Centro de Notificaciones In-App', () => {
     expect(screen.getByLabelText('No leída. @cuenta1 empezó a seguirte')).toBeTruthy();
   });
 
-  it('E4-H3.CA4 - the trash icon deletes the notification and takes it off the list', async () => {
-    list.mockResolvedValueOnce({ items: [notification(1), notification(2)], nextCursor: null });
-    remove.mockResolvedValueOnce(undefined);
+  it('E4-H3.CA4 swipe o tacho borran la notificación', async () => {
+    list.mockResolvedValueOnce({
+      items: [notification(1), notification(2), notification(3)],
+      nextCursor: null,
+    });
+    remove.mockResolvedValue(undefined);
     renderScreen();
     await screen.findByText('@cuenta1 empezó a seguirte');
 
+    // The trash icon.
     await act(async () => {
       fireEvent.press(screen.getAllByRole('button', { name: 'Borrar notificación' })[0]);
     });
@@ -180,7 +242,40 @@ describe('E4-H3. Centro de Notificaciones In-App', () => {
     expect(remove).toHaveBeenCalledWith('ntf-1');
     // The query cache tells the screen on the next tick, not synchronously.
     await waitFor(() => expect(screen.queryByText('@cuenta1 empezó a seguirte')).toBeNull());
-    expect(screen.getByText('@cuenta2 empezó a seguirte')).toBeTruthy();
+
+    // The swipe: a drag 150 points to the left, past the delete distance.
+    swipe(screen.getByTestId('swipe-ntf-2'), -150);
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('ntf-2'));
+    await waitFor(() => expect(screen.queryByText('@cuenta2 empezó a seguirte')).toBeNull());
+    expect(screen.getByText('@cuenta3 empezó a seguirte')).toBeTruthy();
+  });
+
+  it('E4-H3.CA4 - a short or vertical drag does not delete', async () => {
+    list.mockResolvedValueOnce({ items: [notification(1)], nextCursor: null });
+    renderScreen();
+    await screen.findByText('@cuenta1 empezó a seguirte');
+    const row = screen.getByTestId('swipe-ntf-1');
+
+    // A vertical or diagonal drag is left to the list, which keeps scrolling,
+    // and so is a drag to the right.
+    expect(claimsDrag(row, 0, 60)).toBe(false);
+    expect(claimsDrag(row, -40, 30)).toBe(false);
+    expect(claimsDrag(row, 40, 0)).toBe(false);
+    // A drag to the left becomes a swipe, and the list cannot take it back.
+    expect(claimsDrag(row, -40, 0)).toBe(true);
+    expect(row.props.onResponderTerminationRequest()).toBe(false);
+
+    // Released 50 points to the left, slower than a flick: the row goes back.
+    swipe(row, -50, { duration: 400 });
+    // Cancelled by the system past the delete distance: the row goes back too.
+    swipe(row, -150, { cancelled: true });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(remove).not.toHaveBeenCalled();
+    expect(screen.getByText('@cuenta1 empezó a seguirte')).toBeTruthy();
   });
 
   it('E4-H3.CA4 - a failed delete reloads the list from the server and says why', async () => {
