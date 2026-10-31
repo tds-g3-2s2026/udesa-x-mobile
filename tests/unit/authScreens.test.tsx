@@ -1030,6 +1030,20 @@ describe('Preferencias', () => {
     expect(mockPush).toHaveBeenCalledWith('/blocked-accounts');
   });
 
+  it('E3-H10.CA3 - opens the muted accounts from the settings', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Cuentas silenciadas');
+
+    expect(mockPush).toHaveBeenCalledWith('/muted-accounts');
+  });
+
   it('saves a changed option right away, with no separate save button', async () => {
     jest.spyOn(authService, 'getPreferences').mockResolvedValue({
       profileVisibility: 'public',
