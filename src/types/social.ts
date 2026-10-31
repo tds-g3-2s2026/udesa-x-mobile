@@ -54,6 +54,18 @@ export interface BlockedAccountPage {
   nextCursor: string | null;
 }
 
+// One row of the muted-accounts screen. GET /mutes pages like GET /blocks.
+export interface MutedAccount {
+  id: string;
+  handle: string | null;
+  createdAt: string;
+}
+
+export interface MutedAccountPage {
+  items: MutedAccount[];
+  nextCursor: string | null;
+}
+
 // GET /users/{id}: the header of another account's profile. `displayName`,
 // `bio` and `createdAt` live in users-api and arrive null when posts-api
 // could not reach it. `avatarUrl` stays null until profile photos exist.
@@ -70,6 +82,8 @@ export interface UserProfile {
   followingCount: number;
   isPrivate: boolean;
   isFollowedByMe: boolean;
+  // Only the caller sees it: the muted account gets the same header as before.
+  isMutedByMe: boolean;
 }
 
 // The closed list posts-api accepts: anything else is a 422.
