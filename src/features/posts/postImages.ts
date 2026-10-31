@@ -45,23 +45,33 @@ export interface PickResult {
   rejected: { name: string; reason: RejectedReason }[];
 }
 
+// Checks one file: JPG or PNG and within `maxBytes`. A size the picker could
+// not report passes on purpose, because the server measures the real bytes
+// and answers with its own message; guessing here would block images that
+// were fine.
+export function checkPickedImage(
+  asset: PickerAsset,
+  maxBytes: number
+): { image: PickedImage } | { name: string; reason: RejectedReason } {
+  const name = asset.fileName || asset.uri.split('/').pop() || 'imagen';
+  const mimeType = typeOf(asset);
+  if (!mimeType || !ACCEPTED_TYPES.includes(mimeType)) return { name, reason: 'format' };
+  if (asset.fileSize !== undefined && asset.fileSize > maxBytes) return { name, reason: 'size' };
+  return { image: { uri: asset.uri, name, mimeType } };
+}
+
 // Keeps what fits: the right format, within 1 MB and while there is room in
-// the post. A size the picker could not report passes on purpose, because the
-// server measures the real bytes and answers with its own message; guessing
-// here would block images that were fine.
+// the post.
 export function acceptPickedImages(assets: PickerAsset[], alreadyAttached: number): PickResult {
   const accepted: PickedImage[] = [];
   const rejected: PickResult['rejected'] = [];
 
   for (const asset of assets) {
-    const name = asset.fileName || asset.uri.split('/').pop() || 'imagen';
-    const mimeType = typeOf(asset);
-    if (!mimeType || !ACCEPTED_TYPES.includes(mimeType)) {
-      rejected.push({ name, reason: 'format' });
-    } else if (asset.fileSize !== undefined && asset.fileSize > MAX_IMAGE_BYTES) {
-      rejected.push({ name, reason: 'size' });
+    const checked = checkPickedImage(asset, MAX_IMAGE_BYTES);
+    if (!('image' in checked)) {
+      rejected.push(checked);
     } else if (alreadyAttached + accepted.length < MAX_POST_IMAGES) {
-      accepted.push({ uri: asset.uri, name, mimeType });
+      accepted.push(checked.image);
     }
   }
 
