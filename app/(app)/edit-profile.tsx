@@ -10,6 +10,7 @@ import { useAuthStyles } from '../../src/features/auth/components/authTheme';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/stores/authStore';
+import { ProfileImagesEditor } from '../../src/features/social/components/ProfileImagesEditor';
 
 type FormField = 'displayName' | 'bio';
 type FieldErrors = Partial<Record<FormField, string>>;
@@ -29,6 +30,7 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const clearSession = useAuthStore((state) => state.clearSession);
   const setProfile = useAuthStore((state) => state.setProfile);
+  const userId = useAuthStore((state) => state.user?.id);
   const bioRef = useRef<TextInput>(null);
   const authStyles = useAuthStyles();
   const colors = useThemeColors();
@@ -151,6 +153,8 @@ export default function EditProfileScreen() {
         </Text>
       }
     >
+      {userId ? <ProfileImagesEditor userId={userId} /> : null}
+
       <FormInput
         label="Nombre visible"
         placeholder="Como querés que te vean"
