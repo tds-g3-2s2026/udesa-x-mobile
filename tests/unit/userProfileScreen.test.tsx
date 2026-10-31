@@ -46,6 +46,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     displayName: 'Ana Pérez',
     bio: 'Estudio en la UdeSA',
     avatarUrl: null,
+    coverUrl: null,
     createdAt: '2026-09-01T12:00:00Z',
     followersCount: 10,
     followingCount: 3,
@@ -114,7 +115,28 @@ describe('E2-H14. Visualización de Perfil de Usuario', () => {
 
     renderScreen();
 
-    expect(await screen.findByText('A')).toBeTruthy();
+    expect(await screen.findByTestId('default-avatar')).toBeTruthy();
+    expect(screen.getByTestId('default-cover')).toBeTruthy();
+  });
+
+  it('E1-H8 - shows the photo and the cover of an account that has them', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(
+      profile({
+        avatarUrl: 'https://bucket.example/avatar.jpg?sig=1',
+        coverUrl: 'https://bucket.example/cover.jpg?sig=1',
+      })
+    );
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+
+    expect((await screen.findByLabelText('Foto de perfil')).props.source).toEqual({
+      uri: 'https://bucket.example/avatar.jpg?sig=1',
+    });
+    expect(screen.getByLabelText('Portada').props.source).toEqual({
+      uri: 'https://bucket.example/cover.jpg?sig=1',
+    });
+    expect(screen.queryByTestId('default-avatar')).toBeNull();
   });
 
   it('E2-H14.CA2 - lists the posts of the account', async () => {

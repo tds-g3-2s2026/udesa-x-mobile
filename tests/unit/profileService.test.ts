@@ -31,6 +31,7 @@ const profile: UserProfile = {
   displayName: 'Ana Pérez',
   bio: 'Estudio en la UdeSA',
   avatarUrl: null,
+  coverUrl: null,
   createdAt: '2026-09-01T12:00:00Z',
   followersCount: 10,
   followingCount: 3,
