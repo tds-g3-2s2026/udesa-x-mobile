@@ -8,6 +8,8 @@ import { User } from '../../src/types/auth';
 import * as searchService from '../../src/features/search/searchService';
 import { searchQueryClient } from '../../src/features/search/queryClient';
 import { FeedItem, Post } from '../../src/types/post';
+import { profileService } from '../../src/features/social/services/profileService';
+import { UserProfile } from '../../src/types/social';
 
 // Same in-memory SecureStore double as the other route tests: the factory owns the
 // map because jest.mock cannot reference variables from the module scope.
@@ -37,6 +39,23 @@ const user: User = {
   email: 'jleon@udesa.edu.ar',
   isVerified: true,
 };
+
+function ownProfile(overrides: Partial<UserProfile> = {}): UserProfile {
+  return {
+    id: user.id,
+    handle: user.handle,
+    displayName: null,
+    bio: null,
+    avatarUrl: null,
+    coverUrl: null,
+    createdAt: '2026-09-01T12:00:00Z',
+    followersCount: 0,
+    followingCount: 0,
+    isPrivate: false,
+    isFollowedByMe: false,
+    ...overrides,
+  };
+}
 
 function persistSession(session: User = user): void {
   secureStoreValues.set('udesa_x_access_token', 'jwt-access-token');
@@ -70,6 +89,8 @@ beforeEach(() => {
   jest.spyOn(postService, 'getSuggestedAccounts').mockResolvedValue([]);
   // Same for the Notificaciones tab, which loads its first page on mount.
   jest.spyOn(notificationService, 'list').mockResolvedValue({ items: [], nextCursor: null });
+  // And the Perfil tab, which reads the account's photo and cover from posts-api.
+  jest.spyOn(profileService, 'getProfile').mockResolvedValue(ownProfile());
   persistSession();
 });
 
@@ -134,6 +155,33 @@ describe('T-51. Navegación por tabs', () => {
     expect(screen.getByText(user.email)).toBeTruthy();
     expect(screen.getByText('Correo verificado')).toBeTruthy();
     expect(screen.getByText('Cerrar Sesión')).toBeTruthy();
+  });
+
+  it("E1-H8 - the Perfil tab shows the account's own photo and cover from posts-api", async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(
+      ownProfile({
+        avatarUrl: 'https://bucket.example/avatar.jpg?sig=1',
+        coverUrl: 'https://bucket.example/cover.jpg?sig=1',
+      })
+    );
+
+    await renderTab('/profile');
+
+    expect((await screen.findByLabelText('Foto de perfil')).props.source).toEqual({
+      uri: 'https://bucket.example/avatar.jpg?sig=1',
+    });
+    expect(screen.getByLabelText('Portada')).toBeTruthy();
+    expect(profileService.getProfile).toHaveBeenCalledWith(user.id);
+  });
+
+  it('E1-H8 - the Perfil tab keeps the default avatar when the photo cannot be read', async () => {
+    jest.spyOn(profileService, 'getProfile').mockRejectedValue(new Error('offline'));
+
+    await renderTab('/profile');
+
+    await waitFor(() => expect(profileService.getProfile).toHaveBeenCalled());
+    expect(screen.getByTestId('default-avatar')).toBeTruthy();
+    expect(screen.getByText(user.email)).toBeTruthy();
   });
 
   it('T-51 - the Perfil tab flags an account whose email is not verified', async () => {

@@ -19,6 +19,7 @@ import ForgotPasswordScreen from '../../app/(auth)/forgot-password';
 import ResetPasswordScreen from '../../app/(auth)/reset-password';
 import { ApiError } from '../../src/api/apiClient';
 import { apiClient, authService } from '../../src/features/auth/services/authService';
+import { profileService } from '../../src/features/social/services/profileService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { useRegisterDraft } from '../../src/stores/registerDraftStore';
@@ -42,6 +43,11 @@ jest.mock('expo-router', () => ({
     canDismiss: () => true,
   }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
+  // Outside a navigator a screen is always focused: the effect runs on mount.
+  useFocusEffect: (callback: React.EffectCallback) => {
+    const React = jest.requireActual('react');
+    React.useEffect(callback, [callback]);
+  },
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -61,6 +67,14 @@ function renderScreen(ui: React.ReactElement) {
   return render(<SafeAreaProvider initialMetrics={initialMetrics}>{ui}</SafeAreaProvider>);
 }
 
+// The Perfil tab reads its photo from posts-api on mount: waiting for that
+// read keeps the update it makes inside act.
+async function renderProfileTab(): Promise<void> {
+  renderScreen(<ProfileScreen />);
+  await waitFor(() => expect(profileService.getProfile).toHaveBeenCalled());
+  await act(async () => undefined);
+}
+
 // Presses inside act so the button animation settles before the assertions.
 async function press(label: string): Promise<void> {
   await act(async () => {
@@ -73,6 +87,25 @@ const COMPLETE_DRAFT = {
   handle: '@joaquin_dev',
   password: 'Password123',
 };
+
+// The Perfil tab reads the account's photo and cover from posts-api on focus.
+// No photo by default, so these tests see the default avatar and never reach
+// the network.
+beforeEach(() => {
+  jest.spyOn(profileService, 'getProfile').mockResolvedValue({
+    id: 'usr-1',
+    handle: '@joaquin_dev',
+    displayName: null,
+    bio: null,
+    avatarUrl: null,
+    coverUrl: null,
+    createdAt: '2026-09-01T12:00:00Z',
+    followersCount: 0,
+    followingCount: 0,
+    isPrivate: false,
+    isFollowedByMe: false,
+  });
+});
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -717,7 +750,7 @@ describe('E1-H6. Editar mi perfil', () => {
       user: { ...loggedIn.user, displayName: 'Joaco', bio: 'Estudiante de sistemas' },
     });
 
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     expect(screen.getByText('Joaco')).toBeTruthy();
     expect(screen.getByText('Estudiante de sistemas')).toBeTruthy();
@@ -726,7 +759,7 @@ describe('E1-H6. Editar mi perfil', () => {
   it('falls back to the handle on the profile until a display name is set', async () => {
     useAuthStore.setState(loggedIn);
 
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     // Shows twice: once as the name (the fallback) and once as the handle
     // row underneath it, same text until a display name is set.
@@ -735,7 +768,7 @@ describe('E1-H6. Editar mi perfil', () => {
 
   it('E1-H10.CA1 - toggling the theme switch persists the preference locally, nowhere else', async () => {
     useAuthStore.setState(loggedIn);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await act(async () => {
       fireEvent(screen.getByLabelText('Tema oscuro'), 'valueChange', true);
@@ -747,7 +780,7 @@ describe('E1-H6. Editar mi perfil', () => {
 
   it('E1-H10.CA2 - the screen reflects the new theme immediately, without unmounting', async () => {
     useAuthStore.setState(loggedIn);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     // The icon next to the switch is driven by the same theme value as the
     // colors: if it flips in place, the screen re-rendered with the new
@@ -1183,7 +1216,7 @@ describe('E1-H3. Cierre de Sesión', () => {
   it('E1-H3.CA2 - logging out revokes the token in the backend and wipes the local session', async () => {
     const logout = jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
     await press('Cerrar Sesión');
 
     expect(logout).toHaveBeenCalled();
@@ -1200,7 +1233,7 @@ describe('E1-H3. Cierre de Sesión', () => {
     // best-effort coverage): a rejected POST must not stop the local wipe below.
     jest.spyOn(apiClient, 'post').mockRejectedValueOnce(new Error('Network Error'));
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
     await press('Cerrar Sesión');
 
     expect(useAuthStore.getState().user).toBeNull();
@@ -1213,7 +1246,7 @@ describe('E1-H3. Cierre de Sesión', () => {
     jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
     jest.spyOn(useAuthStore.getState(), 'clearSession').mockRejectedValue(new Error('SecureStore'));
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Cerrar Sesión');
 
@@ -1225,7 +1258,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('opens the password change screen from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Cambiar contraseña');
 
@@ -1234,7 +1267,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('E1-H4.CA3 - opens the account deletion screen from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Eliminar cuenta');
 
@@ -1243,7 +1276,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('opens the edit profile screen from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Editar perfil');
 
@@ -1252,7 +1285,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('opens the preferences screen from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Configuración');
 
@@ -1261,7 +1294,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('opens the follow list on the followers tab from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Seguidores');
 
@@ -1273,7 +1306,7 @@ describe('E1-H3. Cierre de Sesión', () => {
 
   it('opens the follow list on the following tab from the profile', async () => {
     useAuthStore.setState(loggedInSession);
-    renderScreen(<ProfileScreen />);
+    await renderProfileTab();
 
     await press('Siguiendo');
 
