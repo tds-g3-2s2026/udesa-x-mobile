@@ -20,7 +20,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api",
-        "EXPO_PUBLIC_POSTS_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api"
+        "EXPO_PUBLIC_POSTS_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api",
+        "EXPO_PUBLIC_NOTIFICATIONS_API_URL": "https://tds-group-3.tds-linar.udesa.edu.ar/api"
       }
     }
   }

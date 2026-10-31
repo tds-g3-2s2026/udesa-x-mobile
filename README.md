@@ -96,6 +96,12 @@ entre esas 3, con los botones Seguir/Siguiendo reflejando y actualizando ese mis
 memoria. Publicar contra este mock no llena el propio feed: el mock sigue la misma regla que
 el servicio real, un post nunca aparece en el feed de quien lo escribió.
 
+La pestaña Notificaciones habla con `notifications-api`, cuya URL se toma de
+`EXPO_PUBLIC_NOTIFICATIONS_API_URL` (por defecto `http://localhost:8003/api`, el puerto de su
+`docker-compose.dev.yml`). En el cluster las tres variables apuntan al gateway. Mientras no
+haya historias que creen notificaciones, se cargan datos de prueba con el comando que documenta
+el README de `notifications-api`.
+
 ## Checks
 
 ```bash

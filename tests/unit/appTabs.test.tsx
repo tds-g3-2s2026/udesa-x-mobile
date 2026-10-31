@@ -3,6 +3,7 @@ import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/stores/authStore';
 import { postService } from '../../src/features/posts/services/postService';
+import { notificationService } from '../../src/features/notifications/notificationService';
 import { User } from '../../src/types/auth';
 import * as searchService from '../../src/features/search/searchService';
 import { searchQueryClient } from '../../src/features/search/queryClient';
@@ -67,6 +68,8 @@ beforeEach(() => {
   // reaching the network.
   jest.spyOn(postService, 'getFeed').mockResolvedValue({ items: [], nextCursor: null });
   jest.spyOn(postService, 'getSuggestedAccounts').mockResolvedValue([]);
+  // Same for the Notificaciones tab, which loads its first page on mount.
+  jest.spyOn(notificationService, 'list').mockResolvedValue({ items: [], nextCursor: null });
   persistSession();
 });
 
@@ -119,7 +122,7 @@ describe('T-51. Navegación por tabs', () => {
   it('T-51 - the Notificaciones tab shows its empty state', async () => {
     await renderTab('/notifications');
 
-    expect(screen.getByText('No tenés notificaciones')).toBeTruthy();
+    expect(await screen.findByText('No tenés notificaciones')).toBeTruthy();
   });
 
   it('T-51 - the Perfil tab shows the session data and the logout', async () => {
