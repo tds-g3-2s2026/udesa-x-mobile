@@ -8,6 +8,7 @@ import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
 import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
+import { Avatar } from '../../social/components/Avatar';
 import { DeletePostButton } from './DeletePostButton';
 import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
@@ -69,10 +70,7 @@ export function PostCard({
             canOpenAuthor ? `Ver el perfil de ${item.authorHandle ?? 'esta cuenta'}` : undefined
           }
         >
-          {/* No profile photo feature yet: a placeholder icon stands in. */}
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={20} color={colors.primary} />
-          </View>
+          <Avatar url={item.authorAvatarUrl} size={40} />
           <View style={styles.authorBlock}>
             <Text style={styles.author}>
               {item.authorDeleted
@@ -182,14 +180,6 @@ function createStyles(colors: Colors) {
       alignItems: 'center',
       gap: 10,
       marginBottom: 8,
-    },
-    avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
     },
     authorLink: {
       flex: 1,

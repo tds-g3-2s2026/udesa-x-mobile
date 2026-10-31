@@ -56,7 +56,8 @@ export interface BlockedAccountPage {
 
 // GET /users/{id}: the header of another account's profile. `displayName`,
 // `bio` and `createdAt` live in users-api and arrive null when posts-api
-// could not reach it. `avatarUrl` stays null until profile photos exist.
+// could not reach it. `avatarUrl` and `coverUrl` are signed URLs that expire
+// after an hour, or null when the account has no photo or no cover.
 // `isPrivate` says the account is protected, not whether the caller may read
 // it: together with `isFollowedByMe` the screen knows both.
 export interface UserProfile {
@@ -65,6 +66,7 @@ export interface UserProfile {
   displayName: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  coverUrl: string | null;
   createdAt: string | null;
   followersCount: number;
   followingCount: number;

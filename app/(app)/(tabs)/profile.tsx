@@ -1,12 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
 import { useThemeStore } from '../../../src/stores/themeStore';
 import { authService } from '../../../src/features/auth/services/authService';
 import { AppScreen } from '../../../src/features/shell/components/AppScreen';
+import { ProfileBanner } from '../../../src/features/social/components/ProfileBanner';
+import { profileService } from '../../../src/features/social/services/profileService';
 import { useAuthStore } from '../../../src/stores/authStore';
 
 // The Perfil tab. It owns the session data, the logout and the theme toggle.
@@ -18,6 +20,31 @@ export default function ProfileScreen() {
   const setTheme = useThemeStore((state) => state.setTheme);
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [images, setImages] = useState<{ avatarUrl: string | null; coverUrl: string | null }>({
+    avatarUrl: null,
+    coverUrl: null,
+  });
+  const userId = user?.id;
+
+  // The photo and the cover live in posts-api, not in the session that
+  // users-api returns, so they are read from the account's own public profile.
+  // Again on every focus, so a change made in Editar perfil shows on return.
+  // A failed read leaves the default avatar: the rest of the tab still works.
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return undefined;
+      let cancelled = false;
+      profileService
+        .getProfile(userId)
+        .then((profile) => {
+          if (!cancelled) setImages({ avatarUrl: profile.avatarUrl, coverUrl: profile.coverUrl });
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   // The root layout only mounts this group when there is a session, so a null
   // user means the group is being unmounted: nothing to draw.
@@ -39,13 +66,8 @@ export default function ProfileScreen() {
   return (
     <AppScreen title="Perfil">
       <View style={styles.card}>
-        <View style={styles.avatar}>
-          {/* There is no full name anywhere in the account: the handle (minus
-              its leading @) is what a fresh account has until the owner sets
-              a display name. */}
-          <Text style={styles.avatarInitial}>
-            {(user.displayName || user.handle.slice(1)).charAt(0).toUpperCase()}
-          </Text>
+        <View style={styles.banner}>
+          <ProfileBanner avatarUrl={images.avatarUrl} coverUrl={images.coverUrl} align="center" />
         </View>
 
         <Text style={styles.displayName}>{user.displayName || user.handle}</Text>
@@ -171,19 +193,9 @@ function createStyles(colors: Colors) {
       borderColor: colors.divider,
       backgroundColor: colors.field,
     },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
+    banner: {
+      alignSelf: 'stretch',
       marginBottom: 8,
-    },
-    avatarInitial: {
-      fontSize: 30,
-      fontWeight: '800',
-      color: colors.primary,
     },
     displayName: {
       fontSize: 20,
