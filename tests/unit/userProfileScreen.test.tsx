@@ -1,11 +1,12 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import UserProfileScreen from '../../app/(app)/user/[id]';
 import { postService } from '../../src/features/posts/services/postService';
 import { profileService } from '../../src/features/social/services/profileService';
 import { followService } from '../../src/features/social/services/followService';
+import { muteService } from '../../src/features/social/services/muteService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { ApiError } from '../../src/api/apiClient';
 import { FeedItem } from '../../src/types/post';
@@ -51,6 +52,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     followingCount: 3,
     isPrivate: false,
     isFollowedByMe: false,
+    isMutedByMe: false,
     ...overrides,
   };
 }
@@ -318,4 +320,94 @@ test('E2-H6.CA1 - profile posts preserve liking and undo after sharing card stat
     fireEvent.press(screen.getByLabelText('Quitar me gusta'), { stopPropagation: jest.fn() })
   );
   expect(unlike).toHaveBeenCalledWith('post-1');
+});
+
+describe('E3-H10. Silenciar Usuario', () => {
+  async function openMutePrompt() {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    fireEvent.press(await screen.findByLabelText('Silenciar'));
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    return { alert, buttons };
+  }
+
+  it('E3-H10.CA2 - mutes from the profile and keeps following', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ isFollowedByMe: true }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+    const mute = jest.spyOn(muteService, 'mute').mockResolvedValue(undefined);
+    const unfollow = jest.spyOn(followService, 'unfollow');
+
+    renderScreen();
+    const { alert, buttons } = await openMutePrompt();
+
+    expect(alert.mock.calls[0][0]).toBe('¿Silenciar a @ana?');
+    expect(alert.mock.calls[0][1]).toContain('La seguís siguiendo y no se entera');
+    await act(async () => {
+      buttons.find((button) => button.text === 'Silenciar')?.onPress?.();
+    });
+
+    expect(mute).toHaveBeenCalledWith('usr-2');
+    expect(await screen.findByLabelText('Dejar de silenciar')).toBeTruthy();
+    expect(screen.getByLabelText('Siguiendo')).toBeTruthy();
+    expect(screen.getByText('10 Seguidores')).toBeTruthy();
+    expect(unfollow).not.toHaveBeenCalled();
+  });
+
+  it('does not mute when the prompt is cancelled', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ handle: null }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+    const mute = jest.spyOn(muteService, 'mute');
+
+    renderScreen();
+    const { alert, buttons } = await openMutePrompt();
+    buttons.find((button) => button.text === 'Cancelar')?.onPress?.();
+
+    expect(alert.mock.calls[0][0]).toBe('¿Silenciar a esta cuenta?');
+    expect(mute).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Silenciar')).toBeTruthy();
+  });
+
+  it('unmutes from the profile without asking', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ isMutedByMe: true }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+    const unmute = jest.spyOn(muteService, 'unmute').mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, 'alert');
+
+    renderScreen();
+    const button = await screen.findByLabelText('Dejar de silenciar');
+    await act(async () => fireEvent.press(button));
+
+    expect(unmute).toHaveBeenCalledWith('usr-2');
+    expect(await screen.findByLabelText('Silenciar')).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('keeps the button as it was when muting fails', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+    jest
+      .spyOn(muteService, 'mute')
+      .mockRejectedValue(new ApiError('No se pudo silenciar la cuenta. Intentalo de nuevo.'));
+
+    renderScreen();
+    const { alert, buttons } = await openMutePrompt();
+    await act(async () => {
+      buttons.find((button) => button.text === 'Silenciar')?.onPress?.();
+    });
+
+    expect(alert).toHaveBeenLastCalledWith(
+      'Error',
+      'No se pudo silenciar la cuenta. Intentalo de nuevo.'
+    );
+    expect(screen.getByLabelText('Silenciar')).toBeTruthy();
+  });
+
+  it('shows no mute button on your own profile', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ id: 'usr-1' }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+
+    await screen.findByText('Ana Pérez');
+    expect(screen.queryByLabelText('Silenciar')).toBeNull();
+  });
 });

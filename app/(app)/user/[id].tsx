@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +22,7 @@ import {
   PRIVATE_ACCOUNT_CODE,
   profileService,
 } from '../../../src/features/social/services/profileService';
+import { muteService } from '../../../src/features/social/services/muteService';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
@@ -66,6 +75,7 @@ export default function UserProfileScreen() {
   const [postsHidden, setPostsHidden] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [mutePending, setMutePending] = useState(false);
 
   // The header and the first page go out together: neither needs the other,
   // and a protected account still shows its header when its posts are refused.
@@ -128,6 +138,33 @@ export default function UserProfileScreen() {
     }
   };
 
+  // Asked before acting, like blocking, to say what muting does not do: the
+  // follow stays and the account is never told. Unmuting needs no warning.
+  const confirmMute = (target: UserProfile) => {
+    const name = target.handle ?? 'esta cuenta';
+    Alert.alert(
+      `¿Silenciar a ${name}?`,
+      'Sus posts y retweets dejan de aparecer en tu feed. La seguís siguiendo y no se entera. Podés dejar de silenciarla cuando quieras.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Silenciar', onPress: () => void changeMute(target.id, true) },
+      ]
+    );
+  };
+
+  const changeMute = async (targetId: string, muted: boolean) => {
+    setMutePending(true);
+    try {
+      if (muted) await muteService.mute(targetId);
+      else await muteService.unmute(targetId);
+      setProfile((current) => current && { ...current, isMutedByMe: muted });
+    } catch (error) {
+      Alert.alert('Error', getAuthErrorMessage(error));
+    } finally {
+      setMutePending(false);
+    }
+  };
+
   const header = profile ? (
     <View style={styles.profileHeader}>
       {/* No cover photo feature yet: a plain band stands in for it. */}
@@ -168,6 +205,30 @@ export default function UserProfileScreen() {
           <Text style={styles.countNumber}>{profile.followersCount}</Text> Seguidores
         </Text>
       </View>
+
+      {profile.id !== userId ? (
+        <TouchableOpacity
+          style={styles.muteButton}
+          onPress={
+            profile.isMutedByMe
+              ? () => void changeMute(profile.id, false)
+              : () => confirmMute(profile)
+          }
+          disabled={mutePending}
+          accessibilityRole="button"
+          accessibilityLabel={profile.isMutedByMe ? 'Dejar de silenciar' : 'Silenciar'}
+          accessibilityState={{ disabled: mutePending }}
+        >
+          <Ionicons
+            name={profile.isMutedByMe ? 'volume-high-outline' : 'volume-mute-outline'}
+            size={16}
+            color={colors.muted}
+          />
+          <Text style={styles.muteLabel}>
+            {profile.isMutedByMe ? 'Dejar de silenciar' : 'Silenciar'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text style={styles.tabTitle}>Publicaciones</Text>
     </View>
@@ -351,6 +412,23 @@ function createStyles(colors: Colors) {
     },
     footerLoading: {
       marginVertical: 16,
+    },
+    muteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 6,
+      marginTop: 12,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    muteLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.muted,
     },
   });
 }
