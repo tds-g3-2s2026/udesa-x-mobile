@@ -9,6 +9,7 @@ import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { CurrentProfileContext } from '../../../src/features/posts/currentProfile';
 import { FollowButton } from '../../../src/features/social/components/FollowButton';
+import { ProfileBanner } from '../../../src/features/social/components/ProfileBanner';
 import {
   getAuthErrorMessage,
   PRIVATE_ACCOUNT_CODE,
@@ -40,11 +41,6 @@ const MONTHS = [
 function joinedOn(createdAt: string): string {
   const date = new Date(createdAt);
   return `Se unió en ${MONTHS[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
-}
-
-function initialOf(profile: UserProfile): string {
-  const name = profile.displayName || profile.handle?.replace(/^@/, '') || '?';
-  return name.charAt(0).toUpperCase();
 }
 
 export default function UserProfileScreen() {
@@ -130,11 +126,7 @@ export default function UserProfileScreen() {
 
   const header = profile ? (
     <View style={styles.profileHeader}>
-      {/* No cover photo feature yet: a plain band stands in for it. */}
-      <View style={styles.cover} />
-      <View style={styles.avatar}>
-        <Text style={styles.avatarInitial}>{initialOf(profile)}</Text>
-      </View>
+      <ProfileBanner avatarUrl={profile.avatarUrl} coverUrl={profile.coverUrl} />
 
       <View style={styles.nameRow}>
         <View style={styles.names}>
@@ -268,28 +260,6 @@ function createStyles(colors: Colors) {
     },
     profileHeader: {
       marginBottom: 12,
-    },
-    cover: {
-      height: 96,
-      borderRadius: 16,
-      backgroundColor: colors.primarySoft,
-    },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      marginTop: -36,
-      marginLeft: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 3,
-      borderColor: colors.surface,
-      backgroundColor: colors.primarySoft,
-    },
-    avatarInitial: {
-      fontSize: 30,
-      fontWeight: '800',
-      color: colors.primary,
     },
     nameRow: {
       flexDirection: 'row',
