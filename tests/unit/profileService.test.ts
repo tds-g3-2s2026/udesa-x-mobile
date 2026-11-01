@@ -37,6 +37,7 @@ const profile: UserProfile = {
   followingCount: 3,
   isPrivate: false,
   isFollowedByMe: false,
+  isMutedByMe: false,
 };
 
 const get = jest.spyOn(postsApiClient, 'get');
