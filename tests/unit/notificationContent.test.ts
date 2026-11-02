@@ -2,6 +2,7 @@ import {
   actorName,
   describeNotification,
   notificationTarget,
+  pushTarget,
 } from '../../src/features/notifications/notificationContent';
 import { AppNotification } from '../../src/features/notifications/types';
 
@@ -72,5 +73,21 @@ describe('notificationTarget', () => {
     expect(notificationTarget(notification({ type: 'like' }))).toBeNull();
     expect(notificationTarget(notification({ type: 'reply' }))).toBeNull();
     expect(notificationTarget(notification({ type: 'mention', postId: 'post-1' }))).toBeNull();
+  });
+});
+
+describe('pushTarget', () => {
+  it('opens the profile of the follower the push names', () => {
+    expect(pushTarget({ type: 'follow', actorId: 'usr-2' })).toEqual({
+      screen: 'user',
+      id: 'usr-2',
+    });
+  });
+
+  it('opens nothing for a push without its id, of an unknown kind, or with no data', () => {
+    expect(pushTarget({ type: 'follow' })).toBeNull();
+    expect(pushTarget({ type: 'follow', actorId: '' })).toBeNull();
+    expect(pushTarget({ type: 'mention', actorId: 'usr-2' })).toBeNull();
+    expect(pushTarget(null)).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ export interface NotificationContent {
 }
 
 // Where tapping a notification leads. Kept as plain data so this module knows
-// nothing about the router; the screen turns it into a route.
+// nothing about the router; notificationRoute turns it into a route.
 export type NotificationTarget = { screen: 'user'; id: string } | { screen: 'post'; id: string };
 
 // The handle comes copied from the event that created the notification and,
@@ -52,4 +52,17 @@ export function notificationTarget(notification: AppNotification): NotificationT
     default:
       return null;
   }
+}
+
+// Same destination for a tapped push, read from its `data`: every value comes
+// as a string, the way FCM delivers it. Only the follow push exists today, and
+// it carries the follower as `actorId`. A kind the app does not know, or a push
+// missing its id, opens nothing.
+export function pushTarget(
+  data: Record<string, unknown> | null | undefined
+): NotificationTarget | null {
+  if (data?.type === 'follow' && typeof data.actorId === 'string' && data.actorId !== '') {
+    return { screen: 'user', id: data.actorId };
+  }
+  return null;
 }

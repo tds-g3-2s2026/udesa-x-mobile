@@ -168,6 +168,12 @@ token de FCM con `expo-notifications` y lo manda a `POST /api/notifications/devi
 última cuenta que inició sesión en ese teléfono. También manda el token nuevo cuando FCM lo
 rota. Si el permiso se niega o algo falla, la sesión sigue igual y se reintenta en la próxima.
 
+Tocar un push abre la misma pantalla que su fila en la pestaña Notificaciones: el de nuevo
+seguidor abre el perfil de quien empezó a seguir (`data.type: "follow"`, `data.actorId`).
+`usePushTaps` también vive en `app/(app)/_layout.tsx`: con la app cerrada, Android guarda el tap
+y se abre recién cuando se leyó la sesión. Con la app abierta el push se muestra igual, para que
+haya algo para tocar.
+
 Solo en Android: el servidor entrega por FCM, y en iOS el token del dispositivo es de APNs.
 
 Para el primer push real faltan dos cosas que no están en el repo:
@@ -246,6 +252,7 @@ bun run test -- -t "E1-H1.CA3"
 | `E2-H2.CA3` | Cada fila muestra autor, handle, contenido, tiempo relativo y los 3 contadores | `tests/unit/relativeTime.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                              |
 | `E2-H2.CA4` | Empty state con cuentas sugeridas cuando el feed está vacío                    | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
 | `E4-H1.CA3` | Token de FCM enviado en cada login, al abrir con sesión guardada y al rotar    | `tests/unit/push-registration.test.tsx`, `tests/unit/notificationService.test.ts`                                                                |
+| `E4-H1.CA2` | Tocar el push de nuevo seguidor abre su perfil, con la app abierta o cerrada   | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
