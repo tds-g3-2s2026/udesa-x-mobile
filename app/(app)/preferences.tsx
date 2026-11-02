@@ -175,6 +175,18 @@ export default function PreferencesScreen() {
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => router.push('/muted-accounts')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Cuentas silenciadas</Text>
+          <Text style={styles.sectionHint}>Ver a quién silenciaste y dejar de silenciarlo.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
     </View>
   );
 }
