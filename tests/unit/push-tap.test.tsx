@@ -65,16 +65,19 @@ function persistSession(): void {
   secureStoreValues.set('udesa_x_user', JSON.stringify(user));
 }
 
-// A tap on the new-follower push, with the `data` notifications-api sends.
-// Only the fields the app reads: the rest of a response is platform detail.
-function followTap(): Notifications.NotificationResponse {
+// A tap on a push with this `data`. Only the fields the app reads: the rest of
+// a response is platform detail.
+function tap(data: Record<string, string>): Notifications.NotificationResponse {
   const response = {
     actionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
-    notification: {
-      request: { identifier: 'msg-1', content: { data: { type: 'follow', actorId: 'usr-2' } } },
-    },
+    notification: { request: { identifier: 'msg-1', content: { data } } },
   };
   return response as unknown as Notifications.NotificationResponse;
+}
+
+// The new-follower push, with the `data` notifications-api sends.
+function followTap(): Notifications.NotificationResponse {
+  return tap({ type: 'follow', actorId: 'usr-2' });
 }
 
 // Android keeps the tap that started the app until the app clears it.
@@ -166,5 +169,41 @@ describe('E4-H1. Recibir notificaciones de nuevo seguidor', () => {
 
     expect(await screen.findByText(FEED_EMPTY_TITLE)).toBeTruthy();
     expect(screen.queryByText('Ana Pérez')).toBeNull();
+  });
+
+  it('un push que la app no conoce no navega a ningún lado', async () => {
+    persistSession();
+    renderRouter('app', { initialUrl: '/' });
+    await screen.findByText(FEED_EMPTY_TITLE);
+
+    // Mentions get their own push in another story: until the app knows them,
+    // tapping one only brings the app up.
+    const [onTap] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+    await act(async () => {
+      onTap(tap({ type: 'mention', actorId: 'usr-2' }));
+    });
+
+    expect(screen.getByText(FEED_EMPTY_TITLE)).toBeTruthy();
+    expect(profileService.getProfile).not.toHaveBeenCalled();
+  });
+
+  it('con la app abierta el push se muestra mientras haya sesión', async () => {
+    persistSession();
+    renderRouter('app', { initialUrl: '/' });
+    await screen.findByText(FEED_EMPTY_TITLE);
+
+    const [handler] = notifications.setNotificationHandler.mock.lastCall ?? [];
+    const arrived = {} as Notifications.Notification;
+    await expect(handler?.handleNotification(arrived)).resolves.toMatchObject({
+      shouldShowBanner: true,
+      shouldShowList: true,
+    });
+
+    // Signed out, a push that still reaches this phone is not shown on top of the login.
+    await act(async () => {
+      await useAuthStore.getState().clearSession();
+    });
+    await screen.findByText(LOGIN_SUBTITLE);
+    expect(notifications.setNotificationHandler).toHaveBeenLastCalledWith(null);
   });
 });
