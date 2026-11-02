@@ -35,6 +35,12 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",

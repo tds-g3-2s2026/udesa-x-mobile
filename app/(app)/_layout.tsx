@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { usePushRegistration } from '../../src/features/notifications/usePushRegistration';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 
 // A real navigation stack around the tab bar. change-password, edit-profile
@@ -9,6 +10,9 @@ import { useThemeColors } from '../../src/theme/useThemeColors';
 // not share a linear back history between sibling tabs the way a Stack does.
 export default function AppLayout() {
   const colors = useThemeColors();
+  // Mounted only while there is a session, so this runs after every login and
+  // every app start with a stored session.
+  usePushRegistration();
 
   return (
     <Stack initialRouteName="(tabs)" screenOptions={{ headerShown: false }}>

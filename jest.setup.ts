@@ -18,3 +18,15 @@ jest.mock('@nandorojo/galeria', () => {
     React.createElement(Host, { testID: `galeria-image-${index ?? 0}` }, children);
   return { Galeria };
 });
+
+// expo-notifications is native too. This stand-in is a phone that never
+// granted the permission and has no FCM token, so suites that do not care
+// about push stay off it; the push tests give each function its own answer.
+jest.mock('expo-notifications', () => ({
+  AndroidImportance: { DEFAULT: 3 },
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, canAskAgain: false })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, canAskAgain: false })),
+  getDevicePushTokenAsync: jest.fn(() => Promise.reject(new Error('No FCM token in tests'))),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+}));

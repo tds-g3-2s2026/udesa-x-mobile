@@ -12,6 +12,7 @@ Aplicación mobile principal orientada a los usuarios finales de la red social U
 - `expo-splash-screen` para sostener el splash nativo hasta que se lee la sesión
 - `@expo/vector-icons` para los íconos de la barra de tabs
 - `expo-image-picker` para elegir imágenes de la galería y `@nandorojo/galeria` como visor a pantalla completa (ADR-018 de la plataforma). Ambas son nativas: no funcionan en Expo Go, hace falta la APK de desarrollo o de `preview`
+- `expo-notifications` para el push de FCM, la elegida en `ARQUITECTURA.md` de la plataforma. También es nativa: hace falta una APK nueva
 - Jest con el preset `jest-expo` para los tests unitarios
 
 ## Requisitos
@@ -158,6 +159,28 @@ guardas del layout raíz devuelven al login. Al cerrar sesión la app manda el `
 junto con el access token, para que `users-api` revoque también la sesión larga; si esa llamada
 falla, la sesión local se borra igual.
 
+## Notificaciones push
+
+`app/(app)/_layout.tsx` solo se monta con sesión, así que cada vez que una sesión queda activa
+(un login, o abrir la app con la sesión guardada) `usePushRegistration` pide el permiso, saca el
+token de FCM con `expo-notifications` y lo manda a `POST /api/notifications/device-tokens` de
+`notifications-api`. Lo manda aunque no haya cambiado: el servidor lo guarda a nombre de la
+última cuenta que inició sesión en ese teléfono. También manda el token nuevo cuando FCM lo
+rota. Si el permiso se niega o algo falla, la sesión sigue igual y se reintenta en la próxima.
+
+Solo en Android: el servidor entrega por FCM, y en iOS el token del dispositivo es de APNs.
+
+Para el primer push real faltan dos cosas que no están en el repo:
+
+- El `google-services.json` del proyecto de Firebase con la app `com.udesax.mobile` registrada,
+  referenciado en `android.googleServicesFile` de `app.json`. Sin él Android no da token y la
+  app funciona igual, sin push.
+- Una APK nueva (`eas build --profile development`): `expo-notifications` es nativa y Expo Go
+  no recibe push remotos en Android desde el SDK 53.
+
+Al cerrar sesión el token sigue a nombre de la cuenta: `notifications-api` todavía no tiene cómo
+desasociarlo (udesa-x-notifications-api#38).
+
 ## Estructura
 
 ```
@@ -222,6 +245,7 @@ bun run test -- -t "E1-H1.CA3"
 | `E2-H2.CA2` | Scroll infinito paginado de a 20, consumiendo el cursor opaco                  | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
 | `E2-H2.CA3` | Cada fila muestra autor, handle, contenido, tiempo relativo y los 3 contadores | `tests/unit/relativeTime.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                              |
 | `E2-H2.CA4` | Empty state con cuentas sugeridas cuando el feed está vacío                    | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
+| `E4-H1.CA3` | Token de FCM enviado en cada login, al abrir con sesión guardada y al rotar    | `tests/unit/push-registration.test.tsx`, `tests/unit/notificationService.test.ts`                                                                |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
