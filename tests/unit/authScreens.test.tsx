@@ -104,6 +104,7 @@ beforeEach(() => {
     followingCount: 0,
     isPrivate: false,
     isFollowedByMe: false,
+    isMutedByMe: false,
   });
 });
 

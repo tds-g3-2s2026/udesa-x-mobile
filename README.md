@@ -184,8 +184,8 @@ Para el primer push real faltan dos cosas que no están en el repo:
 - Una APK nueva (`eas build --profile development`): `expo-notifications` es nativa y Expo Go
   no recibe push remotos en Android desde el SDK 53.
 
-Al cerrar sesión el token sigue a nombre de la cuenta: `notifications-api` todavía no tiene cómo
-desasociarlo (udesa-x-notifications-api#38).
+Al cerrar sesión el token sigue a nombre de la cuenta: `notifications-api` no tiene cómo
+desasociarlo, y quedó fuera del alcance (udesa-x-notifications-api#38).
 
 ## Estructura
 
