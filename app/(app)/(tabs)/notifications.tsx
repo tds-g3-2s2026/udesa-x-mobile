@@ -19,6 +19,7 @@ import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { NotificationRow } from '../../../src/features/notifications/components/NotificationRow';
 import { notificationService } from '../../../src/features/notifications/notificationService';
 import { notificationTarget } from '../../../src/features/notifications/notificationContent';
+import { notificationRoute } from '../../../src/features/notifications/notificationRoute';
 import {
   markLoadedAsRead,
   NotificationPages,
@@ -95,12 +96,7 @@ export default function NotificationsScreen() {
   const open = (item: AppNotification) => {
     const target = notificationTarget(item);
     if (!target) return undefined;
-    return () =>
-      router.push(
-        target.screen === 'user'
-          ? { pathname: '/user/[id]', params: { id: target.id } }
-          : { pathname: '/post/[id]', params: { id: target.id } }
-      );
+    return () => router.push(notificationRoute(target));
   };
 
   const empty = list.isPending ? (

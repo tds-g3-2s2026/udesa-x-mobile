@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router';
+import { usePushRegistration } from '../../src/features/notifications/usePushRegistration';
+import { usePushTaps } from '../../src/features/notifications/usePushTaps';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 
 // A real navigation stack around the tab bar. change-password, edit-profile
@@ -9,6 +11,11 @@ import { useThemeColors } from '../../src/theme/useThemeColors';
 // not share a linear back history between sibling tabs the way a Stack does.
 export default function AppLayout() {
   const colors = useThemeColors();
+  // Mounted only while there is a session, so the token goes out after every
+  // login and every app start with a stored session, and a tap that opened
+  // the app is handled once that session was read.
+  usePushRegistration();
+  usePushTaps();
 
   return (
     <Stack initialRouteName="(tabs)" screenOptions={{ headerShown: false }}>

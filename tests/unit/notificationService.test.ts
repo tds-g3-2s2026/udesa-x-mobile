@@ -126,3 +126,13 @@ describe('E4-H3. Centro de Notificaciones In-App', () => {
     });
   });
 });
+
+describe('E4-H1. Recibir notificaciones de nuevo seguidor', () => {
+  it('E4-H1.CA3 - sends the FCM token alone: the server takes the account from the access token', async () => {
+    post.mockResolvedValueOnce(apiSuccess(null, 204));
+
+    await notificationService.registerDeviceToken('fcm-token');
+
+    expect(post).toHaveBeenCalledWith('/notifications/device-tokens', { token: 'fcm-token' });
+  });
+});

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "459561778608",
+    "project_id": "udesa-x-tds-g3",
+    "storage_bucket": "udesa-x-tds-g3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459561778608:android:5c75e89ce7298fba93aa75",
+        "android_client_info": {
+          "package_name": "com.udesax.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBisIjpLA1CuGJGndzd9t5Cy7bJVhiKd6I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

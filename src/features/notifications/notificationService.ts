@@ -39,4 +39,12 @@ export const notificationService = {
       throw toAuthError(error, 'No se pudo borrar la notificación. Intentalo de nuevo.');
     }
   },
+
+  // The server files the token under the account of the access token, so the
+  // body carries the token alone. Registering one that is already there
+  // answers 204 too. Errors are not translated: nobody shows them, the caller
+  // retries on the next session start.
+  async registerDeviceToken(token: string): Promise<void> {
+    await notificationsApiClient.post('/notifications/device-tokens', { token });
+  },
 };
