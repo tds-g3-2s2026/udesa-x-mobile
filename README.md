@@ -176,13 +176,13 @@ haya algo para tocar.
 
 Solo en Android: el servidor entrega por FCM, y en iOS el token del dispositivo es de APNs.
 
-Para el primer push real faltan dos cosas que no están en el repo:
+La configuración Android del proyecto Firebase `udesa-x-tds-g3` está en
+`google-services.json`, para el paquete `com.udesax.mobile`. `app.json` la incorpora mediante
+`android.googleServicesFile`; no es la credencial privada del servidor.
 
-- El `google-services.json` del proyecto de Firebase con la app `com.udesax.mobile` registrada,
-  referenciado en `android.googleServicesFile` de `app.json`. Sin él Android no da token y la
-  app funciona igual, sin push.
-- Una APK nueva (`eas build --profile development`): `expo-notifications` es nativa y Expo Go
-  no recibe push remotos en Android desde el SDK 53.
+Para probar el push hace falta una APK nueva (`eas build --profile preview --platform android`).
+Ese perfil apunta al backend desplegado y no necesita Metro. `expo-notifications` es nativa y
+Expo Go no recibe push remotos en Android desde el SDK 53.
 
 Al cerrar sesión el token sigue a nombre de la cuenta: `notifications-api` no tiene cómo
 desasociarlo, y quedó fuera del alcance (udesa-x-notifications-api#38).

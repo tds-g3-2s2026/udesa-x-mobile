@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.udesax.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1D9BF0"
