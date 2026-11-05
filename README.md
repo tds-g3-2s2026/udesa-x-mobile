@@ -137,6 +137,24 @@ Sin eso la suite **fallaba en Linux y pasaba en Windows**: Jest no encuentra ese
 anidado en Windows y trata el archivo como CommonJS. Nadie lo había notado porque nunca se
 habían corrido los tests fuera de una máquina Windows.
 
+## Distribución
+
+La app no se despliega en el cluster: se distribuye con builds de
+[EAS](https://docs.expo.dev/build/introduction/), definidos en `eas.json`. Hace falta una cuenta de
+Expo con acceso al proyecto que indica `app.json`.
+
+```bash
+eas build --profile preview --platform android
+```
+
+| Perfil        | Qué genera                       | Para qué                                                            |
+| ------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `preview`     | APK de distribución interna      | Probar la app instalada: apunta al backend desplegado, sin Metro    |
+| `development` | APK con el cliente de desarrollo | Desarrollar con módulos nativos que Expo Go no trae: necesita Metro |
+
+Con distribución interna, EAS da un link para instalar la APK. No hay un perfil para publicar en
+las tiendas.
+
 ## Sesión, splash y refresco de token
 
 Al arrancar, `app/_layout.tsx` sostiene el splash nativo con `expo-splash-screen` mientras
