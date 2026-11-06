@@ -1078,6 +1078,20 @@ describe('Preferencias', () => {
     expect(mockPush).toHaveBeenCalledWith('/muted-accounts');
   });
 
+  it('E1-H11 - opens the feedback form from the settings', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Enviar comentarios');
+
+    expect(mockPush).toHaveBeenCalledWith('/feedback');
+  });
+
   it('saves a changed option right away, with no separate save button', async () => {
     jest.spyOn(authService, 'getPreferences').mockResolvedValue({
       profileVisibility: 'public',

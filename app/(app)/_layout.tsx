@@ -42,6 +42,7 @@ export default function AppLayout() {
       <Stack.Screen name="follow-list" />
       <Stack.Screen name="blocked-accounts" />
       <Stack.Screen name="muted-accounts" />
+      <Stack.Screen name="feedback" />
       <Stack.Screen name="compose" />
       <Stack.Screen name="report" />
       <Stack.Screen

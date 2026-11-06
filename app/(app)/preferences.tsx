@@ -187,6 +187,18 @@ export default function PreferencesScreen() {
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => router.push('/feedback')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Enviar comentarios</Text>
+          <Text style={styles.sectionHint}>Contanos qué mejorarías o qué no funcionó.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
     </View>
   );
 }
