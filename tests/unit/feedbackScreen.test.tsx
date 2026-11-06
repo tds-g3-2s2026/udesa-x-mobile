@@ -163,6 +163,19 @@ describe('E1-H11. Enviar Feedback o Reportar Error', () => {
     expect(alert).toHaveBeenCalledWith('Tu sesión se cerró', 'Tu sesión expiró.');
   });
 
+  it('shows a failure that did not come from the API and keeps the text', async () => {
+    send.mockRejectedValueOnce(new Error('Algo salió mal.'));
+    renderScreen();
+    const field = await screen.findByPlaceholderText(FIELD);
+
+    fireEvent.changeText(field, 'Hola');
+    await pressSend();
+
+    expect(alert).toHaveBeenCalledWith('Error', 'Algo salió mal.');
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(field.props.value).toBe('Hola');
+  });
+
   it('cancels back without sending', async () => {
     renderScreen();
 
