@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Keyboard, StyleSheet, type ViewStyle } from 'react-native';
+import { Alert, Keyboard, Share, StyleSheet, type ViewStyle } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from '@react-navigation/elements';
@@ -30,7 +30,7 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 
-const mockUseLocalSearchParams = jest.fn<{ email?: string }, []>(() => ({
+const mockUseLocalSearchParams = jest.fn<{ email?: string; ref?: string }, []>(() => ({
   email: 'jleon@udesa.edu.ar',
 }));
 
@@ -48,6 +48,13 @@ jest.mock('expo-router', () => ({
     const React = jest.requireActual('react');
     React.useEffect(callback, [callback]);
   },
+}));
+
+// Outside a build the manifest that holds the app scheme is missing, so the
+// link is built the way a device with the scheme would build it.
+jest.mock('expo-linking', () => ({
+  createURL: (path: string, options?: { queryParams?: Record<string, string> }) =>
+    `udesax://${path}?${new URLSearchParams(options?.queryParams).toString()}`,
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -171,7 +178,7 @@ describe('E1-H1. Registro de Usuarios', () => {
     renderScreen(<RegisterPasswordScreen />);
     await press('Crear cuenta');
 
-    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true);
+    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true, null);
     expect(mockDismissAll).toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/(auth)/verify-email',
@@ -277,6 +284,79 @@ describe('E1-H1. Registro de Usuarios', () => {
   });
 });
 
+describe('E3-H9. Invitar Usuarios Externos', () => {
+  const loggedIn = {
+    user: {
+      id: 'usr-ana',
+      handle: '@ana_dev',
+      email: 'ana@udesa.edu.ar',
+      isVerified: true,
+    },
+    accessToken: 'jwt-access-token',
+    refreshToken: 'jwt-refresh-token',
+    isInitialized: true,
+  };
+
+  it('E3-H9.CA1 - Invitar opens the share sheet with a link that carries the account id', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    useAuthStore.setState(loggedIn);
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Invitar');
+
+    await press('Invitar');
+
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(share.mock.calls[0][0].message).toContain('ref=usr-ana');
+  });
+
+  it('E3-H9.CA2 - opening the wizard through an invitation link keeps the inviter in the draft', () => {
+    mockUseLocalSearchParams.mockReturnValue({ ref: 'usr-ana' });
+    try {
+      renderScreen(<RegisterEmailScreen />);
+    } finally {
+      mockUseLocalSearchParams.mockImplementation(() => ({ email: 'jleon@udesa.edu.ar' }));
+    }
+
+    expect(useRegisterDraft.getState().referrer).toBe('usr-ana');
+  });
+
+  it('E3-H9.CA2 - the registration sends the inviter from the draft', async () => {
+    const register = jest.spyOn(authService, 'register').mockResolvedValue({
+      id: 'usr-beto',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+    });
+    useRegisterDraft.setState({
+      values: COMPLETE_DRAFT,
+      termsAccepted: true,
+      referrer: 'usr-ana',
+    });
+
+    renderScreen(<RegisterPasswordScreen />);
+    await press('Crear cuenta');
+
+    await waitFor(() => expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true, 'usr-ana'));
+  });
+
+  it('E3-H9.CA2 - a registration without an invitation sends no inviter', async () => {
+    const register = jest.spyOn(authService, 'register').mockResolvedValue({
+      id: 'usr-beto',
+      email: 'jleon@udesa.edu.ar',
+      handle: '@joaquin_dev',
+    });
+    useRegisterDraft.setState({ values: COMPLETE_DRAFT, termsAccepted: true });
+
+    renderScreen(<RegisterPasswordScreen />);
+    await press('Crear cuenta');
+
+    await waitFor(() => expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true, null));
+  });
+});
+
 describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
   it('E1-H12.CA1 - Crear cuenta is blocked until the terms checkbox is checked', async () => {
     const register = jest.spyOn(authService, 'register').mockResolvedValue({
@@ -300,7 +380,7 @@ describe('E1-H12. Aceptación de Términos y Política de Privacidad', () => {
     });
     await press('Crear cuenta');
 
-    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true);
+    expect(register).toHaveBeenCalledWith(COMPLETE_DRAFT, true, null);
   });
 
   it('E1-H12.CA1 - the policy links open their screen without checking the box', async () => {

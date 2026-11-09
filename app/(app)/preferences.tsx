@@ -1,8 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { ApiError } from '../../src/api/apiClient';
+import { buildInvitationLink } from '../../src/features/invitations/invitationLink';
 import { authService, getAuthErrorMessage } from '../../src/features/auth/services/authService';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
@@ -27,6 +36,7 @@ const LANGUAGE_OPTIONS: { value: FeedLanguage; label: string }[] = [
 export default function PreferencesScreen() {
   const router = useRouter();
   const clearSession = useAuthStore((state) => state.clearSession);
+  const user = useAuthStore((state) => state.user);
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -89,6 +99,15 @@ export default function PreferencesScreen() {
       Alert.alert('Error', getAuthErrorMessage(saveError));
     } finally {
       setSavingField(null);
+    }
+  }
+
+  async function handleInvite(): Promise<void> {
+    if (!user) return;
+    try {
+      await Share.share({ message: `Sumate a UdeSA-X: ${buildInvitationLink(user.id)}` });
+    } catch {
+      Alert.alert('Error', 'No se pudo abrir el menú para compartir.');
     }
   }
 
@@ -163,6 +182,14 @@ export default function PreferencesScreen() {
           })}
         </View>
       </View>
+
+      <TouchableOpacity style={styles.linkRow} onPress={handleInvite} accessibilityRole="button">
+        <View>
+          <Text style={styles.sectionTitle}>Invitar</Text>
+          <Text style={styles.sectionHint}>Compartí tu link para que se sumen y te sigan.</Text>
+        </View>
+        <Ionicons name="share-social-outline" size={18} color={colors.muted} />
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.linkRow}
