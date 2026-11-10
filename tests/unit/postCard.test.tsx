@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PostCard } from '../../src/features/posts/components/PostCard';
 import { CurrentProfileContext } from '../../src/features/posts/currentProfile';
@@ -156,5 +157,35 @@ describe('E2-H14. Visualización de Perfil de Usuario', () => {
 
     await screen.findByText('Hola');
     expect(screen.queryByLabelText('Ver el perfil de @ana')).toBeNull();
+  });
+});
+
+describe('E2-H8. Hashtags', () => {
+  it('E2-H8.CA2 - a hashtag is a different, tappable link', () => {
+    render(<PostCard item={post({ content: 'Hola #UdeSA, qué tal' })} />);
+
+    const hashtag = screen.getByText('#UdeSA');
+
+    expect(hashtag.props.accessibilityRole).toBe('link');
+    expect(StyleSheet.flatten(hashtag.props.style)).toEqual(
+      expect.objectContaining({ fontWeight: '600' })
+    );
+    expect(screen.getByText(/Hola/)).toBeTruthy();
+    expect(screen.queryAllByRole('link', { name: /UdeSA/ })).toHaveLength(1);
+  });
+
+  it('E2-H8.CA3 - tapping a hashtag opens its search', () => {
+    render(<PostCard item={post({ content: 'Hola #UdeSA y #tds' })} />);
+
+    fireEvent.press(screen.getByText('#tds'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/search', params: { q: '#tds' } });
+  });
+
+  it('E2-H8.CA2 - a deleted post shows no hashtags', () => {
+    render(<PostCard item={post({ deleted: true, content: '#UdeSA' })} />);
+
+    expect(screen.queryByText('#UdeSA')).toBeNull();
+    expect(screen.getByText('[Post eliminado]')).toBeTruthy();
   });
 });
