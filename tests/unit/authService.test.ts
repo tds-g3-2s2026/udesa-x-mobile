@@ -189,6 +189,26 @@ describe('Auth service', () => {
       });
     });
 
+    it('E3-H9.CA2 - sends the id out of an invitation link as ref', async () => {
+      post.mockResolvedValueOnce(
+        apiSuccess({ id: 'usr-2', email: 'beto@udesa.edu.ar', handle: '@beto_dev' })
+      );
+
+      await authService.register(
+        { handle: '@beto_dev', email: 'beto@udesa.edu.ar', password: 'Password123' },
+        true,
+        'usr-ana'
+      );
+
+      expect(post).toHaveBeenCalledWith('/auth/register', {
+        handle: '@beto_dev',
+        email: 'beto@udesa.edu.ar',
+        password: 'Password123',
+        terms_accepted: true,
+        ref: 'usr-ana',
+      });
+    });
+
     it('E1-H1.CA6 - requests a new verification link from the API', async () => {
       post.mockResolvedValueOnce(apiSuccess({ status: 'accepted' }));
 

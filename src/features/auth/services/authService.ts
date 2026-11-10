@@ -96,11 +96,18 @@ export const authService = {
   // mock and the rest of this file's types use, not the other way around.
   // Kept as its own parameter instead of folding it into RegisterInput so a
   // caller can't send it without deciding it explicitly.
-  async register(data: RegisterInput, termsAccepted: boolean): Promise<RegisterResponse> {
+  // `referrer` is the id out of an invitation link; without one the field is
+  // left out of the request altogether.
+  async register(
+    data: RegisterInput,
+    termsAccepted: boolean,
+    referrer: string | null = null
+  ): Promise<RegisterResponse> {
     try {
       const response = await apiClient.post<RegisterResponse>('/auth/register', {
         ...data,
         terms_accepted: termsAccepted,
+        ...(referrer ? { ref: referrer } : {}),
       });
       return response.data;
     } catch (error) {

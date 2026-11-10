@@ -15,15 +15,21 @@ type RegisterDraftState = {
   // Kept outside `values` because it is a checkbox, not a form field with
   // its own wizard step or entry in registerSchema.
   termsAccepted: boolean;
+  // Id of the account whose invitation link opened the wizard, if one did.
+  // Kept outside `values` for the same reason: it is not a form field.
+  referrer: string | null;
   setValue: (field: RegisterField, value: string) => void;
   setTermsAccepted: (accepted: boolean) => void;
+  setReferrer: (referrer: string | null) => void;
   reset: () => void;
 };
 
 export const useRegisterDraft = create<RegisterDraftState>((set) => ({
   values: EMPTY_DRAFT,
   termsAccepted: false,
+  referrer: null,
   setValue: (field, value) => set((state) => ({ values: { ...state.values, [field]: value } })),
   setTermsAccepted: (accepted) => set({ termsAccepted: accepted }),
-  reset: () => set({ values: EMPTY_DRAFT, termsAccepted: false }),
+  setReferrer: (referrer) => set({ referrer }),
+  reset: () => set({ values: EMPTY_DRAFT, termsAccepted: false, referrer: null }),
 }));

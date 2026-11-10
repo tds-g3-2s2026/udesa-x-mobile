@@ -13,6 +13,7 @@ export default function RegisterPasswordScreen() {
   const values = useRegisterDraft((state) => state.values);
   const termsAccepted = useRegisterDraft((state) => state.termsAccepted);
   const setTermsAccepted = useRegisterDraft((state) => state.setTermsAccepted);
+  const referrer = useRegisterDraft((state) => state.referrer);
   const reset = useRegisterDraft((state) => state.reset);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,7 +32,7 @@ export default function RegisterPasswordScreen() {
 
     setIsSubmitting(true);
     try {
-      await authService.register(validation.data, termsAccepted);
+      await authService.register(validation.data, termsAccepted, referrer);
       reset();
       // The account exists: the wizard is popped so the back button of the next
       // screen goes to the login and not into a form that cannot be sent again.
