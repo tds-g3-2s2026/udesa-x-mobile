@@ -6,6 +6,7 @@ import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
+import { splitHashtags } from '../hashtags';
 import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
 import { Avatar } from '../../social/components/Avatar';
@@ -98,7 +99,24 @@ export function PostCard({
         ) : null}
       </View>
 
-      <Text style={styles.content}>{item.deleted ? '[Post eliminado]' : item.content}</Text>
+      <Text style={styles.content}>
+        {item.deleted
+          ? '[Post eliminado]'
+          : splitHashtags(item.content ?? '').map((part, index) =>
+              part.hashtag ? (
+                <Text
+                  key={index}
+                  style={styles.hashtag}
+                  accessibilityRole="link"
+                  onPress={() => router.push({ pathname: '/search', params: { q: part.text } })}
+                >
+                  {part.text}
+                </Text>
+              ) : (
+                part.text
+              )
+            )}
+      </Text>
 
       {!item.deleted ? <PostImageGrid images={item.images} /> : null}
 
@@ -211,6 +229,10 @@ function createStyles(colors: Colors) {
       color: colors.text,
       lineHeight: 21,
       marginBottom: 10,
+    },
+    hashtag: {
+      color: colors.primary,
+      fontWeight: '600',
     },
     counters: {
       flexDirection: 'row',

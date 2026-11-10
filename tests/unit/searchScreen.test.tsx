@@ -9,8 +9,12 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { SearchPage } from '../../src/features/search/types';
 
 const mockPush = jest.fn();
+const mockSetParams = jest.fn();
+let mockParams: { q?: string } = {};
+const mockRouter = { push: mockPush, setParams: mockSetParams };
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => mockRouter,
+  useLocalSearchParams: () => mockParams,
   useFocusEffect: (callback: React.EffectCallback) => {
     const React = jest.requireActual('react');
     React.useEffect(callback, [callback]);
@@ -59,6 +63,7 @@ beforeEach(() => {
 afterEach(() => {
   searchQueryClient.clear();
   jest.clearAllMocks();
+  mockParams = {};
 });
 
 it('E2-H10.CA1 validates three normalized characters including at mode', async () => {
@@ -200,4 +205,14 @@ it('E2-H10.CA1 keeps an in-flight query when only outer whitespace changes', asy
   expect(signal.aborted).toBe(false);
   await act(async () => finish({ items: [post], nextCursor: null }));
   await screen.findByText('UdeSA');
+});
+
+it('E2-H8.CA3 - a hashtag from the route opens a search for it at once', async () => {
+  mockParams = { q: '#UdeSA' };
+  renderSearch();
+
+  await screen.findByText('UdeSA');
+  expect(search).toHaveBeenCalledWith('posts', '#UdeSA', null, expect.anything());
+  expect(screen.getByLabelText('Buscar personas y publicaciones').props.value).toBe('#UdeSA');
+  expect(mockSetParams).toHaveBeenCalledWith({ q: undefined });
 });

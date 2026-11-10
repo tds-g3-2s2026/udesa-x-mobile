@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -27,12 +27,23 @@ export default function SearchScreen() {
   const viewerId = useAuthStore((state) => state.user?.id);
   const client = useQueryClient();
   const router = useRouter();
+  const { q: requested } = useLocalSearchParams<{ q?: string }>();
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const fieldStyles = useSearchFieldStyles();
   const enoughText = Array.from(normalizedSearchText(text, kind)).length >= 3;
   const settled = text.trim() === query;
+
+  // A tapped hashtag arrives as a param: it is searched at once, without the
+  // typing delay, and cleared so tapping the same one again still opens it.
+  useEffect(() => {
+    if (!requested) return;
+    setKind('posts');
+    setText(requested);
+    setQuery(requested.trim());
+    router.setParams({ q: undefined });
+  }, [requested, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(text.trim()), 300);
