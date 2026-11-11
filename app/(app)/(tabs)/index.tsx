@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
 import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/components/AppScreen';
-import { FollowButton } from '../../../src/features/social/components/FollowButton';
+import { SuggestedAccountRow } from '../../../src/features/social/components/SuggestedAccountRow';
 import { postService, getAuthErrorMessage } from '../../../src/features/posts/services/postService';
 import { PostCard } from '../../../src/features/posts/components/PostCard';
 import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
@@ -161,20 +161,7 @@ export default function FeedScreen() {
                 <View style={styles.suggestions}>
                   <Text style={styles.suggestionsTitle}>Cuentas para seguir</Text>
                   {suggestions.map((account) => (
-                    <View key={account.id} style={styles.suggestionRow}>
-                      <View style={styles.avatar}>
-                        <Ionicons name="person" size={20} color={colors.primary} />
-                      </View>
-                      <View style={styles.suggestionText}>
-                        <Text style={styles.suggestionName}>
-                          {account.displayName || account.handle}
-                        </Text>
-                        <Text style={styles.suggestionMeta}>
-                          {account.handle} · {account.followersCount} seguidores
-                        </Text>
-                      </View>
-                      <FollowButton targetUserId={account.id} initialState="none" />
-                    </View>
+                    <SuggestedAccountRow key={account.id} account={account} />
                   ))}
                 </View>
               ) : null}
@@ -260,14 +247,6 @@ function createStyles(colors: Colors) {
       flexGrow: 1,
       paddingBottom: 32,
     },
-    avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
-    },
     footerLoading: {
       paddingVertical: 16,
     },
@@ -283,30 +262,6 @@ function createStyles(colors: Colors) {
       fontWeight: '700',
       color: colors.text,
       marginBottom: 10,
-    },
-    suggestionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.divider,
-      backgroundColor: colors.field,
-      marginBottom: 10,
-    },
-    suggestionText: {
-      flex: 1,
-    },
-    suggestionName: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    suggestionMeta: {
-      fontSize: 13,
-      color: colors.muted,
     },
   });
 }
