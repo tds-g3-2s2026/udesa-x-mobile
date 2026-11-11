@@ -157,6 +157,34 @@ describe('Auth store', () => {
     });
   });
 
+  describe('E1-H14. Onboarding Inicial', () => {
+    it('E1-H14.CA1 - finishing the onboarding is kept for the next app start', async () => {
+      await useAuthStore.getState().setSession({ ...user, onboardingCompleted: false }, tokens);
+
+      await useAuthStore.getState().finishOnboarding();
+
+      expect(useAuthStore.getState().user?.onboardingCompleted).toBe(true);
+      useAuthStore.setState({ user: null, isInitialized: false });
+      await useAuthStore.getState().restoreSession();
+      expect(useAuthStore.getState().user?.onboardingCompleted).toBe(true);
+    });
+
+    it('E1-H14.CA1 - a pending onboarding survives an app restart', async () => {
+      await useAuthStore.getState().setSession({ ...user, onboardingCompleted: false }, tokens);
+      useAuthStore.setState({ user: null, isInitialized: false });
+
+      await useAuthStore.getState().restoreSession();
+
+      expect(useAuthStore.getState().user?.onboardingCompleted).toBe(false);
+    });
+
+    it('does nothing when the session ended before the server answered', async () => {
+      await useAuthStore.getState().finishOnboarding();
+
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
+
   describe('E1-H6. Editar mi perfil', () => {
     it('E1-H6.CA6 - setProfile merges a profile response into the session and persists it', async () => {
       await useAuthStore.getState().setSession(user, tokens);

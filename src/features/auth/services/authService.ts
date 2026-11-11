@@ -4,6 +4,7 @@ import {
   RegisterResponse,
   User,
   UserPreferences,
+  Interest,
   UserProfile,
 } from '../../../types/auth';
 import {
@@ -44,6 +45,7 @@ interface ProfileResponseBody {
   handle: string;
   display_name: string | null;
   bio: string | null;
+  onboarding_completed?: boolean;
 }
 
 function toUserProfile(body: ProfileResponseBody): UserProfile {
@@ -81,7 +83,13 @@ export const authService = {
       const profile = await apiClient.get<ProfileResponseBody>('/me', {
         headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });
-      const user: User = { ...toUserProfile(profile.data), isVerified: true };
+      const user: User = {
+        ...toUserProfile(profile.data),
+        isVerified: true,
+        // Only an explicit false sends the account to the onboarding: a users-api
+        // that does not report the field yet leaves everyone on the feed.
+        onboardingCompleted: profile.data.onboarding_completed !== false,
+      };
 
       return { user, tokens };
     } catch (error) {
@@ -240,6 +248,27 @@ export const authService = {
       return toUserPreferences(response.data);
     } catch (error) {
       throw toAuthError(error, 'No se pudo guardar la preferencia. Intentalo de nuevo.');
+    }
+  },
+
+  // The interests chosen in the onboarding. The server replaces the whole list
+  // and asks for at least 3 of its closed list, answering 422 otherwise.
+  async saveInterests(interests: Interest[]): Promise<void> {
+    try {
+      await apiClient.patch('/me/preferences', { interests });
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron guardar tus intereses. Intentalo de nuevo.');
+    }
+  },
+
+  // Marks the onboarding as done, so the next login goes straight to the feed.
+  // Doing it twice is not an error. Without 3 interests saved the server
+  // answers 422 too-few-interests.
+  async completeOnboarding(): Promise<void> {
+    try {
+      await apiClient.post('/me/onboarding/complete');
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo terminar la bienvenida. Intentalo de nuevo.');
     }
   },
 
