@@ -27,6 +27,8 @@ export default function RootLayout() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isInitialized = isSessionInitialized && isThemeInitialized;
+  // Only an explicit false: a session stored before onboarding existed counts as done.
+  const needsOnboarding = user?.onboardingCompleted === false;
 
   useEffect(() => {
     restoreSession();
@@ -48,8 +50,14 @@ export default function RootLayout() {
           // Declarative guards: only the group the session allows is mounted, so
           // the protected area never renders for a frame before a redirect.
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Protected guard={user !== null}>
+            <Stack.Protected guard={user !== null && !needsOnboarding}>
               <Stack.Screen name="(app)" />
+            </Stack.Protected>
+
+            {/* A new account goes through the onboarding before its first feed,
+                and keeps landing here until it finishes. */}
+            <Stack.Protected guard={needsOnboarding}>
+              <Stack.Screen name="(onboarding)" />
             </Stack.Protected>
 
             <Stack.Protected guard={user === null}>

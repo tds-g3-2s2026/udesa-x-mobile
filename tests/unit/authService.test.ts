@@ -33,6 +33,8 @@ const session: AuthResponse = {
     isVerified: true,
     displayName: null,
     bio: null,
+    // GET /me below does not report the field, as before onboarding existed.
+    onboardingCompleted: true,
   },
   tokens: {
     accessToken: 'jwt-access-token',
@@ -48,6 +50,99 @@ describe('Auth service', () => {
     post.mockReset();
     get.mockReset();
     useAuthStore.setState({ refreshToken: null });
+  });
+
+  describe('E1-H14. Onboarding Inicial', () => {
+    function loginWith(onboardingCompleted: boolean) {
+      post.mockResolvedValueOnce(
+        apiSuccess({
+          access_token: 'jwt-access-token',
+          refresh_token: 'jwt-refresh-token',
+          token_type: 'bearer',
+          expires_in: 900,
+          must_change_password: false,
+        })
+      );
+      get.mockResolvedValueOnce(
+        apiSuccess({
+          id: 'usr-1',
+          email: 'jleon@udesa.edu.ar',
+          handle: '@joaquin_dev',
+          display_name: null,
+          bio: null,
+          onboarding_completed: onboardingCompleted,
+        })
+      );
+      return authService.login({ identifier: '@joaquin_dev', password: 'Password123' });
+    }
+
+    it('E1-H14.CA1 - a new account comes out of the login with the onboarding pending', async () => {
+      expect((await loginWith(false)).user.onboardingCompleted).toBe(false);
+    });
+
+    it('E1-H14.CA1 - an account that finished it comes out with it done', async () => {
+      expect((await loginWith(true)).user.onboardingCompleted).toBe(true);
+    });
+
+    it('E1-H14.CA2 - saves the chosen interests as the whole list', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockResolvedValueOnce(apiSuccess({}));
+
+      await authService.saveInterests(['sports', 'music', 'science']);
+
+      expect(patch).toHaveBeenCalledWith('/me/preferences', {
+        interests: ['sports', 'music', 'science'],
+      });
+      patch.mockRestore();
+    });
+
+    it('E1-H14.CA2 - hands over the message of interests the server refuses', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/validation-error',
+          title: 'Datos inválidos',
+          detail: 'Elegí al menos 3 intereses.',
+          errors: [{ field: 'interests', message: 'Elegí al menos 3 intereses.' }],
+        })
+      );
+
+      await expect(authService.saveInterests(['sports'])).rejects.toMatchObject({
+        message: 'Elegí al menos 3 intereses.',
+      });
+      patch.mockRestore();
+    });
+
+    it('E1-H14 - marks the onboarding as done', async () => {
+      post.mockResolvedValueOnce({ ...apiSuccess(null), status: 204 });
+
+      await authService.completeOnboarding();
+
+      expect(post).toHaveBeenCalledWith('/me/onboarding/complete');
+    });
+
+    it('E1-H14 - hands over the code when the interests are missing', async () => {
+      post.mockRejectedValueOnce(
+        apiFailure(422, {
+          type: 'https://udesa-x.dev/errors/too-few-interests',
+          title: 'Faltan intereses',
+          detail: 'Elegí al menos 3 intereses antes de terminar.',
+        })
+      );
+
+      await expect(authService.completeOnboarding()).rejects.toMatchObject({
+        code: 'too-few-interests',
+      });
+    });
+
+    it('falls back to a message of its own when saving or finishing fail without one', async () => {
+      const patch = jest.spyOn(apiClient, 'patch').mockRejectedValueOnce(networkFailure());
+      post.mockRejectedValueOnce(apiFailure(500, {}));
+
+      await expect(authService.saveInterests(['sports', 'music', 'science'])).rejects.toThrow();
+      await expect(authService.completeOnboarding()).rejects.toMatchObject({
+        message: 'No se pudo terminar la bienvenida. Intentalo de nuevo.',
+      });
+      patch.mockRestore();
+    });
   });
 
   describe('E1-H2. Inicio de Sesión', () => {

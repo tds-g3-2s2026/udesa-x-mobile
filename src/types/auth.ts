@@ -12,6 +12,10 @@ export interface User {
   // them keep compiling.
   displayName?: string | null;
   bio?: string | null;
+  // False only for an account that has not gone through the onboarding yet.
+  // Absent on a session stored before onboarding existed, which counts as
+  // done: those accounts were already using the app.
+  onboardingCompleted?: boolean;
 }
 
 // Shape of GET and PATCH /me: the fields a profile edit can read or change,
@@ -26,6 +30,10 @@ export interface UserProfile {
 }
 
 export type ProfileVisibility = 'public' | 'protected';
+
+// The closed list users-api accepts for the interests chosen in the onboarding.
+export type Interest =
+  'sports' | 'technology' | 'politics' | 'music' | 'science' | 'movies' | 'gaming' | 'economy';
 export type FeedLanguage = 'es' | 'en' | 'all';
 
 // Shape of GET and PATCH /me/preferences. Both fields always have a value —

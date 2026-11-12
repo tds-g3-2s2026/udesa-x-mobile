@@ -17,6 +17,7 @@ const storedUserSchema = z.object({
   avatarUrl: z.string().optional(),
   displayName: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
+  onboardingCompleted: z.boolean().optional(),
 });
 
 function parseStoredUser(raw: string | null): User | null {
@@ -56,6 +57,9 @@ interface AuthState {
   // Merges a GET/PATCH /me response into the signed-in user so an edit
   // shows up right away, without a second round trip to re-fetch it.
   setProfile: (profile: UserProfile) => Promise<void>;
+  // Once users-api confirmed it: the root layout then swaps the onboarding
+  // for the feed, and a restored session keeps going straight to the feed.
+  finishOnboarding: () => Promise<void>;
   clearSession: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -97,6 +101,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user || user.id !== profile.id) return;
 
     const updated: User = { ...user, ...profile };
+    try {
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updated));
+    } catch {
+      // Best effort, same as setSession: the in-memory session still applies.
+    }
+    set({ user: updated });
+  },
+
+  finishOnboarding: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    const updated: User = { ...user, onboardingCompleted: true };
     try {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updated));
     } catch {
