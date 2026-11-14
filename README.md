@@ -187,7 +187,10 @@ token de FCM con `expo-notifications` y lo manda a `POST /api/notifications/devi
 rota. Si el permiso se niega o algo falla, la sesión sigue igual y se reintenta en la próxima.
 
 Tocar un push abre la misma pantalla que su fila en la pestaña Notificaciones: el de nuevo
-seguidor abre el perfil de quien empezó a seguir (`data.type: "follow"`, `data.actorId`).
+seguidor abre el perfil de quien empezó a seguir (`data.type: "follow"`, `data.actorId`), y el de
+un like, retweet o respuesta abre el post que la recibió (`data.type` `like`, `retweet` o `reply`,
+`data.postId`; en una respuesta es el post respondido). Si el post ya no se puede cargar, la
+pantalla del post muestra "Publicación no disponible".
 `usePushTaps` también vive en `app/(app)/_layout.tsx`: con la app cerrada, Android guarda el tap
 y se abre recién cuando se leyó la sesión. Con la app abierta el push se muestra igual, para que
 haya algo para tocar.
@@ -271,6 +274,7 @@ bun run test -- -t "E1-H1.CA3"
 | `E2-H2.CA4` | Empty state con cuentas sugeridas cuando el feed está vacío                    | `tests/unit/postService.test.ts`, `tests/unit/feedScreen.test.tsx`                                                                               |
 | `E4-H1.CA3` | Token de FCM enviado en cada login, al abrir con sesión guardada y al rotar    | `tests/unit/push-registration.test.tsx`, `tests/unit/notificationService.test.ts`                                                                |
 | `E4-H1.CA2` | Tocar el push de nuevo seguidor abre su perfil, con la app abierta o cerrada   | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
+| `E4-H2.CA2` | Tocar el push de una interacción abre el post, con la app abierta o cerrada    | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,

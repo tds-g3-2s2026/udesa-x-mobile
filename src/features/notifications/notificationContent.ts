@@ -55,14 +55,26 @@ export function notificationTarget(notification: AppNotification): NotificationT
 }
 
 // Same destination for a tapped push, read from its `data`: every value comes
-// as a string, the way FCM delivers it. Only the follow push exists today, and
-// it carries the follower as `actorId`. A kind the app does not know, or a push
-// missing its id, opens nothing.
+// as a string, the way FCM delivers it. A follow push carries the follower as
+// `actorId`; a like, retweet or reply push carries the post that received it as
+// `postId`, the answered one for a reply, as the list does. A kind the app does
+// not know, or a push missing its id, opens nothing.
 export function pushTarget(
   data: Record<string, unknown> | null | undefined
 ): NotificationTarget | null {
-  if (data?.type === 'follow' && typeof data.actorId === 'string' && data.actorId !== '') {
-    return { screen: 'user', id: data.actorId };
+  if (!data) return null;
+  switch (data.type) {
+    case 'follow':
+      return typeof data.actorId === 'string' && data.actorId !== ''
+        ? { screen: 'user', id: data.actorId }
+        : null;
+    case 'like':
+    case 'retweet':
+    case 'reply':
+      return typeof data.postId === 'string' && data.postId !== ''
+        ? { screen: 'post', id: data.postId }
+        : null;
+    default:
+      return null;
   }
-  return null;
 }
