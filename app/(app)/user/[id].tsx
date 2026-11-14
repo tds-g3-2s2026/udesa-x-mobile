@@ -24,6 +24,7 @@ import {
   profileService,
 } from '../../../src/features/social/services/profileService';
 import { muteService } from '../../../src/features/social/services/muteService';
+import { AddToListModal } from '../../../src/features/lists/components/AddToListModal';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
@@ -72,6 +73,7 @@ export default function UserProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [mutePending, setMutePending] = useState(false);
+  const [addingToList, setAddingToList] = useState(false);
 
   // The header and the first page go out together: neither needs the other,
   // and a protected account still shows its header when its posts are refused.
@@ -222,6 +224,19 @@ export default function UserProfileScreen() {
         </TouchableOpacity>
       ) : null}
 
+      {/* Only accounts the caller follows can be in a list (E3-H8). */}
+      {profile.id !== userId && profile.isFollowedByMe ? (
+        <TouchableOpacity
+          style={styles.muteButton}
+          onPress={() => setAddingToList(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Agregar a una lista"
+        >
+          <Ionicons name="list-outline" size={16} color={colors.muted} />
+          <Text style={styles.muteLabel}>Agregar a una lista</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Text style={styles.tabTitle}>Publicaciones</Text>
     </View>
   ) : null;
@@ -294,6 +309,15 @@ export default function UserProfileScreen() {
           />
         </CurrentProfileContext.Provider>
       )}
+
+      {profile ? (
+        <AddToListModal
+          accountId={profile.id}
+          handle={profile.handle}
+          visible={addingToList}
+          onClose={() => setAddingToList(false)}
+        />
+      ) : null}
     </View>
   );
 }
