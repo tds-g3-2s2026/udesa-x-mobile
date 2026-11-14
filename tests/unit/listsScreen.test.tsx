@@ -124,6 +124,60 @@ describe('E3-H8. Listas Personalizadas', () => {
     expect(screen.getByText('Taller')).toBeTruthy();
   });
 
+  it('keeps the name and says why when a list cannot be created', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest.spyOn(listService, 'getLists').mockResolvedValue([]);
+    jest
+      .spyOn(listService, 'createList')
+      .mockRejectedValue(new ApiError('Podés tener hasta 20 listas'));
+
+    renderScreen();
+    await screen.findByText('Todavía no tenés listas');
+    fireEvent.changeText(screen.getByLabelText('Nombre de una lista nueva'), 'Otra');
+    fireEvent.press(screen.getByLabelText('Crear lista'));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Podés tener hasta 20 listas'));
+    expect(screen.getByLabelText('Nombre de una lista nueva').props.value).toBe('Otra');
+  });
+
+  it('shows the list being deleted as busy until the server answers', async () => {
+    jest.spyOn(listService, 'getLists').mockResolvedValue([list('lst-1', 'Taller')]);
+    let finish: () => void = () => {};
+    jest
+      .spyOn(listService, 'deleteList')
+      .mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+    renderScreen();
+    await screen.findByText('Taller');
+
+    await confirmDeletion('Taller');
+
+    expect(screen.queryByLabelText('Borrar Taller')).toBeNull();
+    await act(async () => finish());
+    await waitFor(() => expect(screen.queryByText('Taller')).toBeNull());
+  });
+
+  it('ignores lists that arrive after leaving the screen', async () => {
+    let answer: (lists: AccountList[]) => void = () => {};
+    const getLists = jest
+      .spyOn(listService, 'getLists')
+      .mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const { unmount } = renderScreen();
+
+    unmount();
+    await act(async () => answer([list('lst-1', 'Taller')]));
+
+    expect(getLists).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes back', async () => {
+    jest.spyOn(listService, 'getLists').mockResolvedValue([]);
+
+    renderScreen();
+    fireEvent.press(await screen.findByText(/Volver/));
+
+    expect(mockBack).toHaveBeenCalled();
+  });
+
   it('says why the lists could not be read', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     jest

@@ -1,9 +1,10 @@
 import { useEffect as mockUseEffect } from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ListFeedScreen from '../../app/(app)/lists/[id]';
 import { listService } from '../../src/features/lists/services/listService';
+import { postService } from '../../src/features/posts/services/postService';
 import { ApiError } from '../../src/api/apiClient';
 import { useAuthStore } from '../../src/stores/authStore';
 import { FeedItem } from '../../src/types/post';
@@ -108,6 +109,83 @@ describe('E3-H8. Listas Personalizadas', () => {
 
     expect(await screen.findByText('contenido de post-1')).toBeTruthy();
     expect(getFeed).toHaveBeenLastCalledWith('lst-1', 'abc');
+  });
+
+  it('likes, retweets, answers and reports a post from the list', async () => {
+    jest
+      .spyOn(listService, 'getFeed')
+      .mockResolvedValue({ items: [item('post-1')], nextCursor: null });
+    const like = jest.spyOn(postService, 'likePost').mockResolvedValue(undefined as never);
+    const retweet = jest.spyOn(postService, 'retweet').mockResolvedValue(undefined as never);
+
+    renderScreen();
+    // The buttons sit inside the card, which opens the post: they stop the press.
+    const press = (label: string) =>
+      fireEvent.press(screen.getByLabelText(label), { stopPropagation: jest.fn() });
+    await screen.findByLabelText('Dar me gusta');
+    press('Dar me gusta');
+    press('Retweetear');
+    press('Responder a @post-1');
+    press('Denunciar post de @post-1');
+
+    await waitFor(() => expect(like).toHaveBeenCalledWith('post-1'));
+    expect(retweet).toHaveBeenCalledWith('post-1');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/compose',
+      params: { parentId: 'post-1' },
+    });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: { postId: 'post-1', handle: '@post-1' },
+    });
+  });
+
+  it('reads the list again when pulled down', async () => {
+    const getFeed = jest
+      .spyOn(listService, 'getFeed')
+      .mockResolvedValueOnce({ items: [item('post-1')], nextCursor: null })
+      .mockResolvedValueOnce({ items: [item('post-2'), item('post-1')], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+    await act(async () => {
+      await screen.getByTestId('list-feed').props.refreshControl.props.onRefresh();
+    });
+
+    expect(await screen.findByText('contenido de post-2')).toBeTruthy();
+    expect(getFeed).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks for nothing more once there is no next page', async () => {
+    const getFeed = jest
+      .spyOn(listService, 'getFeed')
+      .mockResolvedValue({ items: [item('post-1')], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+    fireEvent(screen.getByTestId('list-feed'), 'onEndReached');
+
+    expect(getFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no report on a post of the caller', async () => {
+    jest
+      .spyOn(listService, 'getFeed')
+      .mockResolvedValue({ items: [item('post-1', { authorId: 'usr-1' })], nextCursor: null });
+
+    renderScreen();
+
+    await screen.findByText('contenido de post-1');
+    expect(screen.queryByLabelText('Denunciar post de @post-1')).toBeNull();
+  });
+
+  it('goes back', async () => {
+    jest.spyOn(listService, 'getFeed').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    fireEvent.press(await screen.findByText(/Volver/));
+
+    expect(mockBack).toHaveBeenCalled();
   });
 
   it('says how to fill a list that has nothing yet', async () => {
