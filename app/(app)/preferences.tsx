@@ -217,6 +217,20 @@ export default function PreferencesScreen() {
 
       <TouchableOpacity
         style={styles.linkRow}
+        onPress={() => router.push('/lists')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Listas</Text>
+          <Text style={styles.sectionHint}>
+            Armá listas con cuentas que seguís y leé solo lo que publican.
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkRow}
         onPress={() => router.push('/feedback')}
         accessibilityRole="button"
       >

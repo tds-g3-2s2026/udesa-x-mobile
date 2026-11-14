@@ -1158,6 +1158,20 @@ describe('Preferencias', () => {
     expect(mockPush).toHaveBeenCalledWith('/muted-accounts');
   });
 
+  it('E3-H8 - opens the lists from the settings', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+    await press('Listas');
+
+    expect(mockPush).toHaveBeenCalledWith('/lists');
+  });
+
   it('E1-H11 - opens the feedback form from the settings', async () => {
     jest.spyOn(authService, 'getPreferences').mockResolvedValue({
       profileVisibility: 'public',
