@@ -7,6 +7,7 @@ import { postService } from '../../src/features/posts/services/postService';
 import { profileService } from '../../src/features/social/services/profileService';
 import { followService } from '../../src/features/social/services/followService';
 import { muteService } from '../../src/features/social/services/muteService';
+import { listService } from '../../src/features/lists/services/listService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { ApiError } from '../../src/api/apiClient';
 import { FeedItem } from '../../src/types/post';
@@ -431,5 +432,29 @@ describe('E3-H10. Silenciar Usuario', () => {
 
     await screen.findByText('Ana Pérez');
     expect(screen.queryByLabelText('Silenciar')).toBeNull();
+  });
+});
+
+describe('E3-H8. Listas Personalizadas', () => {
+  it('E3-H8.CA1 - opens the lists from the profile of an account the caller follows', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ isFollowedByMe: true }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+    const getLists = jest.spyOn(listService, 'getLists').mockResolvedValue([]);
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Agregar a una lista'));
+
+    expect(await screen.findByText('Agregar @ana a una lista')).toBeTruthy();
+    expect(getLists).toHaveBeenCalled();
+  });
+
+  it('does not offer lists for an account the caller does not follow', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ isFollowedByMe: false }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+
+    await screen.findByText('Ana Pérez');
+    expect(screen.queryByLabelText('Agregar a una lista')).toBeNull();
   });
 });
