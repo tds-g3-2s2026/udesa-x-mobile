@@ -132,5 +132,18 @@ describe('List service', () => {
         message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
       });
     });
+
+    it.each([
+      ['getMembers', () => listService.getMembers('lst-1')],
+      ['getFeed', () => listService.getFeed('lst-1')],
+      ['deleteList', () => listService.deleteList('lst-1')],
+      ['removeMember', () => listService.removeMember('lst-1', 'usr-2')],
+    ])('%s says what failed when the server does not answer with a reason', async (_, call) => {
+      const failure = apiFailure(500, 'Internal Server Error');
+      get.mockRejectedValueOnce(failure);
+      del.mockRejectedValueOnce(failure);
+
+      await expect(call()).rejects.toMatchObject({ message: expect.stringMatching(/^No se pud/) });
+    });
   });
 });
