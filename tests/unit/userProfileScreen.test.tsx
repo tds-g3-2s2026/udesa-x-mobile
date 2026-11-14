@@ -446,6 +446,10 @@ describe('E3-H8. Listas Personalizadas', () => {
 
     expect(await screen.findByText('Agregar @ana a una lista')).toBeTruthy();
     expect(getLists).toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText('Listo'));
+
+    await waitFor(() => expect(screen.queryByText('Agregar @ana a una lista')).toBeNull());
   });
 
   it('does not offer lists for an account the caller does not follow', async () => {

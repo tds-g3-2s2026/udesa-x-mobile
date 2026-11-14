@@ -107,6 +107,33 @@ describe('AddToListModal', () => {
     expect(screen.getByRole('checkbox', { name: 'Taller' })).not.toBeChecked();
   });
 
+  it('keeps the name and says why when a list cannot be created', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    given([]);
+    service.createList.mockRejectedValue(new ApiError('Podés tener hasta 20 listas'));
+    renderModal();
+
+    fireEvent.changeText(await screen.findByLabelText('Nombre de una lista nueva'), 'Una más');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear lista' }));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Podés tener hasta 20 listas'));
+    expect(screen.getByLabelText('Nombre de una lista nueva').props.value).toBe('Una más');
+    expect(service.addMember).not.toHaveBeenCalled();
+  });
+
+  it('ignores lists that arrive after it was closed', async () => {
+    let answer: (lists: AccountList[]) => void = () => {};
+    service.getLists.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const { unmount } = render(
+      <AddToListModal accountId="usr-2" handle="@ana" visible onClose={jest.fn()} />
+    );
+
+    unmount();
+    answer([list('lst-1', 'Taller')]);
+
+    await waitFor(() => expect(service.getMembers).toHaveBeenCalledTimes(1));
+  });
+
   it('says when the lists cannot be read', async () => {
     service.getLists.mockRejectedValue(new ApiError('No se pudieron cargar tus listas.'));
 
