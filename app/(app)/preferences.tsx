@@ -183,6 +183,18 @@ export default function PreferencesScreen() {
         </View>
       </View>
 
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => router.push('/notification-preferences')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Notificaciones</Text>
+          <Text style={styles.sectionHint}>Elegí qué avisos querés recibir.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.linkRow} onPress={handleInvite} accessibilityRole="button">
         <View>
           <Text style={styles.sectionTitle}>Invitar</Text>

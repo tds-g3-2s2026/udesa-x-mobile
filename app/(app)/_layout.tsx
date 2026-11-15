@@ -38,6 +38,18 @@ export default function AppLayout() {
           headerTitleStyle: { fontWeight: '600', color: colors.text },
         }}
       />
+      <Stack.Screen
+        name="notification-preferences"
+        options={{
+          headerShown: true,
+          title: 'Notificaciones',
+          headerBackTitle: 'Volver',
+          headerTintColor: colors.primary,
+          headerStyle: { backgroundColor: colors.surface },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontWeight: '600', color: colors.text },
+        }}
+      />
       <Stack.Screen name="follow-requests" />
       <Stack.Screen name="follow-list" />
       <Stack.Screen name="blocked-accounts" />
