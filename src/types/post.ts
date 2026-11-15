@@ -23,6 +23,13 @@ export interface Post {
   repliesCount: number;
 }
 
+// An account a post's text mentions, and that exists: posts-api resolves every
+// `@handle` it finds and lists only those. `handle` comes without the `@`.
+export interface PostMention {
+  id: string;
+  handle: string;
+}
+
 // A row of GET /feed: same counters as Post, plus the author fields the feed
 // needs to render a row and Post doesn't carry (posting is always the
 // caller, so there is nothing to name there), and whether the caller already
@@ -51,6 +58,9 @@ export interface FeedItem {
   activityAt: string;
   retweetsCount: number;
   repliesCount: number;
+  // Missing when posts-api is older than this field: the text then reads as
+  // plain, as it did before mentions existed.
+  mentions?: PostMention[];
 }
 
 // GET /posts/{id}: a feed row plus the post it answers, null when it is not a

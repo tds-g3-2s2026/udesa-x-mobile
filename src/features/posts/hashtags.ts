@@ -6,7 +6,7 @@ export interface TextSegment {
 // A `#` that starts a word and is followed by letters, digits or `_`. It has to
 // follow the same rule as posts-api, which indexes what this draws as a link.
 const HASHTAG = /#([\p{L}\p{N}_]+)/gu;
-const ENDS_IN_WORD_CHARACTER = /[\p{L}\p{N}_#]$/u;
+export const ENDS_IN_WORD_CHARACTER = /[\p{L}\p{N}_#]$/u;
 
 export function splitHashtags(content: string): TextSegment[] {
   const segments: TextSegment[] = [];
