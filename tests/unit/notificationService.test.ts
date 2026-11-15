@@ -7,7 +7,11 @@ import {
 } from 'axios';
 import { notificationsApiClient } from '../../src/api/notificationsApiClient';
 import { notificationService } from '../../src/features/notifications/notificationService';
-import { AppNotification, NotificationPage } from '../../src/features/notifications/types';
+import {
+  AppNotification,
+  NotificationPage,
+  NotificationPreferences,
+} from '../../src/features/notifications/types';
 
 const requestConfig = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
 
@@ -29,6 +33,7 @@ function apiFailure(status: number, data: unknown): AxiosError {
 
 const get = jest.spyOn(notificationsApiClient, 'get');
 const post = jest.spyOn(notificationsApiClient, 'post');
+const put = jest.spyOn(notificationsApiClient, 'put');
 const del = jest.spyOn(notificationsApiClient, 'delete');
 
 const notification: AppNotification = {
@@ -44,6 +49,7 @@ const notification: AppNotification = {
 afterEach(() => {
   get.mockReset();
   post.mockReset();
+  put.mockReset();
   del.mockReset();
 });
 
@@ -134,5 +140,51 @@ describe('E4-H1. Recibir notificaciones de nuevo seguidor', () => {
     await notificationService.registerDeviceToken('fcm-token');
 
     expect(post).toHaveBeenCalledWith('/notifications/device-tokens', { token: 'fcm-token' });
+  });
+});
+
+describe('E4-H5. Preferencias de Notificación', () => {
+  const allOn: NotificationPreferences = {
+    like: true,
+    retweet: true,
+    reply: true,
+    mention: true,
+    follow: true,
+    direct_message: true,
+  };
+
+  it('reads the preferences as the server answers them', async () => {
+    get.mockResolvedValueOnce(apiSuccess({ ...allOn, like: false }));
+
+    await expect(notificationService.getPreferences()).resolves.toEqual({ ...allOn, like: false });
+
+    expect(get).toHaveBeenCalledWith('/notifications/preferences');
+  });
+
+  it('E4-H5.CA1 - saves only the type that changed and returns the full result', async () => {
+    put.mockResolvedValueOnce(apiSuccess({ ...allOn, mention: false }));
+
+    await expect(notificationService.updatePreferences({ mention: false })).resolves.toEqual({
+      ...allOn,
+      mention: false,
+    });
+
+    expect(put).toHaveBeenCalledWith('/notifications/preferences', { mention: false });
+  });
+
+  it('turns a failed save into a message the screen can show', async () => {
+    put.mockRejectedValueOnce(apiFailure(500, 'not problem details'));
+
+    await expect(notificationService.updatePreferences({ like: false })).rejects.toMatchObject({
+      message: 'No se pudo guardar la preferencia. Intentalo de nuevo.',
+    });
+  });
+
+  it('turns a failed read into a message the screen can show', async () => {
+    get.mockRejectedValueOnce(apiFailure(500, 'not problem details'));
+
+    await expect(notificationService.getPreferences()).rejects.toMatchObject({
+      message: 'No se pudieron cargar las preferencias. Intentalo de nuevo.',
+    });
   });
 });
