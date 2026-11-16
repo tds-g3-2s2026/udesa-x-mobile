@@ -13,6 +13,16 @@ export interface AppNotification {
   readAt: string | null;
 }
 
+// The kinds of notification an account can turn off, named like the `type` of
+// a notification (and of a push). `direct_message` is stored by the server but
+// no notification of that kind exists yet.
+export type NotificationPreferenceType =
+  'like' | 'retweet' | 'reply' | 'mention' | 'follow' | 'direct_message';
+
+// GET and PUT /notifications/preferences answer one boolean per type: an
+// account that never chose gets every type on.
+export type NotificationPreferences = Record<NotificationPreferenceType, boolean>;
+
 // Same page shape as the feed and the search: a fixed page of 20, newest
 // first, and an opaque cursor for the next one, null once there is no more.
 export interface NotificationPage {

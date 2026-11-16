@@ -195,6 +195,12 @@ pantalla del post muestra "Publicación no disponible".
 y se abre recién cuando se leyó la sesión. Con la app abierta el push se muestra igual, para que
 haya algo para tocar.
 
+En Configuración, `Notificaciones` abre `app/(app)/notification-preferences.tsx`: un switch por
+tipo (me gusta, retweets, respuestas, menciones, nuevos seguidores y mensajes directos) que guarda
+al tocar con `PUT /api/notifications/preferences`, mandando solo el tipo que cambió. Apagar un tipo
+corta el push, pero la notificación sigue apareciendo en la pestaña Notificaciones. Mensajes
+directos se guarda igual que los demás, aunque todavía no existan.
+
 Solo en Android: el servidor entrega por FCM, y en iOS el token del dispositivo es de APNs.
 
 La configuración Android del proyecto Firebase `udesa-x-tds-g3` está en
@@ -275,6 +281,7 @@ bun run test -- -t "E1-H1.CA3"
 | `E4-H1.CA3` | Token de FCM enviado en cada login, al abrir con sesión guardada y al rotar    | `tests/unit/push-registration.test.tsx`, `tests/unit/notificationService.test.ts`                                                                |
 | `E4-H1.CA2` | Tocar el push de nuevo seguidor abre su perfil, con la app abierta o cerrada   | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
 | `E4-H2.CA2` | Tocar el push de una interacción abre el post, con la app abierta o cerrada    | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
+| `E4-H5.CA1` | Pantalla con un switch por tipo de notificación, que guarda al tocar           | `tests/unit/notificationPreferencesScreen.test.tsx`, `tests/unit/notificationService.test.ts`                                                    |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,

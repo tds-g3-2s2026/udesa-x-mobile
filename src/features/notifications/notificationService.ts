@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { toAuthError } from '../../api/apiClient';
 import { notificationsApiClient } from '../../api/notificationsApiClient';
-import { NotificationPage } from './types';
+import { NotificationPage, NotificationPreferences } from './types';
 
 export const notificationService = {
   // The page size is fixed by the server (20), so the only thing the app sends
@@ -37,6 +37,33 @@ export const notificationService = {
       await notificationsApiClient.delete(`/notifications/${encodeURIComponent(id)}`);
     } catch (error) {
       throw toAuthError(error, 'No se pudo borrar la notificación. Intentalo de nuevo.');
+    }
+  },
+
+  async getPreferences(): Promise<NotificationPreferences> {
+    try {
+      const response = await notificationsApiClient.get<NotificationPreferences>(
+        '/notifications/preferences'
+      );
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar las preferencias. Intentalo de nuevo.');
+    }
+  },
+
+  // Sends only the types that changed: the server keeps the others as they
+  // were, so a switch saves on its own. It answers with every type.
+  async updatePreferences(
+    changes: Partial<NotificationPreferences>
+  ): Promise<NotificationPreferences> {
+    try {
+      const response = await notificationsApiClient.put<NotificationPreferences>(
+        '/notifications/preferences',
+        changes
+      );
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo guardar la preferencia. Intentalo de nuevo.');
     }
   },
 
