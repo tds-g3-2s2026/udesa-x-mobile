@@ -176,6 +176,77 @@ describe('E2-H12. Guardar Posts', () => {
     expect(screen.getByText('contenido de post-2')).toBeTruthy();
   });
 
+  it('shows a loader under the list while the next page is on its way and asks for it once', async () => {
+    let resolvePage: (page: { items: FeedItem[]; nextCursor: string | null }) => void = () => {};
+    const getBookmarks = jest
+      .spyOn(postService, 'getBookmarks')
+      .mockResolvedValueOnce({ items: [item('post-2')], nextCursor: 'abc' })
+      .mockReturnValueOnce(new Promise((resolve) => (resolvePage = resolve)));
+
+    renderScreen();
+    await screen.findByText('contenido de post-2');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('saved-list'), 'onEndReached');
+    });
+    await act(async () => {
+      fireEvent(screen.getByTestId('saved-list'), 'onEndReached');
+    });
+
+    expect(screen.getByTestId('saved-footer-loading')).toBeTruthy();
+    expect(getBookmarks).toHaveBeenCalledTimes(2);
+
+    await act(async () => resolvePage({ items: [item('post-1')], nextCursor: null }));
+    expect(screen.queryByTestId('saved-footer-loading')).toBeNull();
+  });
+
+  it('drops a reload that answers after a save changed the list', async () => {
+    let resolveReload: (page: { items: FeedItem[]; nextCursor: string | null }) => void = () => {};
+    jest
+      .spyOn(postService, 'getBookmarks')
+      .mockResolvedValueOnce({ items: [item('post-1', { savedByMe: false })], nextCursor: null })
+      .mockReturnValueOnce(new Promise((resolve) => (resolveReload = resolve)));
+    jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+
+    await act(async () => {
+      fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+    await act(async () => resolveReload({ items: [item('post-9')], nextCursor: null }));
+
+    expect(screen.getByText('contenido de post-1')).toBeTruthy();
+    expect(screen.queryByText('contenido de post-9')).toBeNull();
+  });
+
+  it('drops a next page that answers after a save changed the list', async () => {
+    let resolvePage: (page: { items: FeedItem[]; nextCursor: string | null }) => void = () => {};
+    jest
+      .spyOn(postService, 'getBookmarks')
+      .mockResolvedValueOnce({ items: [item('post-2', { savedByMe: false })], nextCursor: 'abc' })
+      .mockReturnValueOnce(new Promise((resolve) => (resolvePage = resolve)));
+    jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+
+    renderScreen();
+    await screen.findByText('contenido de post-2');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('saved-list'), 'onEndReached');
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+    await act(async () => resolvePage({ items: [item('post-1')], nextCursor: null }));
+
+    expect(screen.queryByText('contenido de post-1')).toBeNull();
+  });
+
   it('Volver goes back', async () => {
     jest.spyOn(postService, 'getBookmarks').mockResolvedValue({ items: [], nextCursor: null });
 
@@ -274,6 +345,22 @@ describe('E2-H12. Guardados: acciones de la tarjeta', () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/report',
       params: { postId: 'post-1', handle: '@post-1' },
+    });
+  });
+
+  it('the flag on a post whose author has no handle reports it with an empty handle', async () => {
+    jest.spyOn(postService, 'getBookmarks').mockResolvedValue({
+      items: [item('post-1', { authorHandle: null, savedByMe: false })],
+      nextCursor: null,
+    });
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+
+    await press('Denunciar post de esta cuenta');
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: { postId: 'post-1', handle: '' },
     });
   });
 });

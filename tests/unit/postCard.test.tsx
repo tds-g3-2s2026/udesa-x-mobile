@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Alert, StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { PostCard } from '../../src/features/posts/components/PostCard';
 import { CurrentProfileContext } from '../../src/features/posts/currentProfile';
 import { usePostInteractions } from '../../src/features/posts/usePostInteractions';
@@ -181,6 +181,77 @@ describe('E2-H12. Guardar Posts', () => {
 
     expect(screen.getByLabelText('Guardar post')).toBeTruthy();
     expect(alert).toHaveBeenCalledWith('Error', 'No se pudo guardar el post. Intentalo de nuevo.');
+  });
+});
+
+describe('Guardar Posts: concurrencia del hook', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('a second tap while the first save is on its way does not call the server again', async () => {
+    let finishSave: () => void = () => {};
+    const save = jest
+      .spyOn(postService, 'saveBookmark')
+      .mockReturnValue(new Promise<void>((resolve) => (finishSave = resolve)));
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => usePostInteractions());
+
+    await act(async () => {
+      void result.current.toggleSave(savable);
+      void result.current.toggleSave(savable);
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishSave());
+  });
+
+  it('a deleted post cannot be saved', async () => {
+    const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    const { result } = renderHook(() => usePostInteractions());
+
+    await act(async () => {
+      await result.current.toggleSave({ ...savable, deleted: true });
+    });
+
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('a save that fails after the screen is gone stays silent', async () => {
+    let failSave: (error: Error) => void = () => {};
+    jest
+      .spyOn(postService, 'saveBookmark')
+      .mockReturnValue(new Promise<void>((_, reject) => (failSave = reject)));
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { result, unmount } = renderHook(() => usePostInteractions());
+
+    await act(async () => {
+      void result.current.toggleSave(savable);
+    });
+    unmount();
+    await act(async () => failSave(new Error('offline')));
+
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('a read that lands while a save is pending keeps the optimistic state', async () => {
+    let finishSave: () => void = () => {};
+    jest
+      .spyOn(postService, 'saveBookmark')
+      .mockReturnValue(new Promise<void>((resolve) => (finishSave = resolve)));
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => usePostInteractions());
+
+    await act(async () => {
+      void result.current.toggleSave(savable);
+    });
+    await act(async () => {
+      result.current.acceptRead(result.current.beginRead(), [savable]);
+    });
+    expect(result.current.forPost(savable).savedByMe).toBe(true);
+
+    await act(async () => finishSave());
   });
 });
 
