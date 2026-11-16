@@ -1,6 +1,6 @@
 import { useEffect as mockUseEffect } from 'react';
 import { Alert, RefreshControl } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SavedScreen from '../../app/(app)/saved';
 import { postService } from '../../src/features/posts/services/postService';
@@ -156,5 +156,124 @@ describe('E2-H12. Guardar Posts', () => {
       'Error',
       'No se pudo conectar con el servidor. Revisá tu conexión.'
     );
+  });
+
+  it('a failed next page shows an alert and keeps the saved posts on screen', async () => {
+    jest
+      .spyOn(postService, 'getBookmarks')
+      .mockResolvedValueOnce({ items: [item('post-2')], nextCursor: 'abc' })
+      .mockRejectedValueOnce(new ApiError('Sin conexión.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('contenido de post-2');
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('saved-list'), 'onEndReached');
+    });
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Error', 'Sin conexión.'));
+    expect(screen.getByText('contenido de post-2')).toBeTruthy();
+  });
+
+  it('Volver goes back', async () => {
+    jest.spyOn(postService, 'getBookmarks').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('Todavía no guardaste nada');
+    fireEvent.press(screen.getByText(/Volver/));
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('E2-H12. Guardados: acciones de la tarjeta', () => {
+  // The saved list itself shows every post as saved; these tests need one not yet saved.
+  const notSaved = item('post-1', { savedByMe: false });
+
+  // Actions reconcile with getPost after each mutation; these tests only check the call.
+  beforeEach(() => {
+    jest.spyOn(postService, 'getBookmarks').mockResolvedValue({
+      items: [notSaved],
+      nextCursor: null,
+    });
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+  });
+
+  async function renderWithPost() {
+    renderScreen();
+    await screen.findByText('contenido de post-1');
+  }
+
+  async function press(label: string) {
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(label), { stopPropagation: jest.fn() });
+    });
+  }
+
+  it('the bookmark saves an unsaved post', async () => {
+    const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    await renderWithPost();
+
+    await press('Guardar post');
+
+    expect(save).toHaveBeenCalledWith('post-1');
+  });
+
+  it('the like button likes the post', async () => {
+    const like = jest.spyOn(postService, 'likePost').mockResolvedValue(undefined);
+    await renderWithPost();
+
+    await press('Dar me gusta');
+
+    expect(like).toHaveBeenCalledWith('post-1');
+  });
+
+  it('the retweet button retweets the post', async () => {
+    const retweet = jest.spyOn(postService, 'retweet').mockResolvedValue(undefined);
+    await renderWithPost();
+
+    await press('Retweetear');
+
+    expect(retweet).toHaveBeenCalledWith('post-1');
+  });
+
+  it('tapping the card opens the post', async () => {
+    await renderWithPost();
+
+    fireEvent.press(screen.getByLabelText('Abrir la publicación de @post-1'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-1' } });
+  });
+
+  it('Responder opens the composer with the post as parent', async () => {
+    await renderWithPost();
+
+    fireEvent.press(screen.getByLabelText('Responder a @post-1'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/compose', params: { parentId: 'post-1' } });
+  });
+
+  it('your own saved post has no flag', async () => {
+    jest.spyOn(postService, 'getBookmarks').mockResolvedValue({
+      items: [item('own', { authorId: 'usr-1', savedByMe: false })],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    await screen.findByText('contenido de own');
+
+    expect(screen.queryByLabelText(/Denunciar post de/)).toBeNull();
+  });
+
+  it('the flag on someone else post opens the report', async () => {
+    await renderWithPost();
+
+    await press('Denunciar post de @post-1');
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: { postId: 'post-1', handle: '@post-1' },
+    });
   });
 });

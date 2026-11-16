@@ -326,6 +326,21 @@ describe('E2-H14. Visualización de Perfil de Usuario', () => {
   });
 });
 
+test('E2-H12.CA1 - the bookmark on a post of the profile saves that post', async () => {
+  jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
+  jest
+    .spyOn(profileService, 'getPosts')
+    .mockResolvedValue({ items: [post('post-1', 'Hola')], nextCursor: null });
+  jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+  const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+  renderScreen();
+  await screen.findByText('Hola');
+  await act(async () =>
+    fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() })
+  );
+  expect(save).toHaveBeenCalledWith('post-1');
+});
+
 test('E2-H6.CA1 - profile posts preserve liking and undo after sharing card state', async () => {
   jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile());
   jest

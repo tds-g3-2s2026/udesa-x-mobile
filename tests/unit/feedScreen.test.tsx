@@ -414,6 +414,22 @@ test.each(['refresh', 'page'] as const)(
   }
 );
 
+test('E2-H12.CA1 - the bookmark on a row saves that post', async () => {
+  jest
+    .spyOn(postService, 'getFeed')
+    .mockResolvedValue({ items: [item('post-1')], nextCursor: null });
+  jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+  const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+  renderScreen();
+  await screen.findByText('contenido de post-1');
+
+  await act(async () =>
+    fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() })
+  );
+
+  expect(save).toHaveBeenCalledWith('post-1');
+});
+
 test('E2-H3.CA3 - deleting removes all duplicate entries even if refresh returns stale content', async () => {
   const own = item('post-1');
   useAuthStore.setState({

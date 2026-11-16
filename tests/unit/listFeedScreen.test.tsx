@@ -141,6 +141,22 @@ describe('E3-H8. Listas Personalizadas', () => {
     });
   });
 
+  it('E2-H12.CA1 - the bookmark on a post of the list saves that post', async () => {
+    jest
+      .spyOn(listService, 'getFeed')
+      .mockResolvedValue({ items: [item('post-1')], nextCursor: null });
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+    const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+
+    renderScreen();
+    await screen.findByLabelText('Guardar post');
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() })
+    );
+
+    expect(save).toHaveBeenCalledWith('post-1');
+  });
+
   it('reads the list again when pulled down', async () => {
     const getFeed = jest
       .spyOn(listService, 'getFeed')

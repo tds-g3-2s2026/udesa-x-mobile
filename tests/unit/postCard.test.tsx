@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Alert, StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PostCard } from '../../src/features/posts/components/PostCard';
 import { CurrentProfileContext } from '../../src/features/posts/currentProfile';
 import { usePostInteractions } from '../../src/features/posts/usePostInteractions';
@@ -129,6 +129,40 @@ describe('E2-H12. Guardar Posts', () => {
     });
     expect(remove).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledWith('post-1');
+    expect(screen.getByLabelText('Guardar post')).toBeTruthy();
+  });
+
+  it('E2-H12.CA1 - a save the server confirms as saved keeps the saved label', async () => {
+    jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    const fresh = jest
+      .spyOn(postService, 'getPost')
+      .mockResolvedValue({ ...post({ savedByMe: true }), parentId: null });
+
+    render(<BookmarkHarness />);
+    await act(async () => undefined);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+    await waitFor(() => expect(fresh).toHaveBeenCalledWith('post-1'));
+    await act(async () => undefined);
+
+    expect(screen.getByLabelText('Quitar de guardados')).toBeTruthy();
+  });
+
+  it('E2-H12.CA1 - the server state wins over an optimistic save it does not confirm', async () => {
+    jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    const fresh = jest
+      .spyOn(postService, 'getPost')
+      .mockResolvedValue({ ...post({ savedByMe: false }), parentId: null });
+
+    render(<BookmarkHarness />);
+    await act(async () => undefined);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+    await waitFor(() => expect(fresh).toHaveBeenCalledWith('post-1'));
+    await act(async () => undefined);
+
     expect(screen.getByLabelText('Guardar post')).toBeTruthy();
   });
 

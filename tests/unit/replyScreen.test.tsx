@@ -188,6 +188,24 @@ describe('E2-H4. Responder a un Post', () => {
     expect(screen.queryByLabelText('Denunciar post de @reply-1')).toBeNull();
   });
 
+  it('E2-H12.CA1 - the bookmark on the original and on a reply saves each post', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(original());
+    jest
+      .spyOn(postService, 'getReplies')
+      .mockResolvedValue({ items: [reply('reply-1')], nextCursor: null });
+    const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+
+    render(<PostDetailScreen />);
+    await screen.findByText('contenido de reply-1');
+    const [headerBookmark, replyBookmark] = screen.getAllByLabelText('Guardar post');
+
+    await act(async () => fireEvent.press(headerBookmark, { stopPropagation: jest.fn() }));
+    await act(async () => fireEvent.press(replyBookmark, { stopPropagation: jest.fn() }));
+
+    expect(save).toHaveBeenNthCalledWith(1, 'post-1');
+    expect(save).toHaveBeenNthCalledWith(2, 'reply-1');
+  });
+
   it('the flag opens the report for that post', async () => {
     jest.spyOn(postService, 'getPost').mockResolvedValue(original());
     jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
