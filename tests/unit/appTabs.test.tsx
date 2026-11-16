@@ -75,6 +75,7 @@ beforeEach(() => {
   searchQueryClient.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } });
   searchQueryClient.clear();
   jest.spyOn(searchService, 'search').mockResolvedValue({ items: [], nextCursor: null });
+  jest.spyOn(searchService, 'fetchTrending').mockResolvedValue([]);
   secureStoreValues.clear();
   jest.clearAllMocks();
   useAuthStore.setState({
@@ -128,7 +129,7 @@ describe('T-51. Navegación por tabs', () => {
     await renderTab('/search');
 
     const field = screen.getByPlaceholderText('Buscar personas y publicaciones');
-    expect(screen.getByText('Empezá a buscar')).toBeTruthy();
+    expect(await screen.findByText('Empezá a buscar')).toBeTruthy();
 
     fireEvent.changeText(field, 'joaquin');
 

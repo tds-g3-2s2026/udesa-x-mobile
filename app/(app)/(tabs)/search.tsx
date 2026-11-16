@@ -18,6 +18,7 @@ import { Colors } from '../../../src/theme/colors';
 import { EmptyState, useSearchFieldStyles } from '../../../src/features/shell/components/AppScreen';
 import { normalizedSearchText, SearchKind, SearchResult } from '../../../src/features/search/types';
 import { search } from '../../../src/features/search/searchService';
+import { TrendingTopics } from '../../../src/features/search/TrendingTopics';
 
 export default function SearchScreen() {
   const [text, setText] = useState('');
@@ -75,6 +76,11 @@ export default function SearchScreen() {
   const items =
     settled && enoughText ? (results.data?.pages.flatMap((page) => page.items) ?? []) : [];
 
+  // Same route param a tapped hashtag in a post sends, so it runs the effect above.
+  function searchHashtag(tag: string) {
+    router.setParams({ q: `#${tag}` });
+  }
+
   function row(item: SearchResult) {
     const post = 'snippet' in item;
     return (
@@ -124,11 +130,7 @@ export default function SearchScreen() {
   }
 
   const empty = !enoughText ? (
-    <EmptyState
-      icon="search-outline"
-      title="Empezá a buscar"
-      text="Escribí al menos 3 caracteres"
-    />
+    <TrendingTopics onSelect={searchHashtag} />
   ) : !settled || results.isPending ? (
     <ActivityIndicator accessibilityLabel="Buscando" color={colors.primary} />
   ) : results.isError && !results.data ? (
@@ -181,7 +183,9 @@ export default function SearchScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => row(item)}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={items.length ? styles.list : styles.empty}
+        contentContainerStyle={
+          items.length ? styles.list : enoughText ? styles.empty : styles.trending
+        }
         ListEmptyComponent={empty}
         onEndReachedThreshold={0.3}
         onEndReached={() => {
@@ -243,6 +247,7 @@ function createStyles(colors: Colors) {
     error: { color: colors.danger, textAlign: 'center' },
     state: { paddingVertical: 20, gap: 10, alignItems: 'center' },
     list: { paddingBottom: 32 },
+    trending: { flexGrow: 1, paddingBottom: 32 },
     empty: { flexGrow: 1, justifyContent: 'center', paddingBottom: 32 },
   });
 }

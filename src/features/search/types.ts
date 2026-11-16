@@ -27,3 +27,8 @@ export function normalizedSearchText(text: string, kind: SearchKind): string {
   const trimmed = text.trim();
   return kind === 'users' && trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
 }
+
+export interface TrendingTopic {
+  tag: string;
+  count: number;
+}

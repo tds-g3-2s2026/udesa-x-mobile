@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { apiClient, toAuthError } from '../../api/apiClient';
 import { postsApiClient } from '../../api/postsApiClient';
-import { SearchKind, SearchPage } from './types';
+import { SearchKind, SearchPage, TrendingTopic } from './types';
 
 export async function search(
   kind: SearchKind,
@@ -19,5 +19,15 @@ export async function search(
   } catch (error) {
     if (axios.isCancel(error)) throw error;
     throw toAuthError(error, 'No se pudo realizar la búsqueda. Intentalo de nuevo.');
+  }
+}
+
+export async function fetchTrending(signal: AbortSignal): Promise<TrendingTopic[]> {
+  try {
+    const response = await postsApiClient.get<TrendingTopic[]>('/trending', { signal });
+    return response.data;
+  } catch (error) {
+    if (axios.isCancel(error)) throw error;
+    throw toAuthError(error, 'No pudimos cargar las tendencias.');
   }
 }

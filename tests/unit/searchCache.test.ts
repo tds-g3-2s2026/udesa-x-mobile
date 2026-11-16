@@ -18,3 +18,16 @@ it('E2-H10.CA5 removes a blocked author from both result types and invalidates s
   await updateSearchAfterBlock('viewer', 'blocked', false);
   searchQueryClient.clear();
 });
+
+it('keeps the trending ranking out of the search cache that a block rewrites', async () => {
+  useAuthStore.setState({
+    user: { id: 'viewer', handle: '@viewer', email: 'v@example.com', isVerified: true },
+  });
+  const key = ['trending', 'viewer'];
+  searchQueryClient.setQueryData(key, [{ tag: 'udesa', count: 3 }]);
+
+  await expect(updateSearchAfterBlock('viewer', 'blocked', true)).resolves.toBeUndefined();
+
+  expect(searchQueryClient.getQueryData(key)).toEqual([{ tag: 'udesa', count: 3 }]);
+  searchQueryClient.clear();
+});
