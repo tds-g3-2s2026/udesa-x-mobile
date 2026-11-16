@@ -44,6 +44,7 @@ export default function AppLayout() {
       <Stack.Screen name="muted-accounts" />
       <Stack.Screen name="lists/index" />
       <Stack.Screen name="lists/[id]" />
+      <Stack.Screen name="saved" />
       <Stack.Screen name="feedback" />
       <Stack.Screen name="compose" />
       <Stack.Screen name="report" />

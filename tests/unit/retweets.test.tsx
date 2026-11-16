@@ -22,6 +22,7 @@ const item: FeedItem = {
   images: [],
   likesCount: 7,
   likedByMe: false,
+  savedByMe: false,
   retweetsCount: 2,
   retweetedByMe: false,
   retweetedBy: null,

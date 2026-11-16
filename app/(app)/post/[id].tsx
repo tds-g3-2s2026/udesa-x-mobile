@@ -130,6 +130,8 @@ export default function PostDetailScreen() {
               retweetPending={interactions.isRetweetPending(post.id)}
               onLike={() => interactions.toggleLike(deletion.forPost(post))}
               likePending={interactions.isLikePending(post.id)}
+              onBookmark={() => interactions.toggleSave(deletion.forPost(post))}
+              bookmarkPending={interactions.isSavePending(post.id)}
               onReply={() => reply(post.id)}
               onReport={report(post)}
             />
@@ -157,6 +159,8 @@ export default function PostDetailScreen() {
             retweetPending={interactions.isRetweetPending(item.id)}
             onLike={() => interactions.toggleLike(deletion.forPost(item))}
             likePending={interactions.isLikePending(item.id)}
+            onBookmark={() => interactions.toggleSave(deletion.forPost(item))}
+            bookmarkPending={interactions.isSavePending(item.id)}
             onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
             onReply={() => reply(item.id)}
             onReport={report(item)}

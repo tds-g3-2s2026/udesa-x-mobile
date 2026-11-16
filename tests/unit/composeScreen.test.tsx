@@ -68,6 +68,7 @@ const original: PostDetail = {
   images: [],
   likesCount: 0,
   likedByMe: false,
+  savedByMe: false,
   retweetedByMe: false,
   retweetedBy: null,
   entryId: 'post:post-1',

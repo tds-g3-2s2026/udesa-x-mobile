@@ -4,7 +4,7 @@ import { FeedItem } from '../../types/post';
 import { getAuthErrorMessage, postService } from './services/postService';
 
 type ReactionState = Partial<
-  Pick<FeedItem, 'retweetedByMe' | 'retweetsCount' | 'likedByMe' | 'likesCount'>
+  Pick<FeedItem, 'retweetedByMe' | 'retweetsCount' | 'likedByMe' | 'likesCount' | 'savedByMe'>
 >;
 
 export function usePostInteractions() {
@@ -69,12 +69,49 @@ export function usePostInteractions() {
     [update]
   );
 
+  // Bookmarks have no counter, so they get their own function instead of a kind for toggle.
+  const toggleSave = useCallback(
+    async (item: FeedItem) => {
+      const key = `save:${item.id}`;
+      if (item.deleted || locks.current.has(key)) return;
+      locks.current.add(key);
+      revision.current += 1;
+      setPending(new Set(locks.current));
+      const state = { ...item, ...current.current[item.id] };
+      const before: ReactionState = { savedByMe: state.savedByMe };
+      update(item.id, { savedByMe: !state.savedByMe });
+      try {
+        if (state.savedByMe) await postService.removeBookmark(item.id);
+        else await postService.saveBookmark(item.id);
+      } catch (error) {
+        update(item.id, before);
+        if (mounted.current) Alert.alert('Error', getAuthErrorMessage(error));
+      }
+      // A failed response can still mean the server committed the mutation.
+      try {
+        const fresh = await postService.getPost(item.id);
+        update(item.id, { savedByMe: fresh.savedByMe });
+      } catch {
+        // Keep the optimistic result or rollback until a successful screen refresh.
+      } finally {
+        locks.current.delete(key);
+        revision.current += 1;
+        if (mounted.current) setPending(new Set(locks.current));
+      }
+    },
+    [update]
+  );
+
   const beginRead = useCallback(() => revision.current, []);
   const acceptRead = useCallback((version: number, items: FeedItem[]) => {
     if (!mounted.current || version !== revision.current) return false;
     const next = { ...current.current };
     for (const item of items) {
-      if (!locks.current.has(`like:${item.id}`) && !locks.current.has(`retweet:${item.id}`)) {
+      if (
+        !locks.current.has(`like:${item.id}`) &&
+        !locks.current.has(`retweet:${item.id}`) &&
+        !locks.current.has(`save:${item.id}`)
+      ) {
         delete next[item.id];
       }
     }
@@ -91,9 +128,11 @@ export function usePostInteractions() {
       isLikePending: (id: string) => pending.has(`like:${id}`),
       toggleRetweet: (item: FeedItem) => toggle(item, 'retweet'),
       toggleLike: (item: FeedItem) => toggle(item, 'like'),
+      isSavePending: (id: string) => pending.has(`save:${id}`),
+      toggleSave,
       beginRead,
       acceptRead,
     }),
-    [overrides, pending, toggle, beginRead, acceptRead]
+    [overrides, pending, toggle, toggleSave, beginRead, acceptRead]
   );
 }

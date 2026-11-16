@@ -63,6 +63,7 @@ export function usePostDeletion(onDeleted: () => void | Promise<void>) {
             likedByMe: false,
             retweetedByMe: false,
             retweetedBy: null,
+            savedByMe: false,
             entryId: `post:${item.id}`,
             activityAt: item.createdAt,
           }

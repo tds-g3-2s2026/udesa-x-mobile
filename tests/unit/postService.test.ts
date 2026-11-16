@@ -127,6 +127,7 @@ describe('Post service', () => {
       images: [],
       likesCount: 0,
       likedByMe: false,
+      savedByMe: false,
       retweetedByMe: false,
       retweetedBy: null,
       entryId: 'post:post-1',
@@ -266,6 +267,98 @@ describe('Post service', () => {
     });
   });
 
+  describe('E2-H12. Guardar Posts', () => {
+    it('E2-H12.CA1 - saves with a PUT on the bookmark path and sends no body', async () => {
+      put.mockResolvedValueOnce(apiSuccess(undefined, 204));
+
+      await postService.saveBookmark('post-1');
+
+      expect(put).toHaveBeenCalledWith('/posts/post-1/bookmark');
+    });
+
+    it('E2-H12.CA1 - removes with a DELETE on the same path', async () => {
+      del.mockResolvedValueOnce(apiSuccess(undefined, 204));
+
+      await postService.removeBookmark('post-1');
+
+      expect(del).toHaveBeenCalledWith('/posts/post-1/bookmark');
+    });
+
+    it('propagates the API message when the post cannot be saved', async () => {
+      put.mockRejectedValueOnce(
+        apiFailure(404, {
+          type: 'https://udesa-x.dev/errors/post-not-found',
+          title: 'Publicación no encontrada',
+          detail: 'La publicación no existe.',
+        })
+      );
+
+      await expect(postService.saveBookmark('post-1')).rejects.toMatchObject({
+        message: 'La publicación no existe.',
+        code: 'post-not-found',
+      });
+    });
+
+    it('reports a save or remove network failure with the generic message, not a raw axios error', async () => {
+      put.mockRejectedValueOnce(networkFailure());
+      del.mockRejectedValueOnce(networkFailure());
+      const offline = { message: 'No se pudo conectar con el servidor. Revisá tu conexión.' };
+
+      await expect(postService.saveBookmark('post-1')).rejects.toMatchObject(offline);
+      await expect(postService.removeBookmark('post-1')).rejects.toMatchObject(offline);
+    });
+
+    it('falls back to the save message when the API gives no detail', async () => {
+      put.mockRejectedValueOnce(apiFailure(500, {}));
+
+      await expect(postService.saveBookmark('post-1')).rejects.toMatchObject({
+        message: 'No se pudo guardar el post. Intentalo de nuevo.',
+      });
+    });
+
+    it('falls back to the remove message when the API gives no detail', async () => {
+      del.mockRejectedValueOnce(apiFailure(500, {}));
+
+      await expect(postService.removeBookmark('post-1')).rejects.toMatchObject({
+        message: 'No se pudo quitar el post de guardados. Intentalo de nuevo.',
+      });
+    });
+
+    it('falls back to the saved-posts message when the API gives no detail', async () => {
+      get.mockRejectedValueOnce(apiFailure(500, {}));
+
+      await expect(postService.getBookmarks()).rejects.toMatchObject({
+        message: 'No se pudieron cargar tus guardados. Intentalo de nuevo.',
+      });
+    });
+
+    it('lists the saved posts with the cursor as an opaque query param', async () => {
+      const page = { items: [], nextCursor: '20' };
+      get.mockResolvedValueOnce(apiSuccess(page, 200));
+
+      const result = await postService.getBookmarks('10');
+
+      expect(get).toHaveBeenCalledWith('/bookmarks', { params: { cursor: '10' } });
+      expect(result).toEqual(page);
+    });
+
+    it('the first page of saved posts sends no cursor at all', async () => {
+      get.mockResolvedValueOnce(apiSuccess({ items: [], nextCursor: null }, 200));
+
+      await postService.getBookmarks();
+
+      expect(get).toHaveBeenCalledWith('/bookmarks', { params: undefined });
+    });
+
+    it('reports a saved-posts load failure with the generic message', async () => {
+      get.mockRejectedValueOnce(networkFailure());
+
+      await expect(postService.getBookmarks()).rejects.toMatchObject({
+        message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      });
+    });
+  });
+
   describe('E2-H7. Post con Imagen', () => {
     const created: Post = {
       id: 'post-1',
@@ -367,6 +460,7 @@ describe('Post service', () => {
             createdAt: '2026-09-22T15:00:00Z',
             likesCount: 0,
             likedByMe: false,
+            savedByMe: false,
             retweetedByMe: false,
             retweetedBy: null,
             entryId: 'post:post-1',

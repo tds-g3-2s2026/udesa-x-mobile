@@ -11,6 +11,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
 import { Avatar } from '../../social/components/Avatar';
 import { DeletePostButton } from './DeletePostButton';
+import { BookmarkButton } from './BookmarkButton';
 import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
 import { RetweetButton } from './RetweetButton';
@@ -25,6 +26,8 @@ interface PostCardProps {
   likePending?: boolean;
   onRetweet?: () => void;
   retweetPending?: boolean;
+  onBookmark?: () => void;
+  bookmarkPending?: boolean;
   // Reporting yourself is refused by posts-api, so a screen passes this only
   // for someone else's post: the button could only ever lead to an error.
   onReport?: () => void;
@@ -44,6 +47,8 @@ export function PostCard({
   onOpen,
   onRetweet,
   retweetPending = false,
+  onBookmark,
+  bookmarkPending = false,
 }: PostCardProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -135,6 +140,9 @@ export function PostCard({
               <Text style={styles.counterLabel}>{item.likesCount}</Text>
             </View>
           )}
+          {onBookmark ? (
+            <BookmarkButton saved={item.savedByMe} pending={bookmarkPending} onPress={onBookmark} />
+          ) : null}
           {onRetweet ? (
             <RetweetButton
               retweeted={item.retweetedByMe}
