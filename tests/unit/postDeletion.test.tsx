@@ -23,6 +23,7 @@ const item: FeedItem = {
   retweetsCount: 3,
   repliesCount: 1,
   likedByMe: true,
+  savedByMe: false,
   retweetedByMe: true,
   retweetedBy: null,
 };

@@ -231,6 +231,20 @@ export default function PreferencesScreen() {
 
       <TouchableOpacity
         style={styles.linkRow}
+        onPress={() => router.push('/saved')}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.sectionTitle}>Guardados</Text>
+          <Text style={styles.sectionHint}>
+            Releé los posts que guardaste. Solo vos podés verlos.
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkRow}
         onPress={() => router.push('/feedback')}
         accessibilityRole="button"
       >

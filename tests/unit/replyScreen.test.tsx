@@ -34,6 +34,7 @@ function reply(id: string, overrides: Partial<FeedItem> = {}): FeedItem {
     images: [],
     likesCount: 0,
     likedByMe: false,
+    savedByMe: false,
     retweetedByMe: false,
     retweetedBy: null,
     entryId: `post:${id}`,

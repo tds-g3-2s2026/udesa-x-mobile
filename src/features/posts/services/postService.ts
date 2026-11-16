@@ -119,6 +119,35 @@ export const postService = {
     }
   },
 
+  // Idempotent server-side, like likes: saving twice or removing a post that
+  // was never saved still answers 204, so retrying after a doubt is safe.
+  async saveBookmark(postId: string): Promise<void> {
+    try {
+      await postsApiClient.put(`/posts/${postId}/bookmark`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo guardar el post. Intentalo de nuevo.');
+    }
+  },
+
+  async removeBookmark(postId: string): Promise<void> {
+    try {
+      await postsApiClient.delete(`/posts/${postId}/bookmark`);
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo quitar el post de guardados. Intentalo de nuevo.');
+    }
+  },
+
+  async getBookmarks(cursor?: string | null): Promise<FeedPage> {
+    try {
+      const response = await postsApiClient.get<FeedPage>('/bookmarks', {
+        params: cursor ? { cursor } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudieron cargar tus guardados. Intentalo de nuevo.');
+    }
+  },
+
   // Only posts from accounts the caller follows, most recent first: the
   // ordering and the filtering are both the backend's job, not something
   // this reorders or refetches to double-check.

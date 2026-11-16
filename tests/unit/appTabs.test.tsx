@@ -240,6 +240,7 @@ describe('T-51. Navegación por tabs', () => {
       images: [],
       likesCount: 0,
       likedByMe: false,
+      savedByMe: false,
       retweetedByMe: false,
       retweetedBy: null,
       entryId: 'post:post-1',

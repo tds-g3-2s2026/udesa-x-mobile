@@ -1,8 +1,11 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import React, { useEffect } from 'react';
+import { Alert, StyleSheet } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { PostCard } from '../../src/features/posts/components/PostCard';
 import { CurrentProfileContext } from '../../src/features/posts/currentProfile';
+import { usePostInteractions } from '../../src/features/posts/usePostInteractions';
+import { postService } from '../../src/features/posts/services/postService';
+import { ApiError } from '../../src/api/apiClient';
 import { useAuthStore } from '../../src/stores/authStore';
 import { FeedItem } from '../../src/types/post';
 
@@ -33,6 +36,7 @@ function post(overrides: Partial<FeedItem> = {}): FeedItem {
     images: [],
     likesCount: 0,
     likedByMe: false,
+    savedByMe: false,
     retweetedByMe: false,
     retweetedBy: null,
     entryId: 'post:post-1',
@@ -54,6 +58,95 @@ afterEach(() => {
     accessToken: null,
     refreshToken: null,
     isInitialized: false,
+  });
+});
+
+const savable: FeedItem = {
+  id: 'post-1',
+  authorId: 'usr-2',
+  authorHandle: '@ana',
+  authorDisplayName: 'Ana Pérez',
+  authorAvatarUrl: null,
+  authorDeleted: false,
+  deleted: false,
+  content: 'Hola',
+  createdAt: '2026-10-17T12:00:00Z',
+  images: [],
+  likesCount: 0,
+  likedByMe: false,
+  savedByMe: false,
+  retweetedByMe: false,
+  retweetedBy: null,
+  entryId: 'post:post-1',
+  activityAt: '2026-10-17T12:00:00Z',
+  retweetsCount: 0,
+  repliesCount: 0,
+};
+
+function BookmarkHarness() {
+  const interactions = usePostInteractions();
+  const { beginRead, acceptRead } = interactions;
+  useEffect(() => {
+    acceptRead(beginRead(), [savable]);
+  }, [beginRead, acceptRead]);
+  const current = interactions.forPost(savable);
+  return (
+    <PostCard
+      item={current}
+      onBookmark={() => interactions.toggleSave(savable)}
+      bookmarkPending={interactions.isSavePending(savable.id)}
+    />
+  );
+}
+
+describe('E2-H12. Guardar Posts', () => {
+  beforeEach(() => {
+    jest.spyOn(postService, 'getPost').mockRejectedValue(new Error('offline'));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('E2-H12.CA1 - saves and removes with one tap', async () => {
+    const save = jest.spyOn(postService, 'saveBookmark').mockResolvedValue(undefined);
+    const remove = jest.spyOn(postService, 'removeBookmark').mockResolvedValue(undefined);
+
+    render(<BookmarkHarness />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith('post-1');
+    expect(screen.getByLabelText('Quitar de guardados')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Quitar de guardados'), {
+        stopPropagation: jest.fn(),
+      });
+    });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith('post-1');
+    expect(screen.getByLabelText('Guardar post')).toBeTruthy();
+  });
+
+  it('E2-H12.CA1 - a failed save rolls the button back and tells the user', async () => {
+    jest
+      .spyOn(postService, 'saveBookmark')
+      .mockRejectedValue(new ApiError('No se pudo guardar el post. Intentalo de nuevo.'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(<BookmarkHarness />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Guardar post'), { stopPropagation: jest.fn() });
+    });
+
+    expect(screen.getByLabelText('Guardar post')).toBeTruthy();
+    expect(alert).toHaveBeenCalledWith('Error', 'No se pudo guardar el post. Intentalo de nuevo.');
   });
 });
 

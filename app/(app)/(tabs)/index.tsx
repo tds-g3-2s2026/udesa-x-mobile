@@ -187,6 +187,8 @@ export default function FeedScreen() {
               retweetPending={interactions.isRetweetPending(item.id)}
               onLike={() => interactions.toggleLike(deletion.forPost(item))}
               likePending={interactions.isLikePending(item.id)}
+              onBookmark={() => interactions.toggleSave(deletion.forPost(item))}
+              bookmarkPending={interactions.isSavePending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
               onReport={
