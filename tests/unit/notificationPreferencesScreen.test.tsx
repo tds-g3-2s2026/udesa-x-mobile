@@ -2,14 +2,17 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import NotificationPreferencesScreen from '../../app/(app)/notification-preferences';
+import PreferencesScreen from '../../app/(app)/preferences';
 import { ApiError } from '../../src/api/apiClient';
+import { authService } from '../../src/features/auth/services/authService';
 import { notificationService } from '../../src/features/notifications/notificationService';
 import { NotificationPreferences } from '../../src/features/notifications/types';
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, push: mockPush }),
 }));
 
 const allOn: NotificationPreferences = {
@@ -114,6 +117,41 @@ describe('E4-H5. Preferencias de Notificación', () => {
     expect(screen.getByLabelText('Respuestas').props.value).toBe(true);
   });
 
+  it('ignores the other switches while one is saving', async () => {
+    jest.spyOn(notificationService, 'getPreferences').mockResolvedValue(allOn);
+    let answer!: (saved: NotificationPreferences) => void;
+    const update = jest
+      .spyOn(notificationService, 'updatePreferences')
+      .mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+    render(<NotificationPreferencesScreen />);
+    const likes = await screen.findByLabelText('Me gusta');
+    await act(async () => {
+      fireEvent(likes, 'valueChange', false);
+    });
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Retweets'), 'valueChange', false);
+    });
+    await act(async () => answer({ ...allOn, like: false }));
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith({ like: false });
+    expect(screen.getByLabelText('Retweets').props.value).toBe(true);
+  });
+
+  it('does not save a switch moved to the value it already has', async () => {
+    jest.spyOn(notificationService, 'getPreferences').mockResolvedValue(allOn);
+    const update = jest.spyOn(notificationService, 'updatePreferences');
+
+    render(<NotificationPreferencesScreen />);
+    const likes = await screen.findByLabelText('Me gusta');
+    await act(async () => {
+      fireEvent(likes, 'valueChange', true);
+    });
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('goes back with an alert when the preferences cannot be loaded', async () => {
     const message = 'No se pudieron cargar las preferencias. Intentalo de nuevo.';
     jest.spyOn(notificationService, 'getPreferences').mockRejectedValue(new ApiError(message));
@@ -124,5 +162,16 @@ describe('E4-H5. Preferencias de Notificación', () => {
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(alert).toHaveBeenCalledWith('Error', message);
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
+  });
+
+  it('opens from the Notificaciones row in Configuración', async () => {
+    jest
+      .spyOn(authService, 'getPreferences')
+      .mockResolvedValue({ profileVisibility: 'public', feedLanguage: 'es' });
+
+    render(<PreferencesScreen />);
+    fireEvent.press(await screen.findByText('Notificaciones'));
+
+    expect(mockPush).toHaveBeenCalledWith('/notification-preferences');
   });
 });
