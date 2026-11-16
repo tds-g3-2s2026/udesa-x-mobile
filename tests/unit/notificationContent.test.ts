@@ -84,9 +84,15 @@ describe('pushTarget', () => {
     });
   });
 
+  it.each(['like', 'retweet', 'reply'])('opens the post a %s push names', (type) => {
+    expect(pushTarget({ type, postId: 'pst-1' })).toEqual({ screen: 'post', id: 'pst-1' });
+  });
+
   it('opens nothing for a push without its id, of an unknown kind, or with no data', () => {
     expect(pushTarget({ type: 'follow' })).toBeNull();
     expect(pushTarget({ type: 'follow', actorId: '' })).toBeNull();
+    expect(pushTarget({ type: 'like' })).toBeNull();
+    expect(pushTarget({ type: 'reply', postId: '' })).toBeNull();
     expect(pushTarget({ type: 'mention', actorId: 'usr-2' })).toBeNull();
     expect(pushTarget(null)).toBeNull();
   });

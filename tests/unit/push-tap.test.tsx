@@ -1,14 +1,16 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { act, screen, waitFor } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
+import { ApiError } from '../../src/api/apiClient';
 import { notificationService } from '../../src/features/notifications/notificationService';
 import { postService } from '../../src/features/posts/services/postService';
 import { profileService } from '../../src/features/social/services/profileService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { User } from '../../src/types/auth';
+import { PostDetail } from '../../src/types/post';
 import { UserProfile } from '../../src/types/social';
 
 // Same in-memory SecureStore double as navigationGuards.test.tsx.
@@ -57,6 +59,29 @@ const follower: UserProfile = {
   isPrivate: false,
   isFollowedByMe: false,
   isMutedByMe: false,
+};
+
+// The post an interaction push points to, as GET /posts/{id} returns it.
+const likedPost: PostDetail = {
+  id: 'post-1',
+  authorId: 'usr-1',
+  authorHandle: '@joaquin_dev',
+  authorDisplayName: null,
+  authorAvatarUrl: null,
+  authorDeleted: false,
+  deleted: false,
+  content: 'Mi primera publicación',
+  createdAt: '2026-09-22T15:00:00Z',
+  images: [],
+  likesCount: 1,
+  likedByMe: false,
+  retweetedByMe: false,
+  retweetedBy: null,
+  entryId: 'post:post-1',
+  activityAt: '2026-09-22T15:00:00Z',
+  retweetsCount: 0,
+  repliesCount: 0,
+  parentId: null,
 };
 
 function persistSession(): void {
@@ -205,5 +230,52 @@ describe('E4-H1. Recibir notificaciones de nuevo seguidor', () => {
     });
     await screen.findByText(LOGIN_SUBTITLE);
     expect(notifications.setNotificationHandler).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe('E4-H2. Notificación de interacción', () => {
+  it('E4-H2.CA2 el tap navega al post del payload', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(likedPost);
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    persistSession();
+    renderRouter('app', { initialUrl: '/' });
+    await screen.findByText(FEED_EMPTY_TITLE);
+
+    // The app is open or in the background: the tap reaches the listener.
+    const [onTap] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+    await act(async () => {
+      onTap(tap({ type: 'like', postId: 'post-1' }));
+    });
+
+    expect(await screen.findByText('Mi primera publicación')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('post-1');
+  });
+
+  it('E4-H2.CA2 con la app cerrada, el tap abre el post apenas se lee la sesión', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(likedPost);
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    // A reply push opens the answered post, the one named in `postId`.
+    keepTap(tap({ type: 'reply', postId: 'post-1' }));
+    persistSession();
+
+    renderRouter('app', { initialUrl: '/' });
+
+    expect(await screen.findByText('Mi primera publicación')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('post-1');
+  });
+
+  it('E4-H2.CA2 post inexistente muestra estado vacío', async () => {
+    jest
+      .spyOn(postService, 'getPost')
+      .mockRejectedValue(new ApiError('No se pudo cargar la publicación. Intentalo de nuevo.'));
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    keepTap(tap({ type: 'retweet', postId: 'post-gone' }));
+    persistSession();
+
+    renderRouter('app', { initialUrl: '/' });
+
+    expect(await screen.findByText('Publicación no disponible')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('post-gone');
   });
 });
