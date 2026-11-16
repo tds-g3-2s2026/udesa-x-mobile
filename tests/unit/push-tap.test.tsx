@@ -76,6 +76,7 @@ const likedPost: PostDetail = {
   likesCount: 1,
   likedByMe: false,
   retweetedByMe: false,
+  savedByMe: false,
   retweetedBy: null,
   entryId: 'post:post-1',
   activityAt: '2026-09-22T15:00:00Z',
