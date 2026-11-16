@@ -34,12 +34,9 @@ export default function NotificationPreferencesScreen() {
   // Loads what the account chose instead of assuming everything is on: one
   // that already turned a type off would otherwise flash the wrong switch.
   useEffect(() => {
-    let cancelled = false;
-
     (async () => {
       try {
-        const current = await notificationService.getPreferences();
-        if (!cancelled) setPreferences(current);
+        setPreferences(await notificationService.getPreferences());
       } catch (loadError) {
         // Without the preferences there is nothing to show: back to wherever
         // this was opened from, same as the preferences screen.
@@ -47,17 +44,14 @@ export default function NotificationPreferencesScreen() {
         router.back();
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // Each switch saves itself on tap, and only that type goes to the server.
   // The switch moves once the server confirms it, so a failed save leaves the
-  // screen showing what is actually stored.
+  // screen showing what is actually stored. The switches only exist once the
+  // preferences loaded, and they are disabled while one of them saves.
   async function handleToggle(type: NotificationPreferenceType, value: boolean): Promise<void> {
-    if (!preferences || preferences[type] === value || savingType) return;
+    if (savingType || preferences?.[type] === value) return;
 
     setSavingType(type);
     try {
