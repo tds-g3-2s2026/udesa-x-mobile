@@ -1,11 +1,11 @@
-import { AxiosError, AxiosHeaders, CanceledError } from 'axios';
+import { AxiosError, AxiosHeaders, AxiosResponse, CanceledError } from 'axios';
 import { AppState } from 'react-native';
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { focusManager } from '@tanstack/react-query';
 import { apiClient } from '../../src/api/apiClient';
 import { postsApiClient } from '../../src/api/postsApiClient';
-import { search } from '../../src/features/search/searchService';
+import { fetchTrending, search } from '../../src/features/search/searchService';
 import { SearchQueryProvider } from '../../src/features/search/SearchQueryProvider';
 
 const page = { items: [], nextCursor: null };
@@ -67,4 +67,42 @@ it('E2-H10.CA2 updates query focus when the native application resumes', () => {
   expect(focusManager.isFocused()).toBe(false);
   act(() => handler('active'));
   expect(focusManager.isFocused()).toBe(true);
+});
+
+it('E2-H11.CA2 returns the ranking as the server sent it, with counts', async () => {
+  const ranking = [
+    { tag: 'udesa', count: 42 },
+    { tag: 'tds', count: 7 },
+  ];
+  const get = jest.spyOn(postsApiClient, 'get').mockResolvedValue({ ...response, data: ranking });
+  const signal = new AbortController().signal;
+  await expect(fetchTrending(signal)).resolves.toEqual(ranking);
+  expect(get).toHaveBeenCalledWith('/trending', { signal });
+});
+
+it('presents a server failure with the trending message', async () => {
+  const failure = {
+    status: 500,
+    statusText: 'Internal Server Error',
+    data: '',
+    headers: {},
+    config: { headers: new AxiosHeaders() },
+  } as AxiosResponse;
+  jest
+    .spyOn(postsApiClient, 'get')
+    .mockRejectedValue(
+      new AxiosError('Server error', 'ERR_BAD_RESPONSE', undefined, undefined, failure)
+    );
+  await expect(fetchTrending(new AbortController().signal)).rejects.toMatchObject({
+    message: 'No pudimos cargar las tendencias.',
+  });
+});
+
+it('presents a network failure as the connection message', async () => {
+  jest
+    .spyOn(postsApiClient, 'get')
+    .mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'));
+  await expect(fetchTrending(new AbortController().signal)).rejects.toMatchObject({
+    message: 'No se pudo conectar con el servidor. Revisá tu conexión.',
+  });
 });

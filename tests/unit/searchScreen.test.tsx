@@ -37,15 +37,31 @@ const post = {
   ],
 };
 const search = jest.spyOn(service, 'search');
+const fetchTrending = jest.spyOn(service, 'fetchTrending');
+const trending = [
+  { tag: 'udesa', count: 42 },
+  { tag: 'tds', count: 30 },
+  { tag: 'ios', count: 25 },
+  { tag: 'expo', count: 20 },
+  { tag: 'api', count: 15 },
+  { tag: 'sprint', count: 12 },
+  { tag: 'parcial', count: 9 },
+  { tag: 'defensa', count: 6 },
+  { tag: 'catedra', count: 3 },
+  { tag: 'unpost', count: 1 },
+];
 
-function renderSearch() {
-  return render(
+function searchTree() {
+  return (
     <SafeAreaProvider initialMetrics={metrics}>
       <SearchQueryProvider>
         <SearchScreen />
       </SearchQueryProvider>
     </SafeAreaProvider>
   );
+}
+function renderSearch() {
+  return render(searchTree());
 }
 function type(text: string) {
   fireEvent.changeText(screen.getByLabelText('Buscar personas y publicaciones'), text);
@@ -59,6 +75,7 @@ beforeEach(() => {
   });
   search.mockReset();
   search.mockResolvedValue({ items: [post], nextCursor: null });
+  fetchTrending.mockResolvedValue(trending);
 });
 afterEach(() => {
   searchQueryClient.clear();
@@ -215,4 +232,57 @@ it('E2-H8.CA3 - a hashtag from the route opens a search for it at once', async (
   expect(search).toHaveBeenCalledWith('posts', '#UdeSA', null, expect.anything());
   expect(screen.getByLabelText('Buscar personas y publicaciones').props.value).toBe('#UdeSA');
   expect(mockSetParams).toHaveBeenCalledWith({ q: undefined });
+});
+
+it('E2-H11.CA2 shows the trending section instead of the prompt when there is no query', async () => {
+  renderSearch();
+  await screen.findByText('Tendencias');
+  expect(screen.queryByText('Empezá a buscar')).toBeNull();
+  expect(search).not.toHaveBeenCalled();
+});
+
+it('keeps the empty prompt when there are no trending topics', async () => {
+  fetchTrending.mockResolvedValueOnce([]);
+  renderSearch();
+  await screen.findByText('Empezá a buscar');
+  expect(screen.queryByText('Tendencias')).toBeNull();
+});
+
+it('E2-H11.CA2 lists the top ten topics with their counts in server order', async () => {
+  renderSearch();
+  await screen.findByText('Tendencias');
+  const labels = screen.getAllByLabelText(/^Buscar #/).map((row) => row.props.accessibilityLabel);
+  expect(labels).toEqual(
+    trending.map(
+      (topic) => `Buscar #${topic.tag}, ${topic.count === 1 ? '1 post' : `${topic.count} posts`}`
+    )
+  );
+  expect(screen.getByLabelText(/^Buscar #udesa,/)).toBeTruthy();
+  expect(screen.getByText('42 posts')).toBeTruthy();
+});
+
+it('E2-H11.CA2 uses the singular for a topic with one post', async () => {
+  renderSearch();
+  await screen.findByText('1 post');
+  expect(screen.getByText('#unpost')).toBeTruthy();
+});
+
+it('tapping a topic runs the same hashtag search as a tapped hashtag', async () => {
+  const view = renderSearch();
+  fireEvent.press(await screen.findByLabelText(/^Buscar #udesa,/));
+  expect(mockSetParams).toHaveBeenCalledWith({ q: '#udesa' });
+
+  mockParams = { q: '#udesa' };
+  view.rerender(searchTree());
+  await screen.findByText('UdeSA');
+  expect(search).toHaveBeenCalledWith('posts', '#udesa', null, expect.any(AbortSignal));
+  expect(screen.getByLabelText('Buscar personas y publicaciones').props.value).toBe('#udesa');
+});
+
+it('shows a non-blocking message when trending fails and search still works', async () => {
+  fetchTrending.mockRejectedValueOnce(new Error('Servicio no disponible'));
+  renderSearch();
+  await screen.findByText('No pudimos cargar las tendencias.');
+  type('udesa');
+  await screen.findByText('UdeSA');
 });
