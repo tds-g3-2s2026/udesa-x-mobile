@@ -1,11 +1,12 @@
 import { useEffect as mockUseEffect } from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, StyleSheet, type AlertButton } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ListsScreen from '../../app/(app)/lists/index';
 import { listService } from '../../src/features/lists/services/listService';
 import { ApiError } from '../../src/api/apiClient';
 import { AccountList } from '../../src/types/lists';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -192,5 +193,23 @@ describe('E3-H8. Listas Personalizadas', () => {
         'No se pudieron cargar tus listas. Intentalo de nuevo.'
       )
     );
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  function expectFingerSized(name: string): void {
+    const style = StyleSheet.flatten(screen.getByRole('button', { name }).props.style);
+    expect(style.minWidth).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+    expect(style.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  }
+
+  it('T-48 - Volver and the trash of each list are buttons a finger can press', async () => {
+    jest.spyOn(listService, 'getLists').mockResolvedValue([list('lst-1', 'Taller', 1)]);
+
+    renderScreen();
+    await screen.findByText('Taller');
+
+    expectFingerSized('Volver');
+    expectFingerSized('Borrar Taller');
   });
 });

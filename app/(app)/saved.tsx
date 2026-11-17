@@ -19,6 +19,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
 import { FeedItem } from '../../src/types/post';
+import { BackLink } from '../../src/features/shell/components/BackLink';
 
 // The posts the signed-in user saved, newest save first. Read again on every
 // visit; a post un-saved here stays listed until the next load.
@@ -91,9 +92,7 @@ export default function SavedScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
         <Text style={styles.title}>Guardados</Text>
       </View>
 
@@ -175,12 +174,6 @@ function createStyles(colors: Colors) {
     header: {
       paddingHorizontal: 20,
       marginBottom: 8,
-    },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
     },
     title: {
       fontSize: 26,

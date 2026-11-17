@@ -17,7 +17,9 @@ import { EmptyState } from '../../../src/features/shell/components/AppScreen';
 import { listService } from '../../../src/features/lists/services/listService';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
+import { touchTarget } from '../../../src/theme/touchTarget';
 import { AccountList } from '../../../src/types/lists';
+import { BackLink } from '../../../src/features/shell/components/BackLink';
 
 // The same limit posts-api applies to a list name.
 const MAX_NAME_LENGTH = 50;
@@ -100,9 +102,7 @@ export default function ListsScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
         <Text style={styles.title}>Listas</Text>
       </View>
 
@@ -166,6 +166,7 @@ export default function ListsScreen() {
                 <ActivityIndicator color={colors.primary} />
               ) : (
                 <TouchableOpacity
+                  style={touchTarget}
                   onPress={() => confirmRemove(item)}
                   disabled={deletingId !== null}
                   accessibilityRole="button"
@@ -191,12 +192,6 @@ function createStyles(colors: Colors) {
     },
     header: {
       marginBottom: 16,
-    },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
     },
     title: {
       fontSize: 26,
