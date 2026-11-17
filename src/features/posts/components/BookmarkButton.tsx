@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { useThemeColors } from '../../../theme/useThemeColors';
+import { touchTarget } from '../../../theme/touchTarget';
 
 interface BookmarkButtonProps {
   onPress: () => void;
@@ -33,8 +34,5 @@ export function BookmarkButton({ onPress, pending, saved }: BookmarkButtonProps)
 }
 
 const styles = StyleSheet.create({
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  button: touchTarget,
 });

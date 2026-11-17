@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
+import { touchTarget } from '../../../theme/touchTarget';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
 import { splitHashtags } from '../hashtags';
@@ -158,7 +159,7 @@ export function PostCard({
           )}
           {onReply ? (
             <TouchableOpacity
-              style={styles.counter}
+              style={styles.replyButton}
               onPress={onReply}
               accessibilityRole="button"
               accessibilityLabel={`Responder a ${item.authorHandle ?? 'esta cuenta'}`}
@@ -229,9 +230,7 @@ function createStyles(colors: Colors) {
       fontSize: 12,
       color: colors.muted,
     },
-    reportButton: {
-      padding: 4,
-    },
+    reportButton: touchTarget,
     content: {
       fontSize: 15,
       color: colors.text,
@@ -242,13 +241,23 @@ function createStyles(colors: Colors) {
       color: colors.primary,
       fontWeight: '600',
     },
+    // The buttons are 44 tall but their icons only 16: the negative margin
+    // lets the extra box sit over the space around the row, so the card
+    // keeps its height and every press still lands inside it.
     counters: {
       flexDirection: 'row',
+      alignItems: 'center',
       gap: 20,
+      marginVertical: -8,
     },
     counter: {
       flexDirection: 'row',
       alignItems: 'center',
+      gap: 4,
+    },
+    replyButton: {
+      ...touchTarget,
+      flexDirection: 'row',
       gap: 4,
     },
     counterLabel: {
