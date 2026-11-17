@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { FollowButton } from '../../src/features/social/components/FollowButton';
 import { followService } from '../../src/features/social/services/followService';
 import { ApiError } from '../../src/api/apiClient';
+import { useThemeStore } from '../../src/stores/themeStore';
+import { palettes } from '../../src/theme/colors';
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -154,5 +156,26 @@ describe('E3-H2. Dejar de Seguir a un Usuario', () => {
     // answer said, instead of paying a second round trip for it.
     expect(requests).not.toHaveBeenCalled();
     expect(follow).not.toHaveBeenCalled();
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  afterEach(() => {
+    useThemeStore.setState({ theme: 'light' });
+  });
+
+  it('T-48 - in the dark theme the button fills with the blue white text reads on', () => {
+    // In the dark theme primary is the lighter blue meant for text: under the
+    // white label it would read at 3.0:1.
+    useThemeStore.setState({ theme: 'dark' });
+
+    render(<FollowButton targetUserId="usr-2" initialState="none" />);
+
+    expect(StyleSheet.flatten(screen.getByRole('button').props.style)).toMatchObject({
+      backgroundColor: palettes.dark.primaryFill,
+    });
+    expect(StyleSheet.flatten(screen.getByText('Seguir').props.style)).toMatchObject({
+      color: palettes.dark.onPrimary,
+    });
   });
 });

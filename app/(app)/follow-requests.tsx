@@ -191,7 +191,7 @@ function createStyles(colors: Colors) {
     },
     approveButton: {
       color: colors.onPrimary,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryFill,
     },
     rejectButton: {
       color: colors.danger,

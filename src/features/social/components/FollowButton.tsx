@@ -88,7 +88,7 @@ function createStyles(colors: Colors) {
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryFill,
     },
     buttonFollowing: {
       backgroundColor: colors.surface,

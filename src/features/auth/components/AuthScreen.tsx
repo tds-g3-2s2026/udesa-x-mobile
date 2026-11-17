@@ -266,11 +266,11 @@ function createStyles(colors: Colors) {
     },
     button: {
       height: 50,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryFill,
       borderRadius: 25,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: colors.primary,
+      shadowColor: colors.primaryFill,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 4,
