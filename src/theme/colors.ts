@@ -1,7 +1,12 @@
 export type ThemeName = 'light' | 'dark';
 
 export interface Colors {
+  // Text, icons and borders drawn on surface or field.
   primary: string;
+  // Background of a control whose label is onPrimary (a filled button, a
+  // selected chip). Separate from primary because no single blue reads at
+  // 4.5:1 both on the dark surface and under white text.
+  primaryFill: string;
   primarySoft: string;
   onPrimary: string;
   surface: string;
@@ -15,8 +20,12 @@ export interface Colors {
   dangerSoft: string;
 }
 
+// Every text pair here reaches WCAG AA (4.5:1); tests/unit/themeContrast.test.ts
+// checks it. The blue and the red keep the hue of the brand #1D9BF0 and
+// #F4212E, only darker, since those two read at 3.0:1 and 4.1:1 on white.
 const light: Colors = {
-  primary: '#1D9BF0',
+  primary: '#0B72B6',
+  primaryFill: '#0B72B6',
   primarySoft: '#E8F5FD',
   onPrimary: '#FFFFFF',
   surface: '#FFFFFF',
@@ -26,14 +35,16 @@ const light: Colors = {
   border: '#CFD9DE',
   field: '#F7F9F9',
   divider: '#EFF3F4',
-  danger: '#F4212E',
+  danger: '#E30B19',
   dangerSoft: '#FFF5F5',
 };
 
-// Same brand blue and red as light: only the neutrals invert, so the app
-// reads as the same product and not a different skin.
+// The brand blue already reads on the dark neutrals, so it stays as text; the
+// filled controls take the darker blue of light, the only one white reads on.
+// The red goes lighter instead, to read on the dark surface.
 const dark: Colors = {
   primary: '#1D9BF0',
+  primaryFill: '#0B72B6',
   primarySoft: '#0D2B3D',
   onPrimary: '#FFFFFF',
   surface: '#15202B',
@@ -43,7 +54,7 @@ const dark: Colors = {
   border: '#38444D',
   field: '#192734',
   divider: '#38444D',
-  danger: '#F4212E',
+  danger: '#F6525C',
   dangerSoft: '#3D1116',
 };
 

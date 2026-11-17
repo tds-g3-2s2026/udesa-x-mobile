@@ -318,8 +318,8 @@ function createStyles(colors: Colors) {
       backgroundColor: colors.field,
     },
     optionSelected: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
+      borderColor: colors.primaryFill,
+      backgroundColor: colors.primaryFill,
     },
     optionLabel: {
       fontSize: 14,
