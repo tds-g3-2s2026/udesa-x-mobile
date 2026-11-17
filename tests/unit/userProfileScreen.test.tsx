@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, StyleSheet, type AlertButton } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import UserProfileScreen from '../../app/(app)/user/[id]';
@@ -12,6 +12,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { ApiError } from '../../src/api/apiClient';
 import { FeedItem } from '../../src/types/post';
 import { UserProfile } from '../../src/types/social';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -476,5 +477,20 @@ describe('E3-H8. Listas Personalizadas', () => {
 
     await screen.findByText('Ana Pérez');
     expect(screen.queryByLabelText('Agregar a una lista')).toBeNull();
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  it('T-48 - Volver, Silenciar and Agregar a una lista are buttons at least 44 tall', async () => {
+    jest.spyOn(profileService, 'getProfile').mockResolvedValue(profile({ isFollowedByMe: true }));
+    jest.spyOn(profileService, 'getPosts').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('Ana Pérez');
+
+    for (const name of ['Volver', 'Silenciar', 'Agregar a una lista']) {
+      const style = StyleSheet.flatten(screen.getByRole('button', { name }).props.style);
+      expect(style.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+    }
   });
 });

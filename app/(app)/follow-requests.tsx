@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   followService,
@@ -10,9 +17,10 @@ import {
 import { FollowRequestSummary } from '../../src/types/social';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
+import { touchTarget } from '../../src/theme/touchTarget';
+import { BackLink } from '../../src/features/shell/components/BackLink';
 
 export default function FollowRequestsScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -77,9 +85,7 @@ export default function FollowRequestsScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
         <Text style={styles.title}>Solicitudes pendientes</Text>
       </View>
 
@@ -108,18 +114,30 @@ export default function FollowRequestsScreen() {
             <View style={styles.row}>
               <Text style={styles.handle}>{item.requesterHandle}</Text>
               <View style={styles.actions}>
-                <Text
-                  style={[styles.actionButton, styles.rejectButton]}
-                  onPress={() => resolvingId === null && resolve(item.id, 'reject')}
+                {/* The pill is drawn by the Text; the button around it is the
+                    44 x 44 box a finger presses. */}
+                <TouchableOpacity
+                  style={touchTarget}
+                  onPress={() => resolve(item.id, 'reject')}
+                  disabled={resolvingId !== null}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: resolvingId !== null }}
                 >
-                  {resolvingId === item.id ? 'Rechazando…' : 'Rechazar'}
-                </Text>
-                <Text
-                  style={[styles.actionButton, styles.approveButton]}
-                  onPress={() => resolvingId === null && resolve(item.id, 'approve')}
+                  <Text style={[styles.actionButton, styles.rejectButton]}>
+                    {resolvingId === item.id ? 'Rechazando…' : 'Rechazar'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={touchTarget}
+                  onPress={() => resolve(item.id, 'approve')}
+                  disabled={resolvingId !== null}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: resolvingId !== null }}
                 >
-                  {resolvingId === item.id ? 'Aprobando…' : 'Aprobar'}
-                </Text>
+                  <Text style={[styles.actionButton, styles.approveButton]}>
+                    {resolvingId === item.id ? 'Aprobando…' : 'Aprobar'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -138,12 +156,6 @@ function createStyles(colors: Colors) {
     },
     header: {
       marginBottom: 16,
-    },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
     },
     title: {
       fontSize: 26,
