@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { muteService } from '../../src/features/social/services/muteService';
 import { getAuthErrorMessage } from '../../src/api/apiClient';
 import { MutedAccount } from '../../src/types/social';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
+import { touchTarget } from '../../src/theme/touchTarget';
+import { BackLink } from '../../src/features/shell/components/BackLink';
 
 export default function MutedAccountsScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -70,9 +78,7 @@ export default function MutedAccountsScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
         <Text style={styles.title}>Cuentas silenciadas</Text>
       </View>
 
@@ -105,13 +111,19 @@ export default function MutedAccountsScreen() {
           renderItem={({ item }) => (
             <View style={styles.row}>
               <Text style={styles.handle}>{item.handle}</Text>
-              <Text
-                style={styles.unmuteButton}
-                onPress={() => unmutingId === null && unmute(item.id)}
+              {/* The pill is drawn by the Text; the button around it is the
+                  44 x 44 box a finger presses. */}
+              <TouchableOpacity
+                style={touchTarget}
+                onPress={() => unmute(item.id)}
+                disabled={unmutingId !== null}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: unmutingId !== null }}
               >
-                {unmutingId === item.id ? 'Quitando…' : 'Dejar de silenciar'}
-              </Text>
+                <Text style={styles.unmuteButton}>
+                  {unmutingId === item.id ? 'Quitando…' : 'Dejar de silenciar'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         />
@@ -129,12 +141,6 @@ function createStyles(colors: Colors) {
     },
     header: {
       marginBottom: 16,
-    },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
     },
     title: {
       fontSize: 26,
