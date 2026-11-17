@@ -20,6 +20,7 @@ import { useAuthStore } from '../../../src/stores/authStore';
 import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
 import { FeedItem } from '../../../src/types/post';
+import { BackLink } from '../../../src/features/shell/components/BackLink';
 
 // What the accounts of one list posted and retweeted (E3-H8 CA.2): the main
 // feed's shape and paging, with only the members' activity.
@@ -88,9 +89,7 @@ export default function ListFeedScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
         <Text style={styles.title}>{name || 'Lista'}</Text>
       </View>
 
@@ -168,12 +167,6 @@ function createStyles(colors: Colors) {
     header: {
       paddingHorizontal: 20,
       marginBottom: 8,
-    },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
     },
     title: {
       fontSize: 26,

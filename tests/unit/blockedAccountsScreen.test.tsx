@@ -1,11 +1,12 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BlockedAccountsScreen from '../../app/(app)/blocked-accounts';
 import { blockService } from '../../src/features/social/services/blockService';
 import { ApiError } from '../../src/api/apiClient';
 import { BlockedAccount } from '../../src/types/social';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const mockBack = jest.fn();
 
@@ -218,5 +219,25 @@ describe('E3-H4. Bloquear Usuario', () => {
     fireEvent.press(screen.getByText(/Volver/));
 
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  function expectFingerSized(name: string): void {
+    const style = StyleSheet.flatten(screen.getByRole('button', { name }).props.style);
+    expect(style.minWidth).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+    expect(style.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  }
+
+  it('T-48 - Volver and Desbloquear are buttons a finger can press', async () => {
+    jest
+      .spyOn(blockService, 'getBlocked')
+      .mockResolvedValue({ items: [account('usr-2')], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('Desbloquear');
+
+    expectFingerSized('Volver');
+    expectFingerSized('Desbloquear');
   });
 });
