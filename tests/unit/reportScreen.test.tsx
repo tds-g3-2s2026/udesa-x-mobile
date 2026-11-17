@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ReportScreen from '../../app/(app)/report';
@@ -8,6 +8,8 @@ import {
   reportService,
 } from '../../src/features/social/services/reportService';
 import { ApiError } from '../../src/api/apiClient';
+import { useThemeStore } from '../../src/stores/themeStore';
+import { palettes } from '../../src/theme/colors';
 
 const mockBack = jest.fn();
 const mockUseLocalSearchParams = jest.fn<{ userId?: string; postId?: string; handle?: string }, []>(
@@ -128,5 +130,25 @@ describe('E3-H5. Denunciar Usuario', () => {
 
     expect(mockBack).toHaveBeenCalled();
     expect(report).not.toHaveBeenCalled();
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  afterEach(() => {
+    useThemeStore.setState({ theme: 'light' });
+  });
+
+  it('T-48 - in the dark theme the chosen reason fills with the blue white text reads on', () => {
+    useThemeStore.setState({ theme: 'dark' });
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Spam'));
+
+    expect(
+      StyleSheet.flatten(screen.getByRole('radio', { name: 'Spam' }).props.style)
+    ).toMatchObject({ backgroundColor: palettes.dark.primaryFill });
+    expect(StyleSheet.flatten(screen.getByText('Spam').props.style)).toMatchObject({
+      color: palettes.dark.onPrimary,
+    });
   });
 });
