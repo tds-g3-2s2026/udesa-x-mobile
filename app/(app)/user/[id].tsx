@@ -30,6 +30,8 @@ import { useThemeColors } from '../../../src/theme/useThemeColors';
 import { Colors } from '../../../src/theme/colors';
 import { FeedItem } from '../../../src/types/post';
 import { FollowState, UserProfile } from '../../../src/types/social';
+import { MIN_TOUCH_TARGET } from '../../../src/theme/touchTarget';
+import { BackLink } from '../../../src/features/shell/components/BackLink';
 
 const MONTHS = [
   'enero',
@@ -202,7 +204,7 @@ export default function UserProfileScreen() {
 
       {profile.id !== userId ? (
         <TouchableOpacity
-          style={styles.muteButton}
+          style={styles.pillTouch}
           onPress={
             profile.isMutedByMe
               ? () => void changeMute(profile.id, false)
@@ -213,27 +215,31 @@ export default function UserProfileScreen() {
           accessibilityLabel={profile.isMutedByMe ? 'Dejar de silenciar' : 'Silenciar'}
           accessibilityState={{ disabled: mutePending }}
         >
-          <Ionicons
-            name={profile.isMutedByMe ? 'volume-high-outline' : 'volume-mute-outline'}
-            size={16}
-            color={colors.muted}
-          />
-          <Text style={styles.muteLabel}>
-            {profile.isMutedByMe ? 'Dejar de silenciar' : 'Silenciar'}
-          </Text>
+          <View style={styles.muteButton}>
+            <Ionicons
+              name={profile.isMutedByMe ? 'volume-high-outline' : 'volume-mute-outline'}
+              size={16}
+              color={colors.muted}
+            />
+            <Text style={styles.muteLabel}>
+              {profile.isMutedByMe ? 'Dejar de silenciar' : 'Silenciar'}
+            </Text>
+          </View>
         </TouchableOpacity>
       ) : null}
 
       {/* Only accounts the caller follows can be in a list (E3-H8). */}
       {profile.id !== userId && profile.isFollowedByMe ? (
         <TouchableOpacity
-          style={styles.muteButton}
+          style={styles.pillTouch}
           onPress={() => setAddingToList(true)}
           accessibilityRole="button"
           accessibilityLabel="Agregar a una lista"
         >
-          <Ionicons name="list-outline" size={16} color={colors.muted} />
-          <Text style={styles.muteLabel}>Agregar a una lista</Text>
+          <View style={styles.muteButton}>
+            <Ionicons name="list-outline" size={16} color={colors.muted} />
+            <Text style={styles.muteLabel}>Agregar a una lista</Text>
+          </View>
         </TouchableOpacity>
       ) : null}
 
@@ -243,9 +249,7 @@ export default function UserProfileScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
-      <Text style={styles.backLink} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-      </Text>
+      <BackLink />
 
       {isLoading ? (
         <View style={styles.loading}>
@@ -331,12 +335,6 @@ function createStyles(colors: Colors) {
       paddingHorizontal: 20,
       backgroundColor: colors.surface,
     },
-    backLink: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.primary,
-      marginBottom: 12,
-    },
     loading: {
       flex: 1,
       alignItems: 'center',
@@ -409,12 +407,18 @@ function createStyles(colors: Colors) {
     footerLoading: {
       marginVertical: 16,
     },
+    // The pill is about 30 tall: the button around it is the 44 a finger
+    // presses, and its margin is smaller so the pills stay where they were.
+    pillTouch: {
+      minHeight: MIN_TOUCH_TARGET,
+      justifyContent: 'center',
+      alignSelf: 'flex-start',
+      marginTop: 5,
+    },
     muteButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
       gap: 6,
-      marginTop: 12,
       paddingVertical: 6,
       paddingHorizontal: 12,
       borderRadius: 16,

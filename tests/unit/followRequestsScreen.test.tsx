@@ -1,10 +1,11 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import FollowRequestsScreen from '../../app/(app)/follow-requests';
 import { followService } from '../../src/features/social/services/followService';
 import { ApiError } from '../../src/api/apiClient';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const mockBack = jest.fn();
 
@@ -220,5 +221,46 @@ describe('E3-H1. Seguir a un Usuario', () => {
     fireEvent.press(screen.getByText(/Volver/));
 
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  function expectFingerSized(style: StyleProp<ViewStyle>): void {
+    const flat = StyleSheet.flatten(style);
+    expect(flat.minWidth).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+    expect(flat.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  }
+
+  it('T-48 - Volver, Rechazar and Aprobar are buttons a finger can press', async () => {
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+
+    for (const name of ['Volver', 'Rechazar', 'Aprobar']) {
+      expectFingerSized(screen.getByRole('button', { name }).props.style);
+    }
+  });
+
+  it('T-48 - while one answer is on its way both buttons say they are disabled', async () => {
+    jest.spyOn(followService, 'getFollowRequests').mockResolvedValue({
+      items: [{ id: 'freq-1', requesterHandle: '@joaquin_dev', createdAt: '2026-09-10T12:00:00Z' }],
+      nextCursor: null,
+    });
+    jest
+      .spyOn(followService, 'approveFollowRequest')
+      .mockImplementation(() => new Promise(() => undefined));
+
+    renderScreen();
+    await screen.findByText('@joaquin_dev');
+    await act(async () => {
+      fireEvent.press(screen.getByText('Aprobar'));
+    });
+
+    expect(screen.getByRole('button', { name: 'Aprobando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Rechazando…' })).toBeDisabled();
   });
 });

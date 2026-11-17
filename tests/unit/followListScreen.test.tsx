@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import FollowListScreen from '../../app/(app)/follow-list';
@@ -8,6 +8,7 @@ import { blockService } from '../../src/features/social/services/blockService';
 import { useAuthStore } from '../../src/stores/authStore';
 import { ApiError } from '../../src/api/apiClient';
 import { FollowListItem } from '../../src/types/social';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -426,5 +427,30 @@ describe('E3-H5. Denunciar Usuario', () => {
       pathname: '/report',
       params: { userId: 'usr-2', handle: '@usr-2' },
     });
+  });
+});
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  it('T-48 - Volver, Seguir and the icons of each row are at least 44 x 44', async () => {
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [item('usr-2')], nextCursor: null });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    await screen.findByText('@usr-2');
+
+    for (const button of [
+      screen.getByRole('button', { name: 'Volver' }),
+      screen.getByLabelText('Bloquear a @usr-2'),
+      screen.getByLabelText('Denunciar a @usr-2'),
+    ]) {
+      const style = StyleSheet.flatten(button.props.style);
+      expect(style.minWidth).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+      expect(style.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+    }
+    // Seguir keeps its pill, drawn at the full height instead of 36.
+    const follow = StyleSheet.flatten(screen.getByRole('button', { name: 'Seguir' }).props.style);
+    expect(follow.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
   });
 });
