@@ -4,6 +4,7 @@ import { followService, getAuthErrorMessage } from '../services/followService';
 import { FollowState } from '../../../types/social';
 import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
+import { MIN_TOUCH_TARGET } from '../../../theme/touchTarget';
 
 interface FollowButtonProps {
   targetUserId: string;
@@ -83,9 +84,9 @@ export function FollowButton({ targetUserId, initialState, onStateChange }: Foll
 function createStyles(colors: Colors) {
   return StyleSheet.create({
     button: {
-      height: 36,
+      height: MIN_TOUCH_TARGET,
       paddingHorizontal: 20,
-      borderRadius: 18,
+      borderRadius: MIN_TOUCH_TARGET / 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,

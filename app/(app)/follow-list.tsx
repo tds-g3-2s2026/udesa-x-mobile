@@ -21,6 +21,8 @@ import { FollowListItem } from '../../src/types/social';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
+import { touchTarget } from '../../src/theme/touchTarget';
+import { BackLink } from '../../src/features/shell/components/BackLink';
 
 type ListTab = 'followers' | 'following';
 
@@ -135,9 +137,7 @@ export default function FollowListScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.backLink} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={colors.primary} /> Volver
-        </Text>
+        <BackLink />
       </View>
 
       <View style={styles.tabs}>
@@ -241,11 +241,6 @@ function createStyles(colors: Colors) {
     header: {
       marginBottom: 12,
     },
-    backLink: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '600',
-    },
     tabs: {
       flexDirection: 'row',
       gap: 8,
@@ -305,12 +300,10 @@ function createStyles(colors: Colors) {
       flex: 1,
     },
     blockButton: {
-      padding: 6,
+      ...touchTarget,
       marginLeft: 4,
     },
-    rowAction: {
-      padding: 6,
-    },
+    rowAction: touchTarget,
     displayName: {
       fontSize: 15,
       fontWeight: '700',
