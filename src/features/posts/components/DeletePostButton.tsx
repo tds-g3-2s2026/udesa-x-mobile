@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useThemeColors } from '../../../theme/useThemeColors';
+import { touchTarget } from '../../../theme/touchTarget';
 
 export function DeletePostButton({
   onConfirm,
@@ -15,6 +16,7 @@ export function DeletePostButton({
   return (
     <>
       <Pressable
+        style={touchTarget}
         onPress={(event) => {
           event.stopPropagation();
           setOpen(true);
@@ -33,6 +35,7 @@ export function DeletePostButton({
             <Text style={{ color: colors.text }}>Esta acción no se puede deshacer.</Text>
             <View style={styles.actions}>
               <Pressable
+                style={touchTarget}
                 accessibilityRole="button"
                 onPress={(event) => {
                   event.stopPropagation();
@@ -42,6 +45,7 @@ export function DeletePostButton({
                 <Text style={[styles.action, { color: colors.text }]}>Cancelar</Text>
               </Pressable>
               <Pressable
+                style={touchTarget}
                 accessibilityRole="button"
                 disabled={disabled}
                 onPress={(event) => {

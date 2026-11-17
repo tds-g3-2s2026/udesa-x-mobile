@@ -18,6 +18,7 @@ import { DELETED_AUTHOR_LABEL } from '../../src/features/posts/components/PostCa
 import { PostDetail } from '../../src/types/post';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
+import { MIN_TOUCH_TARGET } from '../../src/theme/touchTarget';
 
 const MAX_LENGTH = 280;
 
@@ -191,7 +192,9 @@ export default function ComposeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`Quitar imagen ${index + 1}`}
                 >
-                  <Ionicons name="close" size={14} color={colors.surface} />
+                  <View style={styles.removeImageBadge}>
+                    <Ionicons name="close" size={14} color={colors.surface} />
+                  </View>
                 </TouchableOpacity>
               </View>
             ))}
@@ -252,10 +255,19 @@ function createStyles(colors: Colors) {
       borderRadius: 10,
       backgroundColor: colors.field,
     },
+    // The pressable corner is 44 x 44 and the dark badge inside it only 22:
+    // the corner sits inside the thumbnail and not past its edge, where on
+    // Android a press never arrives.
     removeImage: {
       position: 'absolute',
-      top: -6,
-      right: -6,
+      top: 0,
+      right: 0,
+      width: MIN_TOUCH_TARGET,
+      height: MIN_TOUCH_TARGET,
+      alignItems: 'flex-end',
+      padding: 4,
+    },
+    removeImageBadge: {
       width: 22,
       height: 22,
       borderRadius: 11,

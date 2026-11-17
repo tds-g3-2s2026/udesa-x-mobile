@@ -3,6 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useThemeColors } from '../../../theme/useThemeColors';
 import { Colors } from '../../../theme/colors';
+import { touchTarget } from '../../../theme/touchTarget';
 
 interface LikeButtonProps {
   onPress: () => void;
@@ -40,8 +41,8 @@ export function LikeButton({ onPress, pending, liked, count }: LikeButtonProps) 
 function createStyles(colors: Colors) {
   return StyleSheet.create({
     button: {
+      ...touchTarget,
       flexDirection: 'row',
-      alignItems: 'center',
       gap: 4,
     },
     label: {

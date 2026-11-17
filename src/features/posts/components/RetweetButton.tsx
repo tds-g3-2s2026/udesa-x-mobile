@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useThemeColors } from '../../../theme/useThemeColors';
+import { touchTarget } from '../../../theme/touchTarget';
 
 interface RetweetButtonProps {
   retweeted: boolean;
@@ -31,5 +32,5 @@ export function RetweetButton({ retweeted, count, pending, onPress }: RetweetBut
 }
 
 const styles = StyleSheet.create({
-  button: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  button: { ...touchTarget, flexDirection: 'row', gap: 4 },
 });
