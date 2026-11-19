@@ -7,7 +7,7 @@ import { Colors } from '../../../theme/colors';
 import { touchTarget } from '../../../theme/touchTarget';
 import { FeedItem } from '../../../types/post';
 import { formatRelativeTime } from '../relativeTime';
-import { splitHashtags } from '../hashtags';
+import { splitPostText } from '../postText';
 import { useAuthStore } from '../../../stores/authStore';
 import { CurrentProfileContext } from '../currentProfile';
 import { Avatar } from '../../social/components/Avatar';
@@ -108,20 +108,36 @@ export function PostCard({
       <Text style={styles.content}>
         {item.deleted
           ? '[Post eliminado]'
-          : splitHashtags(item.content ?? '').map((part, index) =>
-              part.hashtag ? (
-                <Text
-                  key={index}
-                  style={styles.hashtag}
-                  accessibilityRole="link"
-                  onPress={() => router.push({ pathname: '/search', params: { q: part.text } })}
-                >
-                  {part.text}
-                </Text>
-              ) : (
-                part.text
-              )
-            )}
+          : splitPostText(item.content ?? '', item.mentions).map((part, index) => {
+              const { mention } = part;
+              if (part.hashtag) {
+                return (
+                  <Text
+                    key={index}
+                    style={styles.link}
+                    accessibilityRole="link"
+                    onPress={() => router.push({ pathname: '/search', params: { q: part.text } })}
+                  >
+                    {part.text}
+                  </Text>
+                );
+              }
+              if (mention) {
+                return (
+                  <Text
+                    key={index}
+                    style={styles.link}
+                    accessibilityRole="link"
+                    onPress={() =>
+                      router.push({ pathname: '/user/[id]', params: { id: mention.id } })
+                    }
+                  >
+                    {part.text}
+                  </Text>
+                );
+              }
+              return part.text;
+            })}
       </Text>
 
       {!item.deleted ? <PostImageGrid images={item.images} /> : null}
@@ -237,7 +253,7 @@ function createStyles(colors: Colors) {
       lineHeight: 21,
       marginBottom: 10,
     },
-    hashtag: {
+    link: {
       color: colors.primary,
       fontWeight: '600',
     },

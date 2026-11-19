@@ -282,6 +282,8 @@ bun run test -- -t "E1-H1.CA3"
 | `E4-H1.CA2` | Tocar el push de nuevo seguidor abre su perfil, con la app abierta o cerrada   | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
 | `E4-H2.CA2` | Tocar el push de una interacción abre el post, con la app abierta o cerrada    | `tests/unit/push-tap.test.tsx`, `tests/unit/notificationContent.test.ts`                                                                         |
 | `E4-H5.CA1` | Pantalla con un switch por tipo de notificación, que guarda al tocar           | `tests/unit/notificationPreferencesScreen.test.tsx`, `tests/unit/notificationService.test.ts`                                                    |
+| `E2-H9.CA1` | Una mención de una cuenta que existe es un link a su perfil                    | `tests/unit/postCard.test.tsx`, `tests/unit/postText.test.ts`                                                                                    |
+| `E2-H9.CA2` | Un handle que no existe queda como texto plano, sin link                       | `tests/unit/postCard.test.tsx`, `tests/unit/postText.test.ts`                                                                                    |
 
 Los criterios que dependen enteramente del backend, sin nada que mobile pueda probar por su
 cuenta (`E1-H1.CA1`, `E1-H1.CA7`, `E1-H2.CA2`, `E1-H2.CA4`, `E1-H2.CA5`, `E1-H3.CA1`,
@@ -297,6 +299,14 @@ cada vez que recupera el foco, así que la publicación ya está en la próxima 
 `GET /feed`. Importa una aclaración real, no una simplificación de mobile: el feed únicamente
 trae posts de cuentas que el usuario sigue, nunca los propios — quien publica no ve su propio
 post en su feed a menos que también se siga a sí mismo, algo que esta app no ofrece.
+
+Las menciones las resuelve `posts-api`: cada post del feed, del perfil y del detalle trae
+`mentions: [{ id, handle }]` con las cuentas que existen, y el handle viene sin la `@`.
+`PostCard` pinta como link al perfil (`/user/[id]`) cada `@token` del texto cuyo handle, sin
+distinguir mayúsculas, está en esa lista; el resto queda como texto plano. Si el campo no viene
+(un `posts-api` más viejo), el texto se ve como antes. `splitPostText`
+(`src/features/posts/postText.ts`) arma las partes: los hashtags los sigue encontrando
+`splitHashtags` y las menciones se buscan solo en lo que queda.
 
 `FollowButton` (`src/features/social/components/FollowButton.tsx`) sigue y deja de seguir
 contra `posts-api` real (`udesa-x-posts-api#22`, ya mergeado) y contempla el estado

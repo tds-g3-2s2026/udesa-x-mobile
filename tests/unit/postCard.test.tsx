@@ -387,3 +387,59 @@ describe('E2-H8. Hashtags', () => {
     expect(screen.getByText('[Post eliminado]')).toBeTruthy();
   });
 });
+
+describe('E2-H9. Menciones', () => {
+  const ana = { id: 'usr-9', handle: 'ana_dev' };
+
+  it('E2-H9.CA1 - a mention links to the profile', () => {
+    render(<PostCard item={post({ content: 'Gracias @Ana_Dev por todo', mentions: [ana] })} />);
+
+    const mention = screen.getByText('@Ana_Dev');
+
+    expect(mention.props.accessibilityRole).toBe('link');
+    expect(StyleSheet.flatten(mention.props.style)).toEqual(
+      expect.objectContaining({ fontWeight: '600' })
+    );
+    expect(screen.getByText(/Gracias/)).toBeTruthy();
+
+    fireEvent.press(mention);
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/user/[id]', params: { id: 'usr-9' } });
+  });
+
+  it('E2-H9.CA2 - an unknown handle stays plain text', () => {
+    render(<PostCard item={post({ content: 'Hola @ana_dev y @fantasma', mentions: [ana] })} />);
+
+    // Only the account posts-api resolved is a link; the other word is part of the text.
+    expect(screen.getByText('@ana_dev').props.accessibilityRole).toBe('link');
+    expect(screen.queryByText('@fantasma')).toBeNull();
+    expect(screen.getByText(/y @fantasma/)).toBeTruthy();
+  });
+
+  it('shows the text as before when posts-api sends no mentions', () => {
+    render(<PostCard item={post({ content: 'Hola @ana_dev' })} />);
+
+    expect(screen.getByText('Hola @ana_dev')).toBeTruthy();
+    expect(screen.queryByText('@ana_dev')).toBeNull();
+  });
+
+  it('draws a mention and a hashtag side by side, each with its own destination', () => {
+    render(<PostCard item={post({ content: '@ana_dev mirá #UdeSA', mentions: [ana] })} />);
+
+    fireEvent.press(screen.getByText('#UdeSA'));
+    fireEvent.press(screen.getByText('@ana_dev'));
+
+    expect(mockPush).toHaveBeenNthCalledWith(1, { pathname: '/search', params: { q: '#UdeSA' } });
+    expect(mockPush).toHaveBeenNthCalledWith(2, {
+      pathname: '/user/[id]',
+      params: { id: 'usr-9' },
+    });
+  });
+
+  it('a deleted post shows no mentions', () => {
+    render(<PostCard item={post({ deleted: true, content: '@ana_dev', mentions: [ana] })} />);
+
+    expect(screen.queryByText('@ana_dev')).toBeNull();
+    expect(screen.getByText('[Post eliminado]')).toBeTruthy();
+  });
+});
