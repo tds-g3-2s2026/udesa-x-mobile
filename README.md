@@ -13,6 +13,7 @@ Aplicación mobile principal orientada a los usuarios finales de la red social U
 - `@expo/vector-icons` para los íconos de la barra de tabs
 - `expo-image-picker` para elegir imágenes de la galería y `@nandorojo/galeria` como visor a pantalla completa (ADR-018 de la plataforma). Ambas son nativas: no funcionan en Expo Go, hace falta la APK de desarrollo o de `preview`
 - `expo-notifications` para el push de FCM, la elegida en `ARQUITECTURA.md` de la plataforma. También es nativa: hace falta una APK nueva
+- `expo-speech-recognition` para pasar la voz a texto con el reconocedor del teléfono y `expo-speech` para leer las respuestas del asistente (ADR-026 de la plataforma). La primera es nativa: hace falta una APK nueva. Al backend llega solo el texto. Por el asistente, `expo-image-picker` ya no bloquea el permiso de micrófono: con `false`, su plugin se lo saca a toda la app
 - Jest con el preset `jest-expo` para los tests unitarios
 
 ## Requisitos
