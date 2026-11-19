@@ -121,12 +121,19 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Notificaciones</Text>
         <Pressable
+          style={styles.markAll}
           onPress={markAllAsRead}
           disabled={!hasUnread || isMarking}
           accessibilityRole="button"
           accessibilityState={{ disabled: !hasUnread || isMarking }}
         >
-          <Text style={[styles.link, (!hasUnread || isMarking) && styles.disabledLink]}>
+          <Text
+            style={[
+              styles.link,
+              styles.markAllLabel,
+              (!hasUnread || isMarking) && styles.disabledLink,
+            ]}
+          >
             Marcar todas como leídas
           </Text>
         </Pressable>
@@ -182,6 +189,10 @@ function createStyles(colors: Colors) {
       marginBottom: 12,
     },
     title: { fontSize: 26, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
+    // Gives way to the title on a narrow phone: the label wraps onto a second
+    // line instead of running past the edge of the screen.
+    markAll: { flexShrink: 1 },
+    markAllLabel: { textAlign: 'right' },
     link: { fontSize: 14, color: colors.primary, fontWeight: '600', paddingVertical: 6 },
     disabledLink: { color: colors.placeholder },
     error: { color: colors.danger, textAlign: 'center' },

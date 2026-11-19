@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NotificationsScreen from '../../app/(app)/(tabs)/notifications';
@@ -211,6 +211,17 @@ describe('E4-H3. Centro de Notificaciones In-App', () => {
     expect(
       screen.getByRole('button', { name: 'Marcar todas como leídas' }).props.accessibilityState
     ).toMatchObject({ disabled: true });
+  });
+
+  it('T-48 - "Marcar todas como leídas" wraps instead of running off a narrow screen', async () => {
+    list.mockResolvedValueOnce({ items: [notification(1)], nextCursor: null });
+    renderScreen();
+    await screen.findByLabelText('No leída. @cuenta1 empezó a seguirte');
+
+    const button = screen.getByRole('button', { name: 'Marcar todas como leídas' });
+    expect(StyleSheet.flatten(button.props.style).flexShrink).toBe(1);
+    const label = StyleSheet.flatten(screen.getByText('Marcar todas como leídas').props.style);
+    expect(label.textAlign).toBe('right');
   });
 
   it('E4-H3.CA2 - a failed read-all leaves the rows unread and says why', async () => {
