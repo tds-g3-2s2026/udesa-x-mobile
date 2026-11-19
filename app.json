@@ -32,7 +32,15 @@
         {
           "photosPermission": "Para adjuntar imágenes a tus publicaciones.",
           "cameraPermission": false,
-          "microphonePermission": false
+          "microphonePermission": "Para pedirle cosas al asistente con la voz."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Para pedirle cosas al asistente con la voz.",
+          "speechRecognitionPermission": "Para pasar a texto lo que le pedís al asistente.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ],
       [
