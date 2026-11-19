@@ -216,6 +216,28 @@ Expo Go no recibe push remotos en Android desde el SDK 53.
 Al cerrar sesión el token sigue a nombre de la cuenta: `notifications-api` no tiene cómo
 desasociarlo, y quedó fuera del alcance (udesa-x-notifications-api#38).
 
+## Asistente por voz
+
+El botón del micrófono del feed (`AI-05`). Se mantiene apretado mientras se habla: el
+reconocedor del teléfono pasa la voz a texto en `es-AR` y, al soltar, la app le pregunta a
+`assistant-api` qué hacer, paso a paso, hasta que responde con una oración que lee en voz alta
+con `expo-speech`. Al servidor llega solo el texto (ADR-026 de la plataforma).
+
+- `src/features/assistant/assistantView.ts`: lo que ve el asistente. Es el feed de a 5 posts,
+  un post, una búsqueda, un perfil o las preferencias, descripto con referencias (`p1`, `a1`).
+  Los ids quedan en la app.
+- `voiceExecutor.ts`: hace cada acción con los mismos servicios que un toque. Retuitear,
+  responder, publicar y seguir piden confirmación siempre, y el texto se puede editar antes.
+- `runRequest.ts` y `assistantService.ts`: el bucle de pasos contra `POST /api/assistant/turns`
+  y sus errores: el límite por hora, el asistente apagado y sin conexión.
+- `components/VoiceAssistant.tsx` y `components/AssistantPanel.tsx`: el botón y el panel donde
+  se ve lo que entendió, lo que está haciendo y lo que necesita confirmar. "Cortar" frena entre
+  pasos, así una acción nunca queda a medio hacer.
+
+Para probarlo hace falta la APK de desarrollo o la de `preview`: el reconocedor es nativo y Expo
+Go no lo trae. `EXPO_PUBLIC_ASSISTANT_API_URL` va con la misma URL que las demás; en desarrollo,
+por defecto, apunta al gateway local.
+
 ## Estructura
 
 ```

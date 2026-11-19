@@ -36,3 +36,28 @@ jest.mock('expo-notifications', () => ({
   clearLastNotificationResponse: jest.fn(),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
+
+// The recognizer and the voice are native as well. This recognizer keeps the
+// listener of each event, so a test can play what the phone would emit with
+// `__emit`; by default the phone has one and the user granted the permission.
+jest.mock('expo-speech-recognition', () => {
+  const listeners: Record<string, (event: unknown) => void> = {};
+  return {
+    ExpoSpeechRecognitionModule: {
+      isRecognitionAvailable: jest.fn(() => true),
+      requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+      start: jest.fn(),
+      stop: jest.fn(),
+      abort: jest.fn(),
+    },
+    useSpeechRecognitionEvent: (name: string, listener: (event: unknown) => void) => {
+      listeners[name] = listener;
+    },
+    __emit: (name: string, event: unknown) => listeners[name]?.(event),
+  };
+});
+
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(),
+  stop: jest.fn(() => Promise.resolve()),
+}));
