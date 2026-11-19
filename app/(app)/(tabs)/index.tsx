@@ -161,7 +161,13 @@ export default function FeedScreen() {
                 <View style={styles.suggestions}>
                   <Text style={styles.suggestionsTitle}>Cuentas para seguir</Text>
                   {suggestions.map((account) => (
-                    <SuggestedAccountRow key={account.id} account={account} />
+                    <SuggestedAccountRow
+                      key={account.id}
+                      account={account}
+                      onOpen={() =>
+                        router.push({ pathname: '/user/[id]', params: { id: account.id } })
+                      }
+                    />
                   ))}
                 </View>
               ) : null}
