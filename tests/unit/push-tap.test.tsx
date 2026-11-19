@@ -280,3 +280,33 @@ describe('E4-H2. Notificación de interacción', () => {
     expect(postService.getPost).toHaveBeenCalledWith('post-gone');
   });
 });
+
+describe('E4-H4. Notificación de mención', () => {
+  it('el tap navega al post que tiene la mención', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(likedPost);
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    persistSession();
+    renderRouter('app', { initialUrl: '/' });
+    await screen.findByText(FEED_EMPTY_TITLE);
+
+    const [onTap] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+    await act(async () => {
+      onTap(tap({ type: 'mention', postId: 'post-1' }));
+    });
+
+    expect(await screen.findByText('Mi primera publicación')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('post-1');
+  });
+
+  it('con la app cerrada, el tap abre el post apenas se lee la sesión', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(likedPost);
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    keepTap(tap({ type: 'mention', postId: 'post-1' }));
+    persistSession();
+
+    renderRouter('app', { initialUrl: '/' });
+
+    expect(await screen.findByText('Mi primera publicación')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('post-1');
+  });
+});

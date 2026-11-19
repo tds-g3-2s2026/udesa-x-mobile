@@ -39,12 +39,13 @@ describe('describeNotification', () => {
     ['like', '@juanperez le dio me gusta a tu publicación'],
     ['retweet', '@juanperez retuiteó tu publicación'],
     ['reply', '@juanperez respondió tu publicación'],
+    ['mention', '@juanperez te mencionó'],
   ])('writes the text of a %s', (type, text) => {
     expect(describeNotification(notification({ type })).text).toBe(text);
   });
 
   it('shows a kind the app does not know as a generic notification instead of failing', () => {
-    expect(describeNotification(notification({ type: 'mention' }))).toEqual({
+    expect(describeNotification(notification({ type: 'share' }))).toEqual({
       text: 'Tenés una notificación nueva',
       icon: 'notifications-outline',
     });
@@ -56,7 +57,7 @@ describe('notificationTarget', () => {
     expect(notificationTarget(notification())).toEqual({ screen: 'user', id: 'usr-2' });
   });
 
-  it.each(['like', 'retweet'])('opens the post a %s was about', (type) => {
+  it.each(['like', 'retweet', 'mention'])('opens the post a %s was about', (type) => {
     expect(notificationTarget(notification({ type, postId: 'post-1' }))).toEqual({
       screen: 'post',
       id: 'post-1',
@@ -72,7 +73,8 @@ describe('notificationTarget', () => {
   it('opens nothing when the post is missing or the kind is unknown', () => {
     expect(notificationTarget(notification({ type: 'like' }))).toBeNull();
     expect(notificationTarget(notification({ type: 'reply' }))).toBeNull();
-    expect(notificationTarget(notification({ type: 'mention', postId: 'post-1' }))).toBeNull();
+    expect(notificationTarget(notification({ type: 'mention' }))).toBeNull();
+    expect(notificationTarget(notification({ type: 'share', postId: 'post-1' }))).toBeNull();
   });
 });
 
@@ -84,7 +86,7 @@ describe('pushTarget', () => {
     });
   });
 
-  it.each(['like', 'retweet', 'reply'])('opens the post a %s push names', (type) => {
+  it.each(['like', 'retweet', 'reply', 'mention'])('opens the post a %s push names', (type) => {
     expect(pushTarget({ type, postId: 'pst-1' })).toEqual({ screen: 'post', id: 'pst-1' });
   });
 
@@ -93,7 +95,8 @@ describe('pushTarget', () => {
     expect(pushTarget({ type: 'follow', actorId: '' })).toBeNull();
     expect(pushTarget({ type: 'like' })).toBeNull();
     expect(pushTarget({ type: 'reply', postId: '' })).toBeNull();
-    expect(pushTarget({ type: 'mention', actorId: 'usr-2' })).toBeNull();
+    expect(pushTarget({ type: 'mention' })).toBeNull();
+    expect(pushTarget({ type: 'share', actorId: 'usr-2' })).toBeNull();
     expect(pushTarget(null)).toBeNull();
   });
 });

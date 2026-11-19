@@ -306,8 +306,20 @@ describe('E4-H3. Centro de Notificaciones In-App', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-9' } });
   });
 
+  it('writes who mentioned you and opens the post that has the mention', async () => {
+    list.mockResolvedValueOnce({
+      items: [notification(1, { type: 'mention', postId: 'post-7' })],
+      nextCursor: null,
+    });
+    renderScreen();
+
+    fireEvent.press(await screen.findByText('@cuenta1 te mencionó'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-7' } });
+  });
+
   it('a notification with nowhere to go does not navigate', async () => {
-    list.mockResolvedValueOnce({ items: [notification(1, { type: 'mention' })], nextCursor: null });
+    list.mockResolvedValueOnce({ items: [notification(1, { type: 'share' })], nextCursor: null });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Tenés una notificación nueva'));

@@ -33,6 +33,8 @@ export function describeNotification(notification: AppNotification): Notificatio
       return { text: `${actor} retuiteó tu publicación`, icon: 'repeat-outline' };
     case 'reply':
       return { text: `${actor} respondió tu publicación`, icon: 'chatbubble-outline' };
+    case 'mention':
+      return { text: `${actor} te mencionó`, icon: 'at-outline' };
     default:
       return { text: 'Tenés una notificación nueva', icon: 'notifications-outline' };
   }
@@ -40,7 +42,8 @@ export function describeNotification(notification: AppNotification): Notificatio
 
 // A follow opens the new follower's profile. A like, a retweet or a reply opens
 // postId, the post that received it: for a reply that is the answered post, the
-// same one the push notification opens. A kind the app does not know opens nothing.
+// same one the push notification opens. A mention opens postId too, the post
+// whose text mentions the account. A kind the app does not know opens nothing.
 export function notificationTarget(notification: AppNotification): NotificationTarget | null {
   switch (notification.type) {
     case 'follow':
@@ -48,6 +51,7 @@ export function notificationTarget(notification: AppNotification): NotificationT
     case 'like':
     case 'retweet':
     case 'reply':
+    case 'mention':
       return notification.postId ? { screen: 'post', id: notification.postId } : null;
     default:
       return null;
@@ -57,8 +61,9 @@ export function notificationTarget(notification: AppNotification): NotificationT
 // Same destination for a tapped push, read from its `data`: every value comes
 // as a string, the way FCM delivers it. A follow push carries the follower as
 // `actorId`; a like, retweet or reply push carries the post that received it as
-// `postId`, the answered one for a reply, as the list does. A kind the app does
-// not know, or a push missing its id, opens nothing.
+// `postId`, the answered one for a reply, as the list does; a mention push
+// carries the post that mentions the account. A kind the app does not know, or
+// a push missing its id, opens nothing.
 export function pushTarget(
   data: Record<string, unknown> | null | undefined
 ): NotificationTarget | null {
@@ -71,6 +76,7 @@ export function pushTarget(
     case 'like':
     case 'retweet':
     case 'reply':
+    case 'mention':
       return typeof data.postId === 'string' && data.postId !== ''
         ? { screen: 'post', id: data.postId }
         : null;
