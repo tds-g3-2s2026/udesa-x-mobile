@@ -25,9 +25,9 @@ const MAX_LENGTH = 280;
 // The same 404 covers a post that is gone, one by a blocked account and one
 // from a protected account the caller does not follow. Saying which would
 // tell the caller who blocked them, so the message never does.
-function replyErrorMessage(error: unknown): string {
+function targetErrorMessage(error: unknown, isQuote: boolean): string {
   if (error instanceof ApiError && error.code === 'post-not-found') {
-    return 'No podés responder a esta publicación.';
+    return isQuote ? 'No podés citar esta publicación.' : 'No podés responder a esta publicación.';
   }
   return getAuthErrorMessage(error);
 }
@@ -47,8 +47,11 @@ export default function ComposeScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { parentId } = useLocalSearchParams<{ parentId?: string }>();
+  const { parentId, quotedId } = useLocalSearchParams<{ parentId?: string; quotedId?: string }>();
   const isReply = Boolean(parentId);
+  const isQuote = !isReply && Boolean(quotedId);
+  // The post this one answers or quotes: read the same way for both.
+  const targetId = parentId ?? quotedId;
 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,12 +60,12 @@ export default function ComposeScreen() {
   const [images, setImages] = useState<PickedImage[]>([]);
 
   // Read from posts-api instead of handed over by the screen that opened this
-  // one: what is quoted is then what the server will accept a reply to.
+  // one: what is shown is then what the server will accept a reply or a quote of.
   useEffect(() => {
-    if (!parentId) return;
+    if (!targetId) return;
     let isCurrent = true;
     postService
-      .getPost(parentId)
+      .getPost(targetId)
       .then((post) => {
         if (isCurrent) {
           setParent(post);
@@ -71,13 +74,13 @@ export default function ComposeScreen() {
       })
       .catch((error) => {
         if (!isCurrent) return;
-        Alert.alert('Error', replyErrorMessage(error));
+        Alert.alert('Error', targetErrorMessage(error, isQuote));
         router.back();
       });
     return () => {
       isCurrent = false;
     };
-  }, [parentId, router]);
+  }, [targetId, isQuote, router]);
 
   // Client-side rules mirror the server's: letting the user type past the
   // limit or submit a blank post just to have the API reject it is a worse
@@ -119,13 +122,18 @@ export default function ComposeScreen() {
     setIsSubmitting(true);
     try {
       if (parentId) await postService.createReply(parentId, content);
+      else if (quotedId) await postService.createQuote(quotedId, content);
       else await postService.createPost(content, images);
       // Nothing to hand back to the screen underneath: it reloads on its own
       // the moment it regains focus, and that fresh GET already has this post.
       router.back();
     } catch (error) {
       if (error instanceof ApiError && error.code === 'post-deleted') setParentDeleted(true);
-      else Alert.alert('Error', isReply ? replyErrorMessage(error) : getAuthErrorMessage(error));
+      else
+        Alert.alert(
+          'Error',
+          targetId ? targetErrorMessage(error, isQuote) : getAuthErrorMessage(error)
+        );
     } finally {
       setIsSubmitting(false);
     }
@@ -133,11 +141,15 @@ export default function ComposeScreen() {
 
   return (
     <AuthScreen
-      header={<Text style={authStyles.title}>{isReply ? 'Nueva respuesta' : 'Nuevo post'}</Text>}
-      submitLabel={isReply ? 'Responder' : 'Publicar'}
+      header={
+        <Text style={authStyles.title}>
+          {isReply ? 'Nueva respuesta' : isQuote ? 'Citar post' : 'Nuevo post'}
+        </Text>
+      }
+      submitLabel={isReply ? 'Responder' : isQuote ? 'Citar' : 'Publicar'}
       onSubmit={handlePublish}
       isSubmitting={isSubmitting}
-      disabled={isBlank || isTooLong || parentDeleted || (isReply && parent === null)}
+      disabled={isBlank || isTooLong || parentDeleted || (Boolean(targetId) && parent === null)}
       footer={
         <Text style={authStyles.footerLink} onPress={() => router.back()}>
           Cancelar
@@ -148,14 +160,21 @@ export default function ComposeScreen() {
       {parent && !parentDeleted ? (
         <View style={styles.quote}>
           <Text style={styles.quoteLabel}>
-            Respondiendo a {parent.authorDeleted ? DELETED_AUTHOR_LABEL : parent.authorHandle}
+            {isQuote ? 'Citando a' : 'Respondiendo a'}{' '}
+            {parent.authorDeleted ? DELETED_AUTHOR_LABEL : parent.authorHandle}
           </Text>
           <Text style={styles.quoteContent}>{parent.content}</Text>
         </View>
       ) : null}
       <FormInput
-        label={isReply ? 'Tu respuesta' : '¿Qué está pasando?'}
-        placeholder={isReply ? 'Escribí tu respuesta' : 'Escribí algo para compartir'}
+        label={isReply ? 'Tu respuesta' : isQuote ? 'Tu comentario' : '¿Qué está pasando?'}
+        placeholder={
+          isReply
+            ? 'Escribí tu respuesta'
+            : isQuote
+              ? 'Agregá tu comentario'
+              : 'Escribí algo para compartir'
+        }
         multiline
         numberOfLines={5}
         autoFocus
@@ -165,8 +184,8 @@ export default function ComposeScreen() {
       <Text style={[styles.counter, isTooLong && styles.counterOver]}>
         {content.length}/{MAX_LENGTH}
       </Text>
-      {/* Replies are text only: posts-api takes images on a new post alone. */}
-      {!isReply ? (
+      {/* Replies and quotes are text only: posts-api takes images on a new post alone. */}
+      {!targetId ? (
         <View style={styles.attachments}>
           <TouchableOpacity
             style={styles.addImages}

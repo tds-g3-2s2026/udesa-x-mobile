@@ -522,3 +522,42 @@ describe('Post service', () => {
     });
   });
 });
+
+describe('postService.createQuote (E2-H13)', () => {
+  afterEach(() => post.mockReset());
+
+  it('E2-H13.CA2 - sends the comment to the quotes of the original post', async () => {
+    const created: Post = {
+      id: 'quote-1',
+      authorId: 'usr-1',
+      parentId: null,
+      content: 'Mirá esto',
+      createdAt: '2026-11-20T12:00:00Z',
+      images: [],
+      likesCount: 0,
+      retweetsCount: 0,
+      repliesCount: 0,
+    };
+    post.mockResolvedValueOnce(apiSuccess(created));
+
+    const result = await postService.createQuote('post-1', 'Mirá esto');
+
+    expect(post).toHaveBeenCalledWith('/posts/post-1/quotes', { content: 'Mirá esto' });
+    expect(result).toEqual(created);
+  });
+
+  it('E2-H13.CA2 - keeps the message and the code of a refusal', async () => {
+    post.mockRejectedValueOnce(
+      apiFailure(422, {
+        type: 'https://udesa-x.dev/errors/post-too-long',
+        title: 'No se pudo publicar el post',
+        detail: 'El post no puede superar los 280 caracteres',
+      })
+    );
+
+    await expect(postService.createQuote('post-1', 'a'.repeat(281))).rejects.toMatchObject({
+      message: 'El post no puede superar los 280 caracteres',
+      code: 'post-too-long',
+    });
+  });
+});

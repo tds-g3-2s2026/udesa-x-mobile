@@ -79,6 +79,17 @@ export const postService = {
     }
   },
 
+  // A post of its own, with the comment, that carries the original inside. Same
+  // checks and same hourly limit as publishing; text only, like a reply.
+  async createQuote(postId: string, content: string): Promise<Post> {
+    try {
+      const response = await postsApiClient.post<Post>(`/posts/${postId}/quotes`, { content });
+      return response.data;
+    } catch (error) {
+      throw toAuthError(error, 'No se pudo citar. Intentalo de nuevo.');
+    }
+  },
+
   async getPost(postId: string): Promise<PostDetail> {
     try {
       const response = await postsApiClient.get<PostDetail>(`/posts/${postId}`);

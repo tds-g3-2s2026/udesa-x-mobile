@@ -79,6 +79,8 @@ export default function PostDetailScreen() {
 
   const reply = (target: string) =>
     router.push({ pathname: '/compose', params: { parentId: target } });
+  const quote = (target: string) =>
+    router.push({ pathname: '/compose', params: { quotedId: target } });
 
   const report = (item: FeedItem) =>
     item.authorId !== userId
@@ -133,6 +135,7 @@ export default function PostDetailScreen() {
               onBookmark={() => interactions.toggleSave(deletion.forPost(post))}
               bookmarkPending={interactions.isSavePending(post.id)}
               onReply={() => reply(post.id)}
+              onQuote={() => quote(post.id)}
               onReport={report(post)}
             />
             <Text style={styles.repliesTitle}>Respuestas</Text>
@@ -163,6 +166,7 @@ export default function PostDetailScreen() {
             bookmarkPending={interactions.isSavePending(item.id)}
             onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
             onReply={() => reply(item.id)}
+            onQuote={() => quote(item.id)}
             onReport={report(item)}
           />
         )}
