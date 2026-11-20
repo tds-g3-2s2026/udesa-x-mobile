@@ -253,6 +253,64 @@ describe('VoiceAssistant', () => {
     expect(screen.getByText('Tema oscuro · Idioma del feed: all')).toBeTruthy();
   });
 
+  it('shows the accounts it found, and asks before following one', async () => {
+    const { deps } = renderAssistant(
+      [turn('search', { query: 'Ana' }), turn('finish', { say: 'Encontré a Ana.' })],
+      jest.fn(),
+      (deps) =>
+        deps.search.mockResolvedValue({
+          posts: [],
+          accounts: [{ id: 'user-1', handle: '@ana', name: 'Ana', following: true }],
+        })
+    );
+
+    await say('buscá a Ana');
+
+    await screen.findByTestId('assistant-said');
+    expect(screen.getByText('Ana @ana · La seguís')).toBeTruthy();
+    expect(deps().search).toHaveBeenCalledWith('Ana');
+  });
+
+  it('shows the account it is about to follow', async () => {
+    const { deps } = renderAssistant(
+      [
+        turn('open_profile', { ref: 'p1' }),
+        turn('follow', { ref: 'a1' }, true),
+        turn('finish', { say: 'Ahora seguís a Ana.' }),
+      ],
+      jest.fn(),
+      (deps) => {
+        deps.getProfile.mockResolvedValue({ id: 'author-1', handle: '@ana', name: 'Ana' });
+        deps.getProfilePosts.mockResolvedValue([]);
+        deps.follow.mockResolvedValue('following');
+      }
+    );
+
+    await say('seguí a Ana');
+
+    expect(await screen.findByTestId('assistant-confirm')).toHaveTextContent(
+      /^¿Sigo a esta cuenta\?Ana @ana/
+    );
+    await act(async () => fireEvent.press(screen.getByText('Confirmar')));
+    expect(await screen.findByTestId('assistant-said')).toHaveTextContent('Ahora seguís a Ana.');
+    expect(deps().follow).toHaveBeenCalledWith('author-1');
+  });
+
+  it('reads an empty answer as done', async () => {
+    renderAssistant([turn('finish', { say: '' })]);
+
+    await say('hola');
+
+    expect(await screen.findByTestId('assistant-said')).toHaveTextContent('Listo.');
+  });
+
+  it('starts closed, with only the microphone, on the real services', () => {
+    render(<VoiceAssistant />);
+
+    expect(screen.getByLabelText('Mantené apretado para hablarle al asistente')).toBeTruthy();
+    expect(screen.queryByTestId('assistant-heard')).toBeNull();
+  });
+
   it('asks for the microphone, and explains when it is not granted', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     recognition.requestPermissionsAsync.mockResolvedValueOnce({ granted: false });
