@@ -353,6 +353,23 @@ describe('E2-H4. Responder a un Post', () => {
   });
 });
 
+describe('E2-H13. Citar Post', () => {
+  it('Citar on a row opens the composer quoting that post', async () => {
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({
+      items: [item('post-1', { authorHandle: '@persona2' })],
+      nextCursor: null,
+    });
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Citar el post de @persona2'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/compose',
+      params: { quotedId: 'post-1' },
+    });
+  });
+});
+
 test.each(['like', 'retweet'] as const)(
   'duplicate feed entries share %s state and undo',
   async (kind) => {
