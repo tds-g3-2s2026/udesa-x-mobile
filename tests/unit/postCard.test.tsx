@@ -443,3 +443,83 @@ describe('E2-H9. Menciones', () => {
     expect(screen.getByText('[Post eliminado]')).toBeTruthy();
   });
 });
+
+describe('E2-H13. Citar Post', () => {
+  it('E2-H13.CA1 - shows the quoted post inside the quote', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValueOnce({
+      ...post({
+        id: 'post-9',
+        authorHandle: '@beto',
+        authorDisplayName: 'Beto',
+        content: 'Original',
+      }),
+      parentId: null,
+    });
+
+    render(<PostCard item={post({ content: 'Mirá esto', quotedPostId: 'post-9' })} />);
+
+    const quoted = await screen.findByLabelText('Abrir el post citado de @beto');
+    expect(quoted).toHaveTextContent('BetoOriginal');
+    expect(postService.getPost).toHaveBeenCalledWith('post-9');
+    fireEvent.press(quoted);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/post/[id]', params: { id: 'post-9' } });
+  });
+
+  it('E2-H13.CA3 - shows the quotes count', () => {
+    const onQuote = jest.fn();
+    const { rerender } = render(<PostCard item={post({ quotesCount: 4 })} />);
+
+    // The icon renders as a glyph before the number.
+    expect(screen.getByTestId('quotes-count')).toHaveTextContent(/4$/);
+
+    rerender(<PostCard item={post({ quotesCount: 4 })} onQuote={onQuote} />);
+    fireEvent.press(screen.getByLabelText('Citar el post de @ana'));
+    expect(onQuote).toHaveBeenCalled();
+    expect(screen.getByLabelText('Citar el post de @ana')).toHaveTextContent(/4$/);
+  });
+
+  it('E2-H13.CA4 - shows [Post original eliminado]', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValueOnce({
+      ...post({ id: 'post-9', deleted: true, content: null }),
+      parentId: null,
+    });
+
+    render(<PostCard item={post({ quotedPostId: 'post-9' })} />);
+
+    expect(await screen.findByText('[Post original eliminado]')).toBeTruthy();
+  });
+
+  it('shows the original as unavailable when the reader cannot see it', async () => {
+    jest
+      .spyOn(postService, 'getPost')
+      .mockRejectedValueOnce(new ApiError('No encontramos esa publicación.', 'post-not-found'));
+
+    render(<PostCard item={post({ quotedPostId: 'post-9' })} />);
+
+    expect(await screen.findByText('Post no disponible')).toBeTruthy();
+  });
+
+  it('counts zero quotes on a post from a posts-api older than quotes', () => {
+    render(<PostCard item={post()} />);
+
+    expect(screen.getByTestId('quotes-count')).toHaveTextContent(/0$/);
+    expect(screen.queryByTestId('quoted-post')).toBeNull();
+  });
+
+  it('a deleted quote shows neither its comment nor the original', () => {
+    render(<PostCard item={post({ deleted: true, content: null, quotedPostId: 'post-9' })} />);
+
+    expect(screen.queryByTestId('quoted-post')).toBeNull();
+  });
+
+  it('names a closed account on the original the same way the card does', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValueOnce({
+      ...post({ id: 'post-9', authorDeleted: true, authorHandle: null, content: 'Original' }),
+      parentId: null,
+    });
+
+    render(<PostCard item={post({ quotedPostId: 'post-9' })} />);
+
+    expect(await screen.findByText('[Usuario eliminado]')).toBeTruthy();
+  });
+});

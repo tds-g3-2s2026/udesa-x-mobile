@@ -61,6 +61,11 @@ export interface FeedItem {
   // Missing when posts-api is older than this field: the text then reads as
   // plain, as it did before mentions existed.
   mentions?: PostMention[];
+  // How many posts quote this one. Missing on a posts-api older than quotes.
+  quotesCount?: number;
+  // The post this one quotes. Only the id: the card reads the original with
+  // GET /posts/{id}, which says whether it was deleted or cannot be seen.
+  quotedPostId?: string | null;
 }
 
 // GET /posts/{id}: a feed row plus the post it answers, null when it is not a

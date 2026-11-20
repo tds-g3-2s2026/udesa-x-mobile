@@ -15,9 +15,11 @@ import { DeletePostButton } from './DeletePostButton';
 import { BookmarkButton } from './BookmarkButton';
 import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
+import { QuotedPost } from './QuotedPost';
 import { RetweetButton } from './RetweetButton';
+import { DELETED_AUTHOR_LABEL } from '../labels';
 
-export const DELETED_AUTHOR_LABEL = '[Usuario eliminado]';
+export { DELETED_AUTHOR_LABEL };
 
 interface PostCardProps {
   item: FeedItem;
@@ -33,6 +35,8 @@ interface PostCardProps {
   // for someone else's post: the button could only ever lead to an error.
   onReport?: () => void;
   onReply?: () => void;
+  // Without it the card still shows how many times the post was quoted.
+  onQuote?: () => void;
   // The detail screen shows its own post and has nowhere further to open.
   onOpen?: () => void;
 }
@@ -45,6 +49,7 @@ export function PostCard({
   deletePending = false,
   onReport,
   onReply,
+  onQuote,
   onOpen,
   onRetweet,
   retweetPending = false,
@@ -142,6 +147,8 @@ export function PostCard({
 
       {!item.deleted ? <PostImageGrid images={item.images} /> : null}
 
+      {!item.deleted && item.quotedPostId ? <QuotedPost postId={item.quotedPostId} /> : null}
+
       {!item.deleted && !deletePending ? (
         <View style={styles.counters}>
           {onLike ? (
@@ -171,6 +178,22 @@ export function PostCard({
             <View style={styles.counter}>
               <Ionicons name="repeat-outline" size={16} color={colors.muted} />
               <Text style={styles.counterLabel}>{item.retweetsCount}</Text>
+            </View>
+          )}
+          {onQuote ? (
+            <TouchableOpacity
+              style={styles.replyButton}
+              onPress={onQuote}
+              accessibilityRole="button"
+              accessibilityLabel={`Citar el post de ${item.authorHandle ?? 'esta cuenta'}`}
+            >
+              <Ionicons name="chatbox-ellipses-outline" size={16} color={colors.primary} />
+              <Text style={styles.counterLabel}>{item.quotesCount ?? 0}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.counter} testID="quotes-count">
+              <Ionicons name="chatbox-ellipses-outline" size={16} color={colors.muted} />
+              <Text style={styles.counterLabel}>{item.quotesCount ?? 0}</Text>
             </View>
           )}
           {onReply ? (
