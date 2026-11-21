@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  ScrollView,
   Share,
   StyleSheet,
   Text,
@@ -119,8 +120,13 @@ export default function PreferencesScreen() {
     );
   }
 
+  // Scrolls: the rows below the two sections do not fit on a small phone.
   return (
-    <View style={styles.screen}>
+    <ScrollView
+      testID="preferences-screen"
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Visibilidad del perfil</Text>
@@ -188,7 +194,7 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/notification-preferences')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Notificaciones</Text>
           <Text style={styles.sectionHint}>Elegí qué avisos querés recibir.</Text>
         </View>
@@ -196,7 +202,7 @@ export default function PreferencesScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.linkRow} onPress={handleInvite} accessibilityRole="button">
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Invitar</Text>
           <Text style={styles.sectionHint}>Compartí tu link para que se sumen y te sigan.</Text>
         </View>
@@ -208,7 +214,7 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/blocked-accounts')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Cuentas bloqueadas</Text>
           <Text style={styles.sectionHint}>Ver a quién bloqueaste y desbloquearlo.</Text>
         </View>
@@ -220,7 +226,7 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/muted-accounts')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Cuentas silenciadas</Text>
           <Text style={styles.sectionHint}>Ver a quién silenciaste y dejar de silenciarlo.</Text>
         </View>
@@ -232,7 +238,7 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/lists')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Listas</Text>
           <Text style={styles.sectionHint}>
             Armá listas con cuentas que seguís y leé solo lo que publican.
@@ -246,7 +252,7 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/saved')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Guardados</Text>
           <Text style={styles.sectionHint}>
             Releé los posts que guardaste. Solo vos podés verlos.
@@ -260,13 +266,13 @@ export default function PreferencesScreen() {
         onPress={() => router.push('/feedback')}
         accessibilityRole="button"
       >
-        <View>
+        <View style={styles.linkText}>
           <Text style={styles.sectionTitle}>Enviar comentarios</Text>
           <Text style={styles.sectionHint}>Contanos qué mejorarías o qué no funcionó.</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -281,7 +287,10 @@ function createStyles(colors: Colors) {
     screen: {
       flex: 1,
       backgroundColor: colors.surface,
+    },
+    content: {
       padding: 20,
+      paddingBottom: 32,
     },
     section: {
       marginBottom: 28,
@@ -329,13 +338,20 @@ function createStyles(colors: Colors) {
     optionLabelSelected: {
       color: colors.onPrimary,
     },
+    // The same space above and below the title and its hint, so the icon on
+    // the right sits in the middle of both lines.
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingTop: 20,
+      gap: 12,
+      paddingVertical: 16,
       borderTopWidth: 1,
       borderTopColor: colors.divider,
+    },
+    // Takes the width the icon leaves, so a long hint wraps instead of
+    // pushing the icon off the row.
+    linkText: {
+      flex: 1,
     },
   });
 }

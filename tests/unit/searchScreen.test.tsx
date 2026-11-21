@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SearchScreen from '../../app/(app)/(tabs)/search';
@@ -239,6 +240,32 @@ it('E2-H11.CA2 shows the trending section instead of the prompt when there is no
   await screen.findByText('Tendencias');
   expect(screen.queryByText('Empezá a buscar')).toBeNull();
   expect(search).not.toHaveBeenCalled();
+});
+
+it('T-48 - the trending topics start apart from the tabs above them', async () => {
+  renderSearch();
+  await screen.findByText('Tendencias');
+
+  const list = StyleSheet.flatten(screen.getByTestId('search-results').props.contentContainerStyle);
+  expect(list.paddingTop).toBeGreaterThanOrEqual(16);
+});
+
+it('T-48 - both tabs keep one text size, and only the selected one changes color', async () => {
+  renderSearch();
+  await screen.findByText('Tendencias');
+
+  const labels = () =>
+    ['Posts', 'Usuarios'].map((tab) => StyleSheet.flatten(screen.getByText(tab).props.style));
+  const [posts, users] = labels();
+  expect(posts.fontSize).toBe(users.fontSize);
+  expect(posts.paddingVertical).toBe(users.paddingVertical);
+  expect(posts.color).not.toBe(users.color);
+
+  fireEvent.press(screen.getByRole('tab', { name: 'Usuarios' }));
+  const [postsAfter, usersAfter] = labels();
+  expect(postsAfter.fontSize).toBe(posts.fontSize);
+  expect(usersAfter.fontSize).toBe(users.fontSize);
+  expect(usersAfter.color).toBe(posts.color);
 });
 
 it('keeps the empty prompt when there are no trending topics', async () => {

@@ -229,6 +229,8 @@ describe('E1-H14. Onboarding Inicial', () => {
     for (const index of [0, 1, 2, 3, 4]) {
       expect(await screen.findByText(`@popular${index}`)).toBeTruthy();
     }
+    // Not a way out of the onboarding: the rows do not open the profile here.
+    expect(screen.queryByLabelText(/^Abrir perfil de/)).toBeNull();
     await act(async () => {
       fireEvent.press(screen.getAllByText('Seguir')[0]);
     });

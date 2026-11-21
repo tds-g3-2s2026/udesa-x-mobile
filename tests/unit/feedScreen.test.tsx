@@ -283,6 +283,26 @@ describe('E2-H2. Feed Principal', () => {
 
     expect(follow).toHaveBeenCalledWith('usr-2');
   });
+
+  it('T-48 - tapping a suggested account opens its profile, without following it', async () => {
+    jest.spyOn(postService, 'getFeed').mockResolvedValue({ items: [], nextCursor: null });
+    jest.spyOn(postService, 'getSuggestedAccounts').mockResolvedValue([
+      {
+        id: 'usr-2',
+        handle: '@joaquin_dev',
+        displayName: null,
+        avatarUrl: null,
+        followersCount: 42,
+      },
+    ]);
+    const follow = jest.spyOn(followService, 'follow');
+
+    renderScreen();
+    fireEvent.press(await screen.findByRole('button', { name: 'Abrir perfil de @joaquin_dev' }));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/user/[id]', params: { id: 'usr-2' } });
+    expect(follow).not.toHaveBeenCalled();
+  });
 });
 
 describe('E3-H5. Denunciar Usuario', () => {

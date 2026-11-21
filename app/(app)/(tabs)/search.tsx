@@ -170,7 +170,7 @@ export default function SearchScreen() {
             onPress={() => setKind(tab)}
             style={[styles.tab, kind === tab && styles.selectedTab]}
           >
-            <Text style={kind === tab ? styles.link : styles.muted}>
+            <Text style={[styles.tabLabel, kind === tab && styles.selectedTabLabel]}>
               {tab === 'posts' ? 'Posts' : 'Usuarios'}
             </Text>
           </Pressable>
@@ -237,6 +237,10 @@ function createStyles(colors: Colors) {
     tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: colors.divider },
     tab: { flex: 1, alignItems: 'center', padding: 14 },
     selectedTab: { borderBottomWidth: 3, borderBottomColor: colors.primary },
+    // One size for both tabs: only the color and the underline mark the
+    // selected one, so switching does not move the text.
+    tabLabel: { fontSize: 15, fontWeight: '600', color: colors.muted },
+    selectedTabLabel: { color: colors.primary },
     row: { paddingVertical: 14, gap: 5, borderBottomWidth: 1, borderColor: colors.divider },
     metadata: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     name: { fontSize: 15, fontWeight: '700', color: colors.text, flexShrink: 1 },
@@ -247,7 +251,8 @@ function createStyles(colors: Colors) {
     error: { color: colors.danger, textAlign: 'center' },
     state: { paddingVertical: 20, gap: 10, alignItems: 'center' },
     list: { paddingBottom: 32 },
-    trending: { flexGrow: 1, paddingBottom: 32 },
+    // Space between the tabs and the "Tendencias" title below them.
+    trending: { flexGrow: 1, paddingTop: 20, paddingBottom: 32 },
     empty: { flexGrow: 1, justifyContent: 'center', paddingBottom: 32 },
   });
 }
