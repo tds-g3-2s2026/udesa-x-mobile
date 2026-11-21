@@ -22,6 +22,7 @@ import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
 import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
+import { VoiceAssistant } from '../../../src/features/assistant/components/VoiceAssistant';
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -204,6 +205,7 @@ export default function FeedScreen() {
           )}
         />
       )}
+      <VoiceAssistant onClosed={() => loadFeed(true)} />
     </View>
   );
 }
