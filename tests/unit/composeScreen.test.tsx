@@ -12,7 +12,7 @@ const mockBack = jest.fn();
 // One object for the whole file: the composer reads the original post from an
 // effect that depends on the router, so a new object per render would loop.
 const mockRouter = { back: mockBack };
-let mockParams: { parentId?: string } = {};
+let mockParams: { parentId?: string; quotedId?: string } = {};
 
 jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
@@ -529,5 +529,92 @@ describe('E2-H7. Post con Imagen', () => {
     await screen.findByText('Respondiendo a @joaquin_dev');
 
     expect(screen.queryByLabelText('Agregar imágenes')).toBeNull();
+  });
+});
+
+describe('E2-H13. Citar Post', () => {
+  beforeEach(() => {
+    mockParams = { quotedId: 'post-1' };
+    jest.spyOn(postService, 'getPost').mockResolvedValue(original);
+  });
+
+  afterEach(() => {
+    mockParams = {};
+  });
+
+  it('shows the post being quoted under the comment', async () => {
+    renderScreen();
+
+    expect(await screen.findByText('Citando a @joaquin_dev')).toBeTruthy();
+    expect(screen.getByText('El post original')).toBeTruthy();
+    expect(screen.getByText('Citar post')).toBeTruthy();
+    // Quotes are text only, like replies: posts-api takes images on a new post alone.
+    expect(screen.queryByLabelText('Agregar imágenes')).toBeNull();
+  });
+
+  it('E2-H13.CA2 - quotes with the same limits as a post', async () => {
+    const createQuote = jest.spyOn(postService, 'createQuote').mockResolvedValue({
+      ...createdPost,
+      id: 'quote-1',
+    });
+
+    renderScreen();
+    await screen.findByText('Citando a @joaquin_dev');
+    const field = screen.getByPlaceholderText('Agregá tu comentario');
+
+    fireEvent.changeText(field, '   ');
+    await press('Citar');
+    fireEvent.changeText(field, 'a'.repeat(281));
+    expect(screen.getByText('281/280')).toBeTruthy();
+    await press('Citar');
+    expect(createQuote).not.toHaveBeenCalled();
+
+    fireEvent.changeText(field, 'Mirá esto');
+    await press('Citar');
+    expect(createQuote).toHaveBeenCalledWith('post-1', 'Mirá esto');
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('a 404 says the post cannot be quoted, without naming a block', async () => {
+    jest
+      .spyOn(postService, 'createQuote')
+      .mockRejectedValue(new ApiError('La publicación no existe.', 'post-not-found'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+    await screen.findByText('Citando a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Agregá tu comentario'), 'Mirá esto');
+    await press('Citar');
+
+    expect(alert).toHaveBeenCalledWith('Error', 'No podés citar esta publicación.');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('an original deleted meanwhile cannot be quoted', async () => {
+    jest
+      .spyOn(postService, 'createQuote')
+      .mockRejectedValue(new ApiError('Esta publicación fue eliminada.', 'post-deleted'));
+
+    renderScreen();
+    await screen.findByText('Citando a @joaquin_dev');
+    fireEvent.changeText(screen.getByPlaceholderText('Agregá tu comentario'), 'Mirá esto');
+    await press('Citar');
+
+    expect(await screen.findByText('Esta publicación fue eliminada.')).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('an original that cannot be read closes the composer with the quote message', async () => {
+    jest
+      .spyOn(postService, 'getPost')
+      .mockRejectedValue(new ApiError('La publicación no existe.', 'post-not-found'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    renderScreen();
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith('Error', 'No podés citar esta publicación.')
+    );
+    expect(mockBack).toHaveBeenCalled();
   });
 });

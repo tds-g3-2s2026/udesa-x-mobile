@@ -160,6 +160,26 @@ describe('E2-H4. Responder a un Post', () => {
     });
   });
 
+  it('Citar on the original and on a reply quotes each post', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue(original());
+    jest
+      .spyOn(postService, 'getReplies')
+      .mockResolvedValue({ items: [reply('reply-1')], nextCursor: null });
+
+    render(<PostDetailScreen />);
+    fireEvent.press(await screen.findByLabelText('Citar el post de @post-1'));
+    fireEvent.press(screen.getByLabelText('Citar el post de @reply-1'));
+
+    expect(mockPush).toHaveBeenNthCalledWith(1, {
+      pathname: '/compose',
+      params: { quotedId: 'post-1' },
+    });
+    expect(mockPush).toHaveBeenNthCalledWith(2, {
+      pathname: '/compose',
+      params: { quotedId: 'reply-1' },
+    });
+  });
+
   it('opening a reply shows its own thread', async () => {
     jest.spyOn(postService, 'getPost').mockResolvedValue(original());
     jest

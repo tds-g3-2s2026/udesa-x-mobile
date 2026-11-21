@@ -192,6 +192,7 @@ export default function FeedScreen() {
               bookmarkPending={interactions.isSavePending(item.id)}
               onOpen={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })}
               onReply={() => router.push({ pathname: '/compose', params: { parentId: item.id } })}
+              onQuote={() => router.push({ pathname: '/compose', params: { quotedId: item.id } })}
               onReport={
                 item.authorId !== userId
                   ? () =>
