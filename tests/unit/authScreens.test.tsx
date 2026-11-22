@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Keyboard, Share, StyleSheet, type ViewStyle } from 'react-native';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import * as SecureStore from 'expo-secure-store';
@@ -1334,6 +1334,39 @@ describe('Preferencias', () => {
     // no-op, which only holds if it is still the one showing as selected.
     await press('Público');
     expect(updatePreferences).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-48 - the settings scroll, so the last row is reachable on a small phone', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+
+    const settings = screen.getByTestId('preferences-screen');
+    expect(settings.type).toBe('RCTScrollView');
+    expect(within(settings).getByText('Enviar comentarios')).toBeTruthy();
+  });
+
+  it('T-48 - each settings row has the same space above and below its title and hint', async () => {
+    jest.spyOn(authService, 'getPreferences').mockResolvedValue({
+      profileVisibility: 'public',
+      feedLanguage: 'all',
+    });
+    useAuthStore.setState(loggedIn);
+
+    renderScreen(<PreferencesScreen />);
+    await screen.findByText('Público');
+
+    const row = StyleSheet.flatten(
+      screen.getByRole('button', { name: /Cuentas bloqueadas/ }).props.style
+    );
+    expect(row.paddingVertical).toBeGreaterThan(0);
+    expect(row.paddingTop).toBeUndefined();
+    expect(row.paddingBottom).toBeUndefined();
   });
 });
 

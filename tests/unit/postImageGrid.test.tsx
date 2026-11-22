@@ -1,6 +1,10 @@
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { PostImageGrid } from '../../src/features/posts/components/PostImageGrid';
+import {
+  PostImageGrid,
+  TALLEST_RATIO,
+  WIDEST_RATIO,
+} from '../../src/features/posts/components/PostImageGrid';
 import { PostImage } from '../../src/types/post';
 
 function images(count: number): PostImage[] {
@@ -93,5 +97,50 @@ describe('E2-H7. Post con Imagen', () => {
     render(<PostImageGrid images={images(3)} />);
 
     expect(screen.getByLabelText('Imagen 2 de 3')).toBeTruthy();
+  });
+});
+
+// The size the image reports once it arrives, as the native Image sends it.
+function load(label: string, width: number, height: number) {
+  fireEvent(screen.getByLabelText(label), 'load', {
+    nativeEvent: { source: { width, height, uri: 'https://bucket/x.jpg' } },
+  });
+}
+
+describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
+  it('T-48 - a single image waits at 16:9 and then takes its own shape, whole', () => {
+    render(<PostImageGrid images={images(1)} />);
+    expect(cellStyle(0).aspectRatio).toBeCloseTo(16 / 9);
+
+    load('Imagen 1 de 1', 1200, 900);
+
+    expect(cellStyle(0).aspectRatio).toBeCloseTo(4 / 3);
+  });
+
+  it('T-48 - a very tall single image stops at 3:4 instead of filling the screen', () => {
+    render(<PostImageGrid images={images(1)} />);
+
+    load('Imagen 1 de 1', 1000, 4000);
+
+    expect(cellStyle(0).aspectRatio).toBe(TALLEST_RATIO);
+    expect(TALLEST_RATIO).toBe(3 / 4);
+  });
+
+  it('T-48 - a very wide single image stops at 2:1', () => {
+    render(<PostImageGrid images={images(1)} />);
+
+    load('Imagen 1 de 1', 5000, 1000);
+
+    expect(cellStyle(0).aspectRatio).toBe(WIDEST_RATIO);
+    expect(WIDEST_RATIO).toBe(2);
+  });
+
+  it('T-48 - with more than one image the cells stay square, whatever their shape', () => {
+    render(<PostImageGrid images={images(2)} />);
+
+    load('Imagen 1 de 2', 1000, 3000);
+
+    expect(cellStyle(0)).toMatchObject({ width: '50%', aspectRatio: 1 });
+    expect(cellStyle(1)).toMatchObject({ width: '50%', aspectRatio: 1 });
   });
 });

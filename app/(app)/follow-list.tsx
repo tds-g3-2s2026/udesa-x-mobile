@@ -15,13 +15,14 @@ import {
   followService,
   getAuthErrorMessage,
 } from '../../src/features/social/services/followService';
+import { Avatar } from '../../src/features/social/components/Avatar';
 import { FollowButton } from '../../src/features/social/components/FollowButton';
 import { blockService } from '../../src/features/social/services/blockService';
 import { FollowListItem } from '../../src/types/social';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { Colors } from '../../src/theme/colors';
-import { touchTarget } from '../../src/theme/touchTarget';
+import { MIN_TOUCH_TARGET, touchTarget } from '../../src/theme/touchTarget';
 import { BackLink } from '../../src/features/shell/components/BackLink';
 
 type ListTab = 'followers' | 'following';
@@ -108,6 +109,24 @@ export default function FollowListScreen() {
     }
   };
 
+  // Blocking and reporting share one button: two icons of their own left the
+  // name almost no width on a narrow phone. Your own row never shows up here
+  // (nobody follows themselves), so both always apply.
+  const openOptions = (account: FollowListItem) => {
+    Alert.alert(account.handle ?? 'Esta cuenta', undefined, [
+      { text: 'Bloquear', style: 'destructive', onPress: () => confirmBlock(account) },
+      {
+        text: 'Denunciar',
+        onPress: () =>
+          router.push({
+            pathname: '/report',
+            params: { userId: account.id, handle: account.handle ?? '' },
+          }),
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   // Asked before acting, unlike unfollowing: blocking removes the follows in
   // both directions, and those do not come back when the block is lifted.
   const confirmBlock = (account: FollowListItem) => {
@@ -186,42 +205,35 @@ export default function FollowListScreen() {
           }
           renderItem={({ item }) => (
             <View style={styles.row}>
-              {/* No profile photo feature yet: a placeholder icon stands in. */}
-              <View style={styles.avatar}>
-                <Ionicons name="person" size={20} color={colors.primary} />
-              </View>
-              <View style={styles.rowText}>
-                <Text style={styles.displayName}>{item.displayName || item.handle}</Text>
-                {item.displayName && item.handle ? (
-                  <Text style={styles.handle}>{item.handle}</Text>
-                ) : null}
-              </View>
+              <TouchableOpacity
+                style={styles.account}
+                onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir perfil de ${item.handle ?? 'esta cuenta'}`}
+              >
+                <Avatar url={item.avatarUrl} size={40} />
+                <View style={styles.rowText}>
+                  <Text style={styles.displayName} numberOfLines={1}>
+                    {item.displayName || item.handle}
+                  </Text>
+                  {item.displayName && item.handle ? (
+                    <Text style={styles.handle} numberOfLines={1}>
+                      {item.handle}
+                    </Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
               <FollowButton
                 targetUserId={item.id}
                 initialState={item.following ? 'following' : 'none'}
               />
               <TouchableOpacity
-                style={styles.blockButton}
-                onPress={() => confirmBlock(item)}
-                accessibilityRole="button"
-                accessibilityLabel={`Bloquear a ${item.handle ?? 'esta cuenta'}`}
-              >
-                <Ionicons name="ban-outline" size={18} color={colors.muted} />
-              </TouchableOpacity>
-              {/* Never your own row: nobody follows themselves, so it cannot
-                  show up here and there is no need to hide it. */}
-              <TouchableOpacity
                 style={styles.rowAction}
-                onPress={() =>
-                  router.push({
-                    pathname: '/report',
-                    params: { userId: item.id, handle: item.handle ?? '' },
-                  })
-                }
+                onPress={() => openOptions(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`Denunciar a ${item.handle ?? 'esta cuenta'}`}
+                accessibilityLabel={`Más opciones para ${item.handle ?? 'esta cuenta'}`}
               >
-                <Ionicons name="flag-outline" size={18} color={colors.muted} />
+                <Ionicons name="ellipsis-horizontal" size={18} color={colors.muted} />
               </TouchableOpacity>
             </View>
           )}
@@ -279,29 +291,27 @@ function createStyles(colors: Colors) {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 8,
       paddingVertical: 12,
-      paddingHorizontal: 16,
+      paddingLeft: 16,
+      paddingRight: 8,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.divider,
       backgroundColor: colors.field,
       marginBottom: 10,
     },
-    avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+    // The photo and the name open the profile together: the widest part of
+    // the row, and what the eye goes to first.
+    account: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
+      gap: 12,
+      minHeight: MIN_TOUCH_TARGET,
     },
     rowText: {
       flex: 1,
-    },
-    blockButton: {
-      ...touchTarget,
-      marginLeft: 4,
     },
     rowAction: touchTarget,
     displayName: {

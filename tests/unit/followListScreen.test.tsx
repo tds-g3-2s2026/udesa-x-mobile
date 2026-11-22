@@ -126,6 +126,38 @@ describe('E3-H3. Listado de Seguidores y Seguidos', () => {
     expect(screen.getByText('Seguir')).toBeTruthy();
   });
 
+  it('T-48 - a row shows the account photo and opens its profile', async () => {
+    jest.spyOn(followService, 'getFollowers').mockResolvedValue({
+      items: [item('usr-2', { avatarUrl: 'https://cdn.example/usr-2.jpg' })],
+      nextCursor: null,
+    });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+    const account = await screen.findByRole('button', { name: 'Abrir perfil de @usr-2' });
+
+    expect(screen.getByLabelText('Foto de perfil').props.source).toEqual({
+      uri: 'https://cdn.example/usr-2.jpg',
+    });
+    fireEvent.press(account);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/user/[id]', params: { id: 'usr-2' } });
+  });
+
+  it('T-48 - a long name stays on one line instead of wrapping letter by letter', async () => {
+    jest.spyOn(followService, 'getFollowers').mockResolvedValue({
+      items: [item('usr-2', { displayName: 'Federico Trejo de la Universidad' })],
+      nextCursor: null,
+    });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+
+    renderScreen();
+
+    expect((await screen.findByText('Federico Trejo de la Universidad')).props.numberOfLines).toBe(
+      1
+    );
+    expect(screen.getByText('@usr-2').props.numberOfLines).toBe(1);
+  });
+
   it('E3-H3.CA1 - a row already followed opens its button on Siguiendo, without a call per row', async () => {
     jest
       .spyOn(followService, 'getFollowers')
@@ -339,9 +371,39 @@ describe('E3-H3. Listado de Seguidores y Seguidos', () => {
   });
 });
 
-describe('E3-H4. Bloquear Usuario', () => {
-  type AlertButton = { text?: string; onPress?: () => void };
+type AlertButton = { text?: string; onPress?: () => void };
 
+// Blocking and reporting live behind the row's "más opciones" button: presses
+// it and picks `option` from the menu it opens.
+function chooseOption(alert: jest.SpyInstance, handle: string, option: string) {
+  fireEvent.press(screen.getByLabelText(`Más opciones para ${handle}`));
+  const menu = (alert.mock.calls[alert.mock.calls.length - 1][2] ?? []) as AlertButton[];
+  act(() => {
+    menu.find((button) => button.text === option)?.onPress?.();
+  });
+}
+
+describe('T-48. Más opciones de cada fila', () => {
+  it('T-48 - one button per row offers blocking and reporting, and does nothing until one is picked', async () => {
+    jest
+      .spyOn(followService, 'getFollowers')
+      .mockResolvedValue({ items: [item('usr-2')], nextCursor: null });
+    jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const block = jest.spyOn(blockService, 'block');
+
+    renderScreen();
+    fireEvent.press(await screen.findByLabelText('Más opciones para @usr-2'));
+
+    expect(alert.mock.calls[0][0]).toBe('@usr-2');
+    const menu = (alert.mock.calls[0][2] ?? []) as AlertButton[];
+    expect(menu.map((button) => button.text)).toEqual(['Bloquear', 'Denunciar', 'Cancelar']);
+    expect(block).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('E3-H4. Bloquear Usuario', () => {
   async function openBlockPrompt() {
     jest
       .spyOn(followService, 'getFollowers')
@@ -351,9 +413,9 @@ describe('E3-H4. Bloquear Usuario', () => {
 
     renderScreen();
     await screen.findByText('@usr-2');
-    fireEvent.press(screen.getByLabelText('Bloquear a @usr-2'));
+    chooseOption(alert, '@usr-2', 'Bloquear');
 
-    const buttons = (alert.mock.calls[0][2] ?? []) as AlertButton[];
+    const buttons = (alert.mock.calls[1][2] ?? []) as AlertButton[];
     return { alert, buttons };
   }
 
@@ -362,7 +424,7 @@ describe('E3-H4. Bloquear Usuario', () => {
 
     const { alert, buttons } = await openBlockPrompt();
 
-    expect(alert.mock.calls[0][0]).toBe('¿Bloquear a @usr-2?');
+    expect(alert.mock.calls[1][0]).toBe('¿Bloquear a @usr-2?');
     expect(buttons.map((button) => button.text)).toEqual(['Cancelar', 'Bloquear']);
     expect(block).not.toHaveBeenCalled();
   });
@@ -388,9 +450,11 @@ describe('E3-H4. Bloquear Usuario', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     renderScreen();
-    fireEvent.press(await screen.findByLabelText('Bloquear a esta cuenta'));
+    await screen.findByLabelText('Más opciones para esta cuenta');
+    chooseOption(alert, 'esta cuenta', 'Bloquear');
 
-    expect(alert.mock.calls[0][0]).toBe('¿Bloquear a esta cuenta?');
+    expect(alert.mock.calls[0][0]).toBe('Esta cuenta');
+    expect(alert.mock.calls[1][0]).toBe('¿Bloquear a esta cuenta?');
   });
 
   it('a failed block keeps the row and shows an alert', async () => {
@@ -414,14 +478,16 @@ describe('E3-H4. Bloquear Usuario', () => {
 });
 
 describe('E3-H5. Denunciar Usuario', () => {
-  it('E3-H5.CA1 - the flag on a row opens the report for that account', async () => {
+  it('E3-H5.CA1 - Denunciar in the options of a row opens the report for that account', async () => {
     jest
       .spyOn(followService, 'getFollowers')
       .mockResolvedValue({ items: [item('usr-2')], nextCursor: null });
     jest.spyOn(followService, 'getFollowing').mockResolvedValue({ items: [], nextCursor: null });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     renderScreen();
-    fireEvent.press(await screen.findByLabelText('Denunciar a @usr-2'));
+    await screen.findByText('@usr-2');
+    chooseOption(alert, '@usr-2', 'Denunciar');
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/report',
@@ -431,7 +497,7 @@ describe('E3-H5. Denunciar Usuario', () => {
 });
 
 describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
-  it('T-48 - Volver, Seguir and the icons of each row are at least 44 x 44', async () => {
+  it('T-48 - Volver, Seguir, the options button and the account of each row are at least 44 high', async () => {
     jest
       .spyOn(followService, 'getFollowers')
       .mockResolvedValue({ items: [item('usr-2')], nextCursor: null });
@@ -442,13 +508,16 @@ describe('T-48. Revisión de UX, accesibilidad y consistencia visual', () => {
 
     for (const button of [
       screen.getByRole('button', { name: 'Volver' }),
-      screen.getByLabelText('Bloquear a @usr-2'),
-      screen.getByLabelText('Denunciar a @usr-2'),
+      screen.getByLabelText('Más opciones para @usr-2'),
     ]) {
       const style = StyleSheet.flatten(button.props.style);
       expect(style.minWidth).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
       expect(style.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
     }
+    const account = StyleSheet.flatten(
+      screen.getByRole('button', { name: 'Abrir perfil de @usr-2' }).props.style
+    );
+    expect(account.minHeight).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
     // Seguir keeps its pill, drawn at the full height instead of 36.
     const follow = StyleSheet.flatten(screen.getByRole('button', { name: 'Seguir' }).props.style);
     expect(follow.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
