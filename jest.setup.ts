@@ -61,3 +61,25 @@ jest.mock('expo-speech', () => ({
   speak: jest.fn(),
   stop: jest.fn(() => Promise.resolve()),
 }));
+
+// NetInfo is native. This stand-in starts online and lets a test flip the
+// connection with `__emit`, which reaches every subscriber like a real change.
+jest.mock('@react-native-community/netinfo', () => {
+  type MockState = { isConnected: boolean | null; isInternetReachable: boolean | null };
+  const listeners = new Set<(mockState: MockState) => void>();
+  let current: MockState = { isConnected: true, isInternetReachable: true };
+  const NetInfo = {
+    addEventListener: (listener: (mockState: MockState) => void) => {
+      listeners.add(listener);
+      listener(current);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    __emit: (state: MockState) => {
+      current = state;
+      listeners.forEach((listener) => listener(state));
+    },
+  };
+  return { __esModule: true, default: NetInfo };
+});

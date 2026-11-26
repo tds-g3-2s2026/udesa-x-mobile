@@ -2,6 +2,7 @@ import { PropsWithChildren, useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { focusManager, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
+import { watchConnection } from '../connectivity/connection';
 import { searchQueryClient } from './queryClient';
 
 export function SearchQueryProvider({ children }: PropsWithChildren) {
@@ -15,9 +16,11 @@ export function SearchQueryProvider({ children }: PropsWithChildren) {
     const subscription = AppState.addEventListener('change', (state) => {
       if (Platform.OS !== 'web') focusManager.setFocused(state === 'active');
     });
+    const unwatchConnection = watchConnection();
     return () => {
       unsubscribe();
       subscription.remove();
+      unwatchConnection();
     };
   }, []);
   return <QueryClientProvider client={searchQueryClient}>{children}</QueryClientProvider>;
