@@ -22,6 +22,8 @@ import { usePostDeletion } from '../../../src/features/posts/usePostDeletion';
 import { usePostInteractions } from '../../../src/features/posts/usePostInteractions';
 import { FeedItem, SuggestedAccount } from '../../../src/types/post';
 import { useAuthStore } from '../../../src/stores/authStore';
+import { onlineManager } from '@tanstack/react-query';
+import { useOnReconnect } from '../../../src/features/connectivity/useIsOnline';
 import { VoiceAssistant } from '../../../src/features/assistant/components/VoiceAssistant';
 
 export default function FeedScreen() {
@@ -52,6 +54,12 @@ export default function FeedScreen() {
 
   const loadFeed = useCallback(
     async (isRefresh = false) => {
+      // Offline, what is already on screen stays: reloading would swap the list
+      // for a spinner and end in an error.
+      if (!onlineManager.isOnline()) {
+        setIsLoading(false);
+        return;
+      }
       if (isRefresh) setIsRefreshing(true);
       else setIsLoading(true);
       try {
@@ -82,10 +90,12 @@ export default function FeedScreen() {
     }, [loadFeed])
   );
 
+  useOnReconnect(() => loadFeed(true));
+
   const deletion = usePostDeletion(() => loadFeed(true));
 
   const loadMore = async () => {
-    if (isLoadingMore || nextCursor === null) return;
+    if (isLoadingMore || nextCursor === null || !onlineManager.isOnline()) return;
     setIsLoadingMore(true);
     try {
       const version = beginRead();

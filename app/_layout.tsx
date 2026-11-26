@@ -9,6 +9,7 @@ import { useThemeStore } from '../src/stores/themeStore';
 import { useThemeColors } from '../src/theme/useThemeColors';
 import { Colors } from '../src/theme/colors';
 import { SearchQueryProvider } from '../src/features/search/SearchQueryProvider';
+import { OfflineNotice } from '../src/features/connectivity/OfflineNotice';
 
 // The native splash stays up until the stored session and theme were read,
 // so the first screen the user sees is already the right one, in the right
@@ -46,6 +47,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SearchQueryProvider>
         <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <OfflineNotice />
         {isInitialized ? (
           // Declarative guards: only the group the session allows is mounted, so
           // the protected area never renders for a frame before a redirect.
