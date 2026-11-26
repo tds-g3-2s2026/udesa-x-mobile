@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { onlineManager } from '@tanstack/react-query';
 import { z } from 'zod';
 import { AuthTokens } from '../types/auth';
 import { useAuthStore } from '../stores/authStore';
@@ -10,6 +11,7 @@ import { useAuthStore } from '../stores/authStore';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 const CONNECTION_ERROR_MESSAGE = 'No se pudo conectar con el servidor. Revisá tu conexión.';
+const OFFLINE_ERROR_MESSAGE = 'Sin conexión. Probá de nuevo cuando vuelva la red.';
 const UNEXPECTED_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intentalo de nuevo.';
 export const SESSION_EXPIRED_MESSAGE = 'Tu sesión expiró. Iniciá sesión de nuevo.';
 
@@ -166,6 +168,18 @@ export function attachAuthInterceptors(client: AxiosInstance): void {
       config.headers.set('Authorization', `Bearer ${accessToken}`);
     }
     return config;
+  });
+
+  // Offline, a write is refused before it leaves the phone: it would only wait
+  // out the timeout and fail. Every /auth call stays out: login and the like
+  // already fail with their own connection message, and a refresh refused here
+  // would be taken for an expired session. Axios runs the request interceptors
+  // last-registered first, so this runs before the token is attached.
+  client.interceptors.request.use((config) => {
+    const method = (config.method ?? 'get').toLowerCase();
+    const isRead = method === 'get' || method === 'head';
+    if (isRead || config.url?.startsWith('/auth/') || onlineManager.isOnline()) return config;
+    throw new ApiError(OFFLINE_ERROR_MESSAGE);
   });
 
   // A 401 is answered with a refresh and a single replay of the failed request.

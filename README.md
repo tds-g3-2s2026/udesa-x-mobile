@@ -178,6 +178,24 @@ guardas del layout raíz devuelven al login. Al cerrar sesión la app manda el `
 junto con el access token, para que `users-api` revoque también la sesión larga; si esa llamada
 falla, la sesión local se borra igual.
 
+## Comportamiento sin conexión
+
+`@react-native-community/netinfo` informa el estado de la red y alimenta a `onlineManager` de
+React Query, que es el único lugar donde la app sabe si hay conexión. Cuenta como sin conexión
+una red sin salida a internet (por ejemplo, un Wi-Fi con portal cautivo), no solo el modo avión.
+
+Sin conexión, el layout raíz muestra el aviso "Sin conexión" en todas las pantallas y lo
+esconde al volver la red. Las consultas de React Query se pausan y se reanudan solas. El feed
+conserva lo que ya cargó, no se recarga mientras no haya red y se actualiza apenas vuelve. Los
+perfiles no se conservan: abrir uno sin red muestra su error de carga.
+
+Toda escritura (publicar, responder, dar like, seguir, guardar) se rechaza antes de salir del
+teléfono con "Sin conexión. Probá de nuevo cuando vuelva la red.". Nada queda en cola: lo que el
+usuario quiere mandar vuelve a pedírselo a él. Las llamadas a `/auth` quedan afuera de la guarda,
+porque fallan con su propio mensaje y un refresco rechazado cerraría la sesión por error.
+
+La caché no se guarda en el teléfono: al cerrar la app se pierde, y abrirla sin red empieza vacía.
+
 ## Notificaciones push
 
 `app/(app)/_layout.tsx` solo se monta con sesión, así que cada vez que una sesión queda activa
