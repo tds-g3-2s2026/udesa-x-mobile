@@ -1,5 +1,7 @@
 # UdeSA-X Mobile
 
+[![Cobertura](https://codecov.io/gh/tds-g3-2s2026/udesa-x-mobile/branch/main/graph/badge.svg)](https://codecov.io/gh/tds-g3-2s2026/udesa-x-mobile)
+
 Aplicación mobile principal orientada a los usuarios finales de la red social UdeSA-X.
 
 ## Stack
