@@ -17,7 +17,7 @@ export interface AppNotification {
 // a notification (and of a push). `direct_message` is stored by the server but
 // no notification of that kind exists yet.
 export type NotificationPreferenceType =
-  'like' | 'retweet' | 'reply' | 'mention' | 'follow' | 'direct_message';
+  'like' | 'retweet' | 'reply' | 'quote' | 'mention' | 'follow' | 'direct_message';
 
 // GET and PUT /notifications/preferences answer one boolean per type: an
 // account that never chose gets every type on.

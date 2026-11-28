@@ -14,6 +14,7 @@ const OPTIONS: { type: NotificationPreferenceType; label: string; hint?: string 
   { type: 'like', label: 'Me gusta' },
   { type: 'retweet', label: 'Retweets' },
   { type: 'reply', label: 'Respuestas' },
+  { type: 'quote', label: 'Citas' },
   { type: 'mention', label: 'Menciones' },
   { type: 'follow', label: 'Nuevos seguidores' },
   {

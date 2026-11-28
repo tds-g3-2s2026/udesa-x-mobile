@@ -148,6 +148,7 @@ describe('E4-H5. Preferencias de Notificación', () => {
     like: true,
     retweet: true,
     reply: true,
+    quote: true,
     mention: true,
     follow: true,
     direct_message: true,

@@ -19,6 +19,7 @@ const allOn: NotificationPreferences = {
   like: true,
   retweet: true,
   reply: true,
+  quote: true,
   mention: true,
   follow: true,
   direct_message: true,
@@ -28,6 +29,7 @@ const LABELS = [
   'Me gusta',
   'Retweets',
   'Respuestas',
+  'Citas',
   'Menciones',
   'Nuevos seguidores',
   'Mensajes directos',
@@ -44,7 +46,7 @@ describe('E4-H5. Preferencias de Notificación', () => {
 
     render(<NotificationPreferencesScreen />);
 
-    expect(await screen.findAllByRole('switch')).toHaveLength(6);
+    expect(await screen.findAllByRole('switch')).toHaveLength(7);
     for (const label of LABELS) {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }

@@ -265,6 +265,19 @@ describe('E4-H2. Notificación de interacción', () => {
     expect(postService.getPost).toHaveBeenCalledWith('post-1');
   });
 
+  it('E4-H2.CA2 el tap de una cita abre la cita, no el post citado', async () => {
+    jest.spyOn(postService, 'getPost').mockResolvedValue({ ...likedPost, id: 'quote-1' });
+    jest.spyOn(postService, 'getReplies').mockResolvedValue({ items: [], nextCursor: null });
+    // notifications-api puts the quote in `postId`: it shows the comment with the quoted post.
+    keepTap(tap({ type: 'quote', postId: 'quote-1' }));
+    persistSession();
+
+    renderRouter('app', { initialUrl: '/' });
+
+    expect(await screen.findByText('Mi primera publicación')).toBeTruthy();
+    expect(postService.getPost).toHaveBeenCalledWith('quote-1');
+  });
+
   it('E4-H2.CA2 post inexistente muestra estado vacío', async () => {
     jest
       .spyOn(postService, 'getPost')
