@@ -39,6 +39,7 @@ describe('describeNotification', () => {
     ['like', '@juanperez le dio me gusta a tu publicación'],
     ['retweet', '@juanperez retuiteó tu publicación'],
     ['reply', '@juanperez respondió tu publicación'],
+    ['quote', '@juanperez citó tu publicación'],
     ['mention', '@juanperez te mencionó'],
   ])('writes the text of a %s', (type, text) => {
     expect(describeNotification(notification({ type })).text).toBe(text);
@@ -70,6 +71,13 @@ describe('notificationTarget', () => {
     ).toEqual({ screen: 'post', id: 'post-1' });
   });
 
+  it('opens the quote of a quote, the post the server names, not the quoted one', () => {
+    expect(notificationTarget(notification({ type: 'quote', postId: 'quote-1' }))).toEqual({
+      screen: 'post',
+      id: 'quote-1',
+    });
+  });
+
   it('opens nothing when the post is missing or the kind is unknown', () => {
     expect(notificationTarget(notification({ type: 'like' }))).toBeNull();
     expect(notificationTarget(notification({ type: 'reply' }))).toBeNull();
@@ -86,9 +94,12 @@ describe('pushTarget', () => {
     });
   });
 
-  it.each(['like', 'retweet', 'reply', 'mention'])('opens the post a %s push names', (type) => {
-    expect(pushTarget({ type, postId: 'pst-1' })).toEqual({ screen: 'post', id: 'pst-1' });
-  });
+  it.each(['like', 'retweet', 'reply', 'quote', 'mention'])(
+    'opens the post a %s push names',
+    (type) => {
+      expect(pushTarget({ type, postId: 'pst-1' })).toEqual({ screen: 'post', id: 'pst-1' });
+    }
+  );
 
   it('opens nothing for a push without its id, of an unknown kind, or with no data', () => {
     expect(pushTarget({ type: 'follow' })).toBeNull();

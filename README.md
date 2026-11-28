@@ -210,18 +210,20 @@ rota. Si el permiso se niega o algo falla, la sesión sigue igual y se reintenta
 Tocar un push abre la misma pantalla que su fila en la pestaña Notificaciones: el de nuevo
 seguidor abre el perfil de quien empezó a seguir (`data.type: "follow"`, `data.actorId`), y el de
 un like, retweet o respuesta abre el post que la recibió (`data.type` `like`, `retweet` o `reply`,
-`data.postId`; en una respuesta es el post respondido). El de una mención (`data.type: "mention"`)
-abre el post que contiene la mención, y su fila en la pestaña dice "@autor te mencionó". Si el
-post ya no se puede cargar, la pantalla del post muestra "Publicación no disponible".
+`data.postId`; en una respuesta es el post respondido). El de una cita (`data.type: "quote"`) abre
+la cita, que muestra el comentario con el post citado adentro, y su fila dice "@autor citó tu
+publicación". El de una mención (`data.type: "mention"`) abre el post que contiene la mención, y su
+fila en la pestaña dice "@autor te mencionó". Si el post ya no se puede cargar, la pantalla del post
+muestra "Publicación no disponible".
 `usePushTaps` también vive en `app/(app)/_layout.tsx`: con la app cerrada, Android guarda el tap
 y se abre recién cuando se leyó la sesión. Con la app abierta el push se muestra igual, para que
 haya algo para tocar.
 
 En Configuración, `Notificaciones` abre `app/(app)/notification-preferences.tsx`: un switch por
-tipo (me gusta, retweets, respuestas, menciones, nuevos seguidores y mensajes directos) que guarda
-al tocar con `PUT /api/notifications/preferences`, mandando solo el tipo que cambió. Apagar un tipo
-corta el push, pero la notificación sigue apareciendo en la pestaña Notificaciones. Mensajes
-directos se guarda igual que los demás, aunque todavía no existan.
+tipo (me gusta, retweets, respuestas, citas, menciones, nuevos seguidores y mensajes directos) que
+guarda al tocar con `PUT /api/notifications/preferences`, mandando solo el tipo que cambió. Apagar
+un tipo corta el push, pero la notificación sigue apareciendo en la pestaña Notificaciones.
+Mensajes directos se guarda igual que los demás, aunque todavía no existan.
 
 Solo en Android: el servidor entrega por FCM, y en iOS el token del dispositivo es de APNs.
 
